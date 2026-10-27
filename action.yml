@@ -19,13 +19,20 @@ inputs:
     required: false
     default: human
 
+outputs:
+  status:
+    description: ShieldSpec CLI exit status (0 pass, 1 operational error, or 2 privacy failure).
+    value: ${{ steps.shieldspec.outputs.status }}
+
 runs:
   using: composite
   steps:
-    - name: Install Rust stable
-      uses: dtolnay/rust-toolchain@stable
+    - name: Install Rust 1.95.0
+      # dtolnay/rust-toolchain 1.95.0
+      uses: dtolnay/rust-toolchain@035fceb3c12fb0c6a9461b52775e16473133e591
 
     - name: Run ShieldSpec
+      id: shieldspec
       shell: bash
       env:
         SHIELDSPEC_ACTION_PATH: ${{ github.action_path }}
@@ -47,6 +54,7 @@ runs:
         candidate_path="$(resolve_snapshot_path "$SHIELDSPEC_CANDIDATE")"
         cd "$SHIELDSPEC_ACTION_PATH"
 
+        set +e
         if [[ -n "$SHIELDSPEC_BASELINE" ]]; then
           baseline_path="$(resolve_snapshot_path "$SHIELDSPEC_BASELINE")"
           cargo run --locked -p shieldspec-cli -- diff \
@@ -60,6 +68,11 @@ runs:
             --policy "$SHIELDSPEC_POLICY" \
             --format "$SHIELDSPEC_FORMAT"
         fi
+        status=$?
+        set -e
+
+        printf 'status=%s\n' "$status" >> "$GITHUB_OUTPUT"
+        exit "$status"
 
 branding:
   icon: shield
