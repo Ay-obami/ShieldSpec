@@ -2210,7 +2210,10 @@ dependencies = [
  "zcash_client_backend",
  "zcash_client_sqlite",
  "zcash_keys",
+ "zcash_primitives",
  "zcash_protocol",
+ "zcash_transparent",
+ "zip321",
 ]
 
 [[package]]

@@ -11,15 +11,18 @@ use shieldspec_core::ProposalSnapshot;
 use shieldspec_zcash::{snapshot_from_proposal, AdapterError};
 use zcash_client_backend::{
     data_api::{
+        testing::single_output_change_strategy,
         testing::{
             orchard::OrchardPoolTester,
             pool::{dsl::TestDsl, ShieldedPoolTester},
             sapling::SaplingPoolTester,
         },
+        wallet::input_selection::{GreedyInputSelector, SpendPolicy, TransparentSpendPolicy},
         wallet::ConfirmationsPolicy,
-        Account,
+        Account, WalletRead, WalletWrite,
     },
     fees::StandardFeeRule,
+    wallet::WalletTransparentOutput,
 };
 use zcash_client_sqlite::testing::{db::TestDbFactory, BlockCache};
 use zcash_keys::{
@@ -27,6 +30,11 @@ use zcash_keys::{
     keys::{transparent::gap_limits::GapLimits, UnifiedAddressRequest},
 };
 use zcash_protocol::{value::Zatoshis, ShieldedPool};
+use zcash_transparent::{
+    bundle::{OutPoint, TxOut},
+    keys::TransparentKeyScope,
+};
+use zip321::{Payment, TransactionRequest};
 
 /// Shielded funding or change pool used by a fuzzing scenario.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -192,6 +200,109 @@ pub struct UnifiedPaymentScenario {
     pub funding_pool: ShieldedPoolChoice,
     pub change_pool: ShieldedPoolChoice,
     pub receivers: UnifiedReceiverSet,
+}
+
+/// Exercises real wallet-owned transparent UTXOs funding a shielded recipient.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct TransparentFundedPaymentScenario {
+    pub funding_zat: u64,
+    pub payment_zat: u64,
+    pub utxo_count: u8,
+    pub confirmations: u8,
+    pub recipient_pool: ShieldedPoolChoice,
+    pub change_pool: ShieldedPoolChoice,
+}
+
+/// Constructs transparent UTXOs in librustzcash's wallet database and invokes
+/// the real transparent-input selection policy for a shielded payment.
+pub fn run_transparent_funded_payment(
+    scenario: &TransparentFundedPaymentScenario,
+) -> Result<ProposalSnapshot, RunnerError> {
+    validate_amounts(
+        scenario.funding_zat,
+        scenario.payment_zat,
+        scenario.utxo_count,
+        scenario.confirmations,
+    )?;
+    let mut wallet =
+        TestDsl::with_sapling_birthday_account(TestDbFactory::default(), BlockCache::new())
+            .map(|builder| builder.with_gap_limits(GapLimits::new(10, 5, 3)))
+            .build::<OrchardPoolTester>();
+    // Establish a scanned chain tip before persisting confirmed transparent UTXOs.
+    let height = wallet.add_empty_blocks(usize::from(scenario.confirmations) + 2);
+    let account = wallet.get_account();
+    let uaddr = wallet
+        .wallet()
+        .get_last_generated_address_matching(account.id(), UnifiedAddressRequest::AllAvailableKeys)
+        .map_err(|error| RunnerError::Proposal(format!("funding address lookup: {error:?}")))?
+        .ok_or(RunnerError::InvalidScenario(
+            "no generated transparent funding address",
+        ))?;
+    let transparent_address = uaddr.transparent().ok_or(RunnerError::InvalidScenario(
+        "funding account has no transparent address",
+    ))?;
+    let count = u64::from(scenario.utxo_count);
+    let base = scenario.funding_zat / count;
+    let remainder = scenario.funding_zat % count;
+    for index in 0..count {
+        let mut hash = [0u8; 32];
+        hash[..8].copy_from_slice(&(index + 1).to_le_bytes());
+        let value = base + u64::from(index < remainder);
+        let utxo = WalletTransparentOutput::from_parts(
+            OutPoint::new(hash, 0),
+            TxOut::new(
+                Zatoshis::const_from_u64(value),
+                transparent_address.script().into(),
+            ),
+            Some(height - u32::from(scenario.confirmations - 1)),
+            Some(account.id()),
+            Some(TransparentKeyScope::EXTERNAL),
+            None,
+        )
+        .ok_or(RunnerError::InvalidScenario(
+            "invalid wallet transparent UTXO",
+        ))?;
+        wallet
+            .wallet_mut()
+            .put_received_transparent_utxo(&utxo)
+            .map_err(|error| {
+                RunnerError::Proposal(format!("transparent funding write: {error:?}"))
+            })?;
+    }
+    let recipient = match scenario.recipient_pool {
+        ShieldedPoolChoice::Sapling => {
+            let sk = SaplingPoolTester::sk(&[0x51; 32]);
+            SaplingPoolTester::sk_default_address(&sk)
+        }
+        ShieldedPoolChoice::Orchard => {
+            let sk = OrchardPoolTester::sk(&[0x52; 32]);
+            OrchardPoolTester::sk_default_address(&sk)
+        }
+    };
+    let request = TransactionRequest::new(vec![Payment::without_memo(
+        recipient.to_zcash_address(wallet.network()),
+        Zatoshis::const_from_u64(scenario.payment_zat),
+    )])
+    .map_err(|error| RunnerError::Proposal(format!("payment request: {error:?}")))?;
+    let proposal = wallet
+        .propose_transfer_with_policy(
+            account.id(),
+            &GreedyInputSelector::new(),
+            &single_output_change_strategy(
+                StandardFeeRule::Zip317,
+                None,
+                scenario.change_pool.protocol(),
+            ),
+            request,
+            ConfirmationsPolicy::new_symmetrical_unchecked(
+                u32::from(scenario.confirmations),
+                false,
+            ),
+            &SpendPolicy::default().with_transparent(TransparentSpendPolicy::any_account_addr()),
+        )
+        .map_err(|error| RunnerError::Proposal(format!("{error:?}")))?;
+    snapshot_from_proposal(&proposal, "local-test").map_err(Into::into)
 }
 
 /// Failure while preparing wallet state, constructing the real proposal, or
