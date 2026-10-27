@@ -723,10 +723,16 @@ impl ScenarioGenerator {
         generator.next_case()
     }
 
-    /// Deterministic, opt-in NU6.3 proposal generation. It deliberately does
-    /// not alter the legacy `case_at` seed/ordinal replay contract.
+    /// Deterministic, opt-in NU6.3 proposal case with exact replay provenance.
+    ///
+    /// Each eight-case window covers activation phase, shielded funding pool,
+    /// and preferred change pool. The SDK, not this generator, selects the
+    /// actual recipient and change pools in its real proposal.
+    ///
+    /// The legacy `case_at` corpus and the first four NU6.3 ordinals remain
+    /// unchanged, so existing seed/ordinal discovery records still replay.
     #[must_use]
-    pub fn nu63_scenario_at(seed: u64, ordinal: u64) -> Scenario {
+    pub fn nu63_case_at(seed: u64, ordinal: u64) -> GeneratedCase {
         let generated = Self::case_at(seed, ordinal);
         let mut payment = match generated.scenario {
             Scenario::OrchardPayment(payment) => payment,
@@ -744,23 +750,35 @@ impl ScenarioGenerator {
                 unreachable!("legacy generator emits only legacy cases")
             }
         };
-        // Cycle across activation boundary and funding pool without changing
-        // the legacy seed/ordinal corpus. Both pools exercise real SDK inputs.
         let funding_pool = if ordinal % 4 < 2 {
             ShieldedPoolChoice::Orchard
         } else {
             ShieldedPoolChoice::Sapling
         };
         payment.funding_pool = funding_pool;
-        payment.change_pool = funding_pool;
-        Scenario::Nu63OrchardPayment(Nu63OrchardPaymentScenario {
-            payment,
-            activation: if ordinal.is_multiple_of(2) {
-                Nu63Activation::At
-            } else {
-                Nu63Activation::Before
-            },
-        })
+        payment.change_pool = if ordinal % 8 < 4 {
+            funding_pool
+        } else {
+            funding_pool.alternate()
+        };
+        GeneratedCase {
+            seed,
+            ordinal,
+            scenario: Scenario::Nu63OrchardPayment(Nu63OrchardPaymentScenario {
+                payment,
+                activation: if ordinal.is_multiple_of(2) {
+                    Nu63Activation::At
+                } else {
+                    Nu63Activation::Before
+                },
+            }),
+        }
+    }
+
+    /// Opt-in activation-aware proposal, sharing the replay contract above.
+    #[must_use]
+    pub fn nu63_scenario_at(seed: u64, ordinal: u64) -> Scenario {
+        Self::nu63_case_at(seed, ordinal).scenario
     }
 }
 
