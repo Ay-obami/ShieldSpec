@@ -16,6 +16,7 @@ fn wallet_proposals() -> (ProposalSnapshot, ProposalSnapshot) {
             inputs: vec![InputFact {
                 pool: Pool::Orchard,
                 value_zat: 110_000,
+                origin: Default::default(),
             }],
             outputs: vec![
                 shielded_recipient.clone(),

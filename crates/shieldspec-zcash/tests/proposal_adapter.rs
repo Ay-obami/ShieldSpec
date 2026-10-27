@@ -1,7 +1,9 @@
 use std::collections::BTreeMap;
 
 use nonempty::NonEmpty;
-use shieldspec_core::{InputFact, OutputFact, OutputRole, Pool, StepSnapshot};
+use shieldspec_core::{
+    InputFact, InputOrigin, OutputFact, OutputRole, Pool, PriorStepOutput, StepSnapshot,
+};
 use shieldspec_zcash::snapshot_from_proposal;
 use zcash_client_backend::{
     data_api::wallet::{ConfirmationsPolicy, TargetHeight},
@@ -106,6 +108,7 @@ fn snapshots_transparent_funding_selected_payment_change_and_fee() {
             inputs: vec![InputFact {
                 pool: Pool::Transparent,
                 value_zat: INPUT_VALUE,
+                origin: Default::default(),
             }],
             outputs: vec![
                 OutputFact {
@@ -171,6 +174,7 @@ fn snapshots_ephemeral_output_and_later_input_with_transparent_pool_and_value() 
             inputs: vec![InputFact {
                 pool: Pool::Transparent,
                 value_zat: INPUT_VALUE,
+                origin: Default::default(),
             }],
             outputs: vec![
                 OutputFact {
@@ -180,7 +184,7 @@ fn snapshots_ephemeral_output_and_later_input_with_transparent_pool_and_value() 
                 },
                 OutputFact {
                     pool: Pool::Transparent,
-                    role: OutputRole::Other,
+                    role: OutputRole::Ephemeral,
                     value_zat: CHANGE_VALUE,
                 },
             ],
@@ -193,6 +197,10 @@ fn snapshots_ephemeral_output_and_later_input_with_transparent_pool_and_value() 
         vec![InputFact {
             pool: Pool::Transparent,
             value_zat: CHANGE_VALUE,
+            origin: InputOrigin::PriorStep {
+                step_index: 0,
+                output: PriorStepOutput::Change(0),
+            },
         }]
     );
     assert_eq!(

@@ -10,7 +10,8 @@ mod validation;
 
 pub use assessment::{assess, Assessment};
 pub use model::{
-    Finding, InputFact, OutputFact, OutputRole, Pool, ProposalSnapshot, Severity, StepSnapshot,
+    Finding, InputFact, InputOrigin, OutputFact, OutputRole, Pool, PriorStepOutput,
+    ProposalSnapshot, Severity, StepSnapshot,
 };
 pub use policy::Policy;
 pub use regression::{compare, RegressionReport};
