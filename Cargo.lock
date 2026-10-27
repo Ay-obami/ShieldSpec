@@ -2166,6 +2166,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "shieldspec-fuzz"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "shieldspec-core",
+ "shieldspec-testkit",
+]
+
+[[package]]
 name = "shieldspec-testkit"
 version = "0.1.0"
 dependencies = [
@@ -2194,6 +2204,7 @@ dependencies = [
  "serde",
  "serde_json",
  "shieldspec-core",
+ "shieldspec-fuzz",
  "shieldspec-zcash",
  "zcash_client_backend",
  "zcash_client_sqlite",

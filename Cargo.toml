@@ -2,6 +2,7 @@
 members = [
     "crates/shieldspec-cli",
     "crates/shieldspec-core",
+    "crates/shieldspec-fuzz",
     "crates/shieldspec-testkit",
     "crates/shieldspec-zcash",
     "crates/shieldspec-zcash-runner",
