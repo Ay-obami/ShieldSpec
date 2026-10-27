@@ -22,7 +22,10 @@ use zcash_client_backend::{
     fees::StandardFeeRule,
 };
 use zcash_client_sqlite::testing::{db::TestDbFactory, BlockCache};
-use zcash_keys::{address::Address, keys::transparent::gap_limits::GapLimits};
+use zcash_keys::{
+    address::{Address, UnifiedAddress},
+    keys::{transparent::gap_limits::GapLimits, UnifiedAddressRequest},
+};
 use zcash_protocol::{value::Zatoshis, ShieldedPool};
 
 /// Shielded funding or change pool used by a fuzzing scenario.
@@ -114,6 +117,65 @@ impl TexPaymentScenario {
             change_pool: ShieldedPoolChoice::Orchard,
         }
     }
+}
+
+/// Receiver combinations used to exercise Unified Address privacy selection.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UnifiedReceiverSet {
+    OrchardSapling,
+    OrchardTransparent,
+    SaplingTransparent,
+    OrchardSaplingTransparent,
+}
+
+impl UnifiedReceiverSet {
+    const fn includes_orchard(self) -> bool {
+        matches!(
+            self,
+            Self::OrchardSapling | Self::OrchardTransparent | Self::OrchardSaplingTransparent
+        )
+    }
+
+    const fn includes_sapling(self) -> bool {
+        matches!(
+            self,
+            Self::OrchardSapling | Self::SaplingTransparent | Self::OrchardSaplingTransparent
+        )
+    }
+
+    const fn includes_transparent(self) -> bool {
+        matches!(
+            self,
+            Self::OrchardTransparent | Self::SaplingTransparent | Self::OrchardSaplingTransparent
+        )
+    }
+
+    const fn complexity_weight(self) -> u128 {
+        match self {
+            Self::OrchardSapling => 0,
+            Self::OrchardTransparent | Self::SaplingTransparent => 1,
+            Self::OrchardSaplingTransparent => 2,
+        }
+    }
+}
+
+/// A payment to a Unified Address with controlled receiver composition.
+///
+/// Mixed shielded/transparent receiver sets are privacy-sensitive: when a
+/// supported shielded receiver exists, selecting the transparent receiver would
+/// be a meaningful proposal-level regression for ShieldSpec to catch.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct UnifiedPaymentScenario {
+    pub funding_zat: u64,
+    pub payment_zat: u64,
+    pub note_count: u8,
+    pub confirmations: u8,
+    pub empty_blocks: u8,
+    pub funding_pool: ShieldedPoolChoice,
+    pub change_pool: ShieldedPoolChoice,
+    pub receivers: UnifiedReceiverSet,
 }
 
 /// Failure while preparing wallet state, constructing the real proposal, or
@@ -311,12 +373,113 @@ pub fn run_tex_payment(scenario: &TexPaymentScenario) -> Result<ProposalSnapshot
     }
 }
 
+fn run_unified_payment_with_funding<T: ShieldedPoolTester>(
+    scenario: &UnifiedPaymentScenario,
+) -> Result<ProposalSnapshot, RunnerError> {
+    validate_amounts(
+        scenario.funding_zat,
+        scenario.payment_zat,
+        scenario.note_count,
+        scenario.confirmations,
+    )?;
+
+    let gap_limits = GapLimits::new(10, 5, 3);
+    let mut wallet =
+        TestDsl::with_sapling_birthday_account(TestDbFactory::default(), BlockCache::new())
+            .map(|builder| builder.with_gap_limits(gap_limits))
+            .build::<T>();
+
+    let note_count_u64 = u64::from(scenario.note_count);
+    let base_note_value = scenario.funding_zat / note_count_u64;
+    let remainder = scenario.funding_zat % note_count_u64;
+    let funding_blocks = (0..note_count_u64)
+        .map(|index| {
+            let value = base_note_value + if index < remainder { 1 } else { 0 };
+            vec![Zatoshis::const_from_u64(value)]
+        })
+        .collect::<Vec<_>>();
+    wallet.add_notes_checking_balance(funding_blocks);
+
+    if scenario.confirmations > 1 {
+        wallet.add_empty_blocks(usize::from(scenario.confirmations - 1));
+    }
+    wallet.add_empty_blocks(usize::from(scenario.empty_blocks));
+
+    let account = wallet
+        .test_account()
+        .cloned()
+        .ok_or(RunnerError::InvalidScenario(
+            "test wallet account is missing",
+        ))?;
+    let (default_ua, _) = account
+        .usk()
+        .to_unified_full_viewing_key()
+        .default_address(UnifiedAddressRequest::AllAvailableKeys)
+        .map_err(|_| RunnerError::InvalidScenario("could not derive Unified Address"))?;
+
+    let orchard = if scenario.receivers.includes_orchard() {
+        default_ua.orchard().copied()
+    } else {
+        None
+    };
+    let sapling = if scenario.receivers.includes_sapling() {
+        default_ua.sapling().cloned()
+    } else {
+        None
+    };
+    let transparent = if scenario.receivers.includes_transparent() {
+        default_ua.transparent().copied()
+    } else {
+        None
+    };
+
+    let recipient: Address =
+        UnifiedAddress::from_receivers(orchard, sapling, transparent, None, None)
+            .ok_or(RunnerError::InvalidScenario(
+                "invalid Unified Address receiver set",
+            ))?
+            .into();
+
+    let confirmations_policy =
+        ConfirmationsPolicy::new_symmetrical_unchecked(u32::from(scenario.confirmations), false);
+
+    let proposal = wallet
+        .propose_standard_transfer::<Infallible>(
+            account.id(),
+            StandardFeeRule::Zip317,
+            confirmations_policy,
+            &recipient,
+            Zatoshis::const_from_u64(scenario.payment_zat),
+            None,
+            None,
+            scenario.change_pool.protocol(),
+        )
+        .map_err(|error| RunnerError::Proposal(format!("{error:?}")))?;
+
+    snapshot_from_proposal(&proposal, "local-test").map_err(Into::into)
+}
+
+/// Runs a payment to a real Unified Address with a controlled receiver set.
+pub fn run_unified_payment(
+    scenario: &UnifiedPaymentScenario,
+) -> Result<ProposalSnapshot, RunnerError> {
+    match scenario.funding_pool {
+        ShieldedPoolChoice::Sapling => {
+            run_unified_payment_with_funding::<SaplingPoolTester>(scenario)
+        }
+        ShieldedPoolChoice::Orchard => {
+            run_unified_payment_with_funding::<OrchardPoolTester>(scenario)
+        }
+    }
+}
+
 /// Stable, SDK-independent fuzzing scenario envelope.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(tag = "kind", content = "params", rename_all = "snake_case")]
 pub enum Scenario {
     OrchardPayment(OrchardPaymentScenario),
     TexPayment(TexPaymentScenario),
+    UnifiedPayment(UnifiedPaymentScenario),
 }
 
 impl Scenario {
@@ -325,6 +488,7 @@ impl Scenario {
         match self {
             Self::OrchardPayment(scenario) => 20_000 + (scenario.note_count as u64) * 10_000,
             Self::TexPayment(scenario) => 35_000 + (scenario.note_count as u64) * 10_000,
+            Self::UnifiedPayment(scenario) => 20_000 + (scenario.note_count as u64) * 10_000,
         }
     }
 
@@ -334,7 +498,6 @@ impl Scenario {
             Self::OrchardPayment(scenario) => {
                 scenario.funding_zat as u128
                     + scenario.payment_zat as u128
-                    + scenario.recipient_seed as u128
                     + scenario.note_count as u128
                     + scenario.confirmations as u128
                     + scenario.empty_blocks as u128
@@ -350,6 +513,16 @@ impl Scenario {
                     + scenario.empty_blocks as u128
                     + scenario.funding_pool.complexity_weight()
                     + scenario.change_pool.complexity_weight()
+            }
+            Self::UnifiedPayment(scenario) => {
+                scenario.funding_zat as u128
+                    + scenario.payment_zat as u128
+                    + scenario.note_count as u128
+                    + scenario.confirmations as u128
+                    + scenario.empty_blocks as u128
+                    + scenario.funding_pool.complexity_weight()
+                    + scenario.change_pool.complexity_weight()
+                    + scenario.receivers.complexity_weight()
             }
         }
     }
@@ -387,6 +560,7 @@ pub fn run_scenario(scenario: &Scenario) -> Result<ProposalSnapshot, RunnerError
     match scenario {
         Scenario::OrchardPayment(scenario) => run_orchard_payment(scenario),
         Scenario::TexPayment(scenario) => run_tex_payment(scenario),
+        Scenario::UnifiedPayment(scenario) => run_unified_payment(scenario),
     }
 }
 
@@ -449,7 +623,26 @@ impl ScenarioGenerator {
             funding_pool.alternate()
         };
 
-        let scenario = if shape.is_multiple_of(2) {
+        let scenario = if matches!(shape & 0x7, 6 | 7) {
+            let margin =
+                20_000 + u64::from(note_count) * 10_000 + self.pick(&[0_u64, 1_000, 5_000, 10_000]);
+            let receivers = self.pick(&[
+                UnifiedReceiverSet::OrchardSapling,
+                UnifiedReceiverSet::OrchardTransparent,
+                UnifiedReceiverSet::SaplingTransparent,
+                UnifiedReceiverSet::OrchardSaplingTransparent,
+            ]);
+            Scenario::UnifiedPayment(UnifiedPaymentScenario {
+                funding_zat: payment_zat + margin,
+                payment_zat,
+                note_count,
+                confirmations,
+                empty_blocks,
+                funding_pool,
+                change_pool,
+                receivers,
+            })
+        } else if shape.is_multiple_of(2) {
             let margin =
                 20_000 + u64::from(note_count) * 10_000 + self.pick(&[0_u64, 1_000, 5_000, 10_000]);
             Scenario::OrchardPayment(OrchardPaymentScenario {
@@ -611,6 +804,70 @@ fn shrink_candidates(scenario: &Scenario) -> Vec<Scenario> {
                     let mut candidate = current.clone();
                     candidate.funding_zat = funding_zat;
                     candidates.push(Scenario::TexPayment(candidate));
+                }
+            }
+        }
+        Scenario::UnifiedPayment(current) => {
+            if current.confirmations != 1 {
+                let mut candidate = current.clone();
+                candidate.confirmations = 1;
+                candidates.push(Scenario::UnifiedPayment(candidate));
+            }
+            if current.funding_pool != ShieldedPoolChoice::Orchard {
+                let mut candidate = current.clone();
+                candidate.funding_pool = ShieldedPoolChoice::Orchard;
+                candidates.push(Scenario::UnifiedPayment(candidate));
+            }
+            if current.change_pool != ShieldedPoolChoice::Orchard {
+                let mut candidate = current.clone();
+                candidate.change_pool = ShieldedPoolChoice::Orchard;
+                candidates.push(Scenario::UnifiedPayment(candidate));
+            }
+            if current.empty_blocks != 0 {
+                let mut candidate = current.clone();
+                candidate.empty_blocks = 0;
+                candidates.push(Scenario::UnifiedPayment(candidate));
+            }
+            if current.note_count != 1 {
+                let mut candidate = current.clone();
+                candidate.note_count = 1;
+                candidates.push(Scenario::UnifiedPayment(candidate));
+            }
+            if current.receivers == UnifiedReceiverSet::OrchardSaplingTransparent {
+                for receivers in [
+                    UnifiedReceiverSet::OrchardTransparent,
+                    UnifiedReceiverSet::SaplingTransparent,
+                    UnifiedReceiverSet::OrchardSapling,
+                ] {
+                    let mut candidate = current.clone();
+                    candidate.receivers = receivers;
+                    candidates.push(Scenario::UnifiedPayment(candidate));
+                }
+            }
+
+            for payment_zat in [1, current.payment_zat / 2] {
+                if payment_zat > 0 && payment_zat < current.payment_zat {
+                    let mut candidate = current.clone();
+                    candidate.payment_zat = payment_zat;
+                    candidate.funding_zat = candidate.funding_zat.max(
+                        payment_zat
+                            .saturating_add(20_000 + u64::from(candidate.note_count) * 10_000),
+                    );
+                    candidates.push(Scenario::UnifiedPayment(candidate));
+                }
+            }
+
+            let minimum_funding = current
+                .payment_zat
+                .saturating_add(20_000 + u64::from(current.note_count) * 10_000);
+            for funding_zat in [
+                minimum_funding,
+                minimum_funding + current.funding_zat.saturating_sub(minimum_funding) / 2,
+            ] {
+                if funding_zat < current.funding_zat {
+                    let mut candidate = current.clone();
+                    candidate.funding_zat = funding_zat;
+                    candidates.push(Scenario::UnifiedPayment(candidate));
                 }
             }
         }

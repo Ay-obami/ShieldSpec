@@ -1,6 +1,7 @@
 use shieldspec_core::{assess, InputOrigin, OutputRole, Policy, Pool, PriorStepOutput};
 use shieldspec_zcash_runner::{
-    run_orchard_payment, run_tex_payment, OrchardPaymentScenario, TexPaymentScenario,
+    run_orchard_payment, run_tex_payment, run_unified_payment, OrchardPaymentScenario,
+    ShieldedPoolChoice, TexPaymentScenario, UnifiedPaymentScenario, UnifiedReceiverSet,
 };
 
 #[test]
@@ -109,4 +110,51 @@ fn invalid_scenario_is_rejected_before_wallet_execution() {
 
     let error = run_orchard_payment(&scenario).expect_err("invalid scenario");
     assert!(error.to_string().contains("leave room"));
+}
+
+#[test]
+fn mixed_unified_addresses_keep_recipient_delivery_shielded() {
+    for receivers in [
+        UnifiedReceiverSet::OrchardSapling,
+        UnifiedReceiverSet::OrchardTransparent,
+        UnifiedReceiverSet::SaplingTransparent,
+        UnifiedReceiverSet::OrchardSaplingTransparent,
+    ] {
+        for funding_pool in [ShieldedPoolChoice::Orchard, ShieldedPoolChoice::Sapling] {
+            let scenario = UnifiedPaymentScenario {
+                funding_zat: 120_000,
+                payment_zat: 75_000,
+                note_count: 2,
+                confirmations: 2,
+                empty_blocks: 1,
+                funding_pool,
+                change_pool: ShieldedPoolChoice::Orchard,
+                receivers,
+            };
+
+            let snapshot = run_unified_payment(&scenario).expect("real Unified Address proposal");
+            let recipient_outputs = snapshot
+                .steps
+                .iter()
+                .flat_map(|step| step.outputs.iter())
+                .filter(|output| output.role == OutputRole::Recipient)
+                .collect::<Vec<_>>();
+
+            assert_eq!(recipient_outputs.len(), 1);
+            assert!(
+                matches!(
+                    recipient_outputs[0].pool,
+                    Pool::Sapling | Pool::Orchard | Pool::Ironwood
+                ),
+                "supported shielded receiver should win over transparent: {scenario:?} -> {snapshot:?}"
+            );
+
+            let assessment = assess(&snapshot, &Policy::standard());
+            assert!(
+                assessment.passes,
+                "mixed Unified Address should remain shielded: {scenario:?} -> {:?}",
+                assessment.findings
+            );
+        }
+    }
 }

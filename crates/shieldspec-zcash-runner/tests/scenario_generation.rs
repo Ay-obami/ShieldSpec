@@ -45,7 +45,7 @@ fn generated_case_json_is_a_stable_replay_contract() {
 #[test]
 fn representative_generated_cases_execute_through_real_zcash_proposals() {
     let mut generator = ScenarioGenerator::new(0x0a11_ce55);
-    let cases = (0..6).map(|_| generator.next_case()).collect::<Vec<_>>();
+    let cases = (0..16).map(|_| generator.next_case()).collect::<Vec<_>>();
 
     assert!(
         cases
@@ -59,25 +59,36 @@ fn representative_generated_cases_execute_through_real_zcash_proposals() {
             .any(|case| matches!(case.scenario, Scenario::OrchardPayment(_))),
         "sample should include a shielded baseline path"
     );
+    assert!(
+        cases
+            .iter()
+            .any(|case| matches!(case.scenario, Scenario::UnifiedPayment(_))),
+        "sample should include mixed Unified Address receiver selection"
+    );
     assert!(cases.iter().any(|case| match &case.scenario {
         Scenario::OrchardPayment(scenario) => scenario.funding_pool == ShieldedPoolChoice::Sapling,
         Scenario::TexPayment(scenario) => scenario.funding_pool == ShieldedPoolChoice::Sapling,
+        Scenario::UnifiedPayment(scenario) => scenario.funding_pool == ShieldedPoolChoice::Sapling,
     }));
     assert!(cases.iter().any(|case| match &case.scenario {
         Scenario::OrchardPayment(scenario) => scenario.funding_pool != scenario.change_pool,
         Scenario::TexPayment(scenario) => scenario.funding_pool != scenario.change_pool,
+        Scenario::UnifiedPayment(scenario) => scenario.funding_pool != scenario.change_pool,
     }));
     assert!(cases.iter().any(|case| match &case.scenario {
         Scenario::OrchardPayment(scenario) => scenario.confirmations > 1,
         Scenario::TexPayment(scenario) => scenario.confirmations > 1,
+        Scenario::UnifiedPayment(scenario) => scenario.confirmations > 1,
     }));
     assert!(cases.iter().any(|case| match &case.scenario {
         Scenario::OrchardPayment(scenario) => scenario.note_count > 1,
         Scenario::TexPayment(scenario) => scenario.note_count > 1,
+        Scenario::UnifiedPayment(scenario) => scenario.note_count > 1,
     }));
     assert!(cases.iter().any(|case| match &case.scenario {
         Scenario::OrchardPayment(scenario) => scenario.empty_blocks > 0,
         Scenario::TexPayment(scenario) => scenario.empty_blocks > 0,
+        Scenario::UnifiedPayment(scenario) => scenario.empty_blocks > 0,
     }));
 
     for case in cases {
@@ -110,6 +121,11 @@ fn representative_generated_cases_execute_through_real_zcash_proposals() {
                     .iter()
                     .all(|finding| finding.rule_id != "SS003_TRANSPARENT_CHANGE"));
             }
+            Scenario::UnifiedPayment(_) => assert!(
+                assessment.passes,
+                "Unified Address with a supported shielded receiver should stay shielded: {:?}",
+                assessment.findings
+            ),
         }
     }
 }
