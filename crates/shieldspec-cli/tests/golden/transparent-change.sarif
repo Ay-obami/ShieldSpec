@@ -18,7 +18,7 @@
             "text": "Change output uses the transparent pool"
           },
           "partialFingerprints": {
-            "shieldspecFingerprint": "ss-274dd3541aa33ec4"
+            "shieldspecFingerprint": "ss-fe7e518922ac04fd"
           },
           "properties": {
             "evidence": {
@@ -27,7 +27,7 @@
               "role": "change",
               "value_zat": "10000"
             },
-            "fingerprint": "ss-274dd3541aa33ec4",
+            "fingerprint": "ss-fe7e518922ac04fd",
             "severity": "error",
             "step_index": 0
           },
@@ -45,21 +45,21 @@
             }
           ],
           "message": {
-            "text": "Value crosses the transparent/shielded privacy boundary"
+            "text": "Value crosses the privacy boundary shielded_to_transparent"
           },
           "partialFingerprints": {
-            "shieldspecFingerprint": "ss-5e38cc432806eaed"
+            "shieldspecFingerprint": "ss-4842087d252fb04e"
           },
           "properties": {
             "evidence": {
-              "input_index": "0",
-              "input_pool": "orchard",
-              "input_value_zat": "110000",
-              "output_index": "1",
-              "output_pool": "transparent",
-              "output_value_zat": "10000"
+              "crossing_value_zat": "10000",
+              "direction": "shielded_to_transparent",
+              "shielded_input_zat": "110000",
+              "shielded_output_zat": "90000",
+              "transparent_input_zat": "0",
+              "transparent_output_zat": "10000"
             },
-            "fingerprint": "ss-5e38cc432806eaed",
+            "fingerprint": "ss-4842087d252fb04e",
             "severity": "warning",
             "step_index": 0
           },

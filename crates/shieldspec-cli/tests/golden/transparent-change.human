@@ -1,7 +1,7 @@
 FAIL: 2 privacy findings
-[error] SS003_TRANSPARENT_CHANGE at step 0 (ss-274dd3541aa33ec4)
+[error] SS003_TRANSPARENT_CHANGE at step 0 (ss-fe7e518922ac04fd)
   Change output uses the transparent pool
   evidence: output_index=1 pool=transparent role=change value_zat=10000
-[warning] SS005_PRIVACY_BOUNDARY at step 0 (ss-5e38cc432806eaed)
-  Value crosses the transparent/shielded privacy boundary
-  evidence: input_index=0 input_pool=orchard input_value_zat=110000 output_index=1 output_pool=transparent output_value_zat=10000
+[warning] SS005_PRIVACY_BOUNDARY at step 0 (ss-4842087d252fb04e)
+  Value crosses the privacy boundary shielded_to_transparent
+  evidence: crossing_value_zat=10000 direction=shielded_to_transparent shielded_input_zat=110000 shielded_output_zat=90000 transparent_input_zat=0 transparent_output_zat=10000
