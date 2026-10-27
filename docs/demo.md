@@ -1,42 +1,123 @@
-# Demo storyboard
+# Zecathon demo storyboard
 
-## The setup
+## The problem in one sentence
 
-A wallet PR still sends the payment to an Orchard recipient. The destination-address check looks fine, but updated change selection sends the remainder to the transparent pool.
+A wallet upgrade can keep producing valid Zcash transactions while silently changing their privacy properties.
 
-Show the two proposal shapes:
-
-```text
-baseline:  Orchard input -> Orchard recipient + Orchard change
-candidate: Orchard input -> Orchard recipient + Transparent change
-```
-
-No transaction is signed or broadcast. Both inputs are local, deterministic proposal snapshots.
-
-## The magic moment
+## 30-second magic moment
 
 From the repository root:
 
 ```bash
-cargo run -p shieldspec-cli -- diff \
-  --baseline fixtures/shielded-payment.json \
-  --candidate fixtures/transparent-change.json \
+cargo run --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz -- demo --format human
+```
+
+The demo builds real proposal state through the pinned Zcash wallet test harness. The baseline has no configured privacy findings. The candidate then receives an intentionally injected **demo-only** change-pool regression.
+
+Expected headline output:
+
+```text
+ShieldSpec Privacy Differential Fuzzer
+status: privacy_regression
+
+baseline findings: 0
+candidate findings: 2
+  SS003_TRANSPARENT_CHANGE
+  SS005_PRIVACY_BOUNDARY
+
+new/worsened privacy regressions: 2
+...
+reproduce: ... replay --seed 148 --ordinal 0 ... --demo-regression transparent-change
+```
+
+The process exits with status `2`.
+
+Say this explicitly during the demo:
+
+> The transaction proposal itself comes from real librustzcash wallet machinery. The transparent-change regression in this judge demo is deliberately injected after proposal normalization so the entire detection, minimization, and replay pipeline is deterministic. We do not claim this injected fault is a librustzcash vulnerability.
+
+## What happened before the finding
+
+The runner:
+
+1. created an isolated in-memory Zcash wallet;
+2. generated and scanned synthetic compact blocks containing shielded wallet funds;
+3. exercised real input selection, fees, change, pool choice, and proposal construction;
+4. normalized the resulting real `Proposal`;
+5. ran the identical scenario against baseline and candidate runner processes; and
+6. compared privacy findings rather than treating every structural difference as a bug.
+
+## Show the shrinker
+
+Point to the reported minimal scenario. The failing generated state is repeatedly simplified while still executing the real proposal path and preserving the differential privacy finding.
+
+This is the useful loop:
+
+```text
+generated wallet state
+      |
+real Zcash proposal
+      |
+baseline vs candidate
+      |
+privacy regression
+      |
+semantic shrink
+      |
+minimal replay case
+      |
+permanent regression test
+```
+
+## Prove replay
+
+Run the reproduction command printed by the demo:
+
+```bash
+cargo run --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz -- \
+  replay \
+  --seed 148 \
+  --ordinal 0 \
   --policy standard \
+  --demo-regression transparent-change \
   --format human
 ```
 
-Point out that the recipient is shielded in both files. Then show the non-zero result: the diff includes `SS003_TRANSPARENT_CHANGE` and exits `2`, turning the hidden change regression into a testable CI failure.
+It should again exit `2` and report the same new/worsened privacy rules.
 
-Run the same scenario as a wallet developer:
+## Show a real multi-step Zcash path
 
-```bash
-cargo test --manifest-path examples/mock-wallet/Cargo.toml
-```
+The runner test suite also exercises a genuine ZIP 320 shielded-to-TEX proposal. librustzcash constructs two proposal steps with an ephemeral transparent bridge. ShieldSpec preserves the prior-step origin so that internal bridge value is not mislabeled as ordinary wallet transparent funding or transparent change.
 
-The test asserts three things: the baseline assessment passes, the candidate comparison fails, and the regression findings contain `SS003_TRANSPARENT_CHANGE`.
+This is an important false-positive check: the tool must understand intended Zcash behavior before it can credibly call something a regression.
+
+## Published motivation
+
+Show [zcash/zallet#693](https://github.com/zcash/zallet/issues/693). The issue documents a concrete ecosystem testability problem: realistic `Step` and `Proposal` construction can be cumbersome enough to block direct privacy-policy unit testing.
+
+Do **not** say ShieldSpec closes that issue. Say:
+
+> Zallet #693 is published evidence of the underlying testability pain. ShieldSpec takes a broader external approach: generate wallet state, invoke the real proposal engine, evaluate privacy invariants, and minimize failures into deterministic regression cases.
 
 ## CI close
 
-Show the GitHub Action running the same baseline and candidate with `format: sarif`. Emphasize that it uses proposal snapshots only and needs no wallet secrets.
+Show the `Privacy differential fuzzer smoke` job. It verifies:
 
-Close with the precise claim: ShieldSpec caught a structural privacy regression before the wallet change shipped. Do not describe a passing result as proof of anonymity; it only means the supplied proposal facts triggered no configured failure.
+- a deterministic baseline-vs-itself campaign produces no regression;
+- the judge demo exits `2` and includes `SS003_TRANSPARENT_CHANGE`;
+- the exact differential replay also exits `2`;
+- a committed minimized discovery replays its recorded rule.
+
+Then show the original ShieldSpec Action as the lightweight production CI gate.
+
+## Precise closing claim
+
+Use:
+
+> ShieldSpec turns proposal-level privacy changes into reproducible developer tests before they ship.
+
+Do not use:
+
+> ShieldSpec proves this transaction is anonymous.
+
+A clean result only means no configured regression was found in the supplied or generated proposal facts that were exercised.

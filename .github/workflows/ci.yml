@@ -143,13 +143,92 @@ jobs:
           components: clippy,rustfmt
 
       - name: Check runner formatting
-        run: cargo fmt --manifest-path tools/shieldspec-zcash-runner/Cargo.toml --check
+        run: cargo fmt --manifest-path crates/shieldspec-zcash-runner/Cargo.toml --check
 
       - name: Run real proposal tests
-        run: cargo test --manifest-path tools/shieldspec-zcash-runner/Cargo.toml --all-targets
+        run: cargo test --locked --manifest-path crates/shieldspec-zcash-runner/Cargo.toml --all-targets
 
       - name: Run runner Clippy
         run: >-
-          cargo clippy
-          --manifest-path tools/shieldspec-zcash-runner/Cargo.toml
+          cargo clippy --locked
+          --manifest-path crates/shieldspec-zcash-runner/Cargo.toml
           --all-targets -- -D warnings
+
+  fuzzer-smoke:
+    name: Privacy differential fuzzer smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        # actions/checkout v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Install Rust 1.95.0
+        # dtolnay/rust-toolchain 1.95.0
+        uses: dtolnay/rust-toolchain@035fceb3c12fb0c6a9461b52775e16473133e591
+
+      - name: Build real proposal and fuzzer runners
+        run: cargo build --locked -p shieldspec-zcash-runner --bins
+
+      - name: Deterministic clean differential smoke
+        run: >-
+          target/debug/shieldspec-fuzz fuzz
+          --baseline-runner target/debug/shieldspec-zcash-runner
+          --candidate-runner target/debug/shieldspec-zcash-runner
+          --seed 148
+          --cases 2
+          --format json
+
+      - name: Assert judge demo catches the injected regression
+        shell: bash
+        run: |
+          set +e
+          target/debug/shieldspec-fuzz demo --format json > /tmp/shieldspec-fuzz-demo.json
+          status=$?
+          set -e
+
+          cat /tmp/shieldspec-fuzz-demo.json
+          if [[ $status -ne 2 ]]; then
+            echo "Expected privacy regression exit code 2, got $status" >&2
+            exit 1
+          fi
+          grep -q '"status": "privacy_regression"' /tmp/shieldspec-fuzz-demo.json
+          grep -q 'SS003_TRANSPARENT_CHANGE' /tmp/shieldspec-fuzz-demo.json
+
+      - name: Reproduce the exact demo differential
+        shell: bash
+        run: |
+          set +e
+          target/debug/shieldspec-fuzz replay \
+            --seed 148 \
+            --ordinal 0 \
+            --policy standard \
+            --demo-regression transparent-change \
+            --format json > /tmp/shieldspec-fuzz-differential-replay.json
+          status=$?
+          set -e
+
+          cat /tmp/shieldspec-fuzz-differential-replay.json
+          if [[ $status -ne 2 ]]; then
+            echo "Expected differential replay exit code 2, got $status" >&2
+            exit 1
+          fi
+          grep -q '"status": "privacy_regression_reproduced"' /tmp/shieldspec-fuzz-differential-replay.json
+          grep -q 'SS003_TRANSPARENT_CHANGE' /tmp/shieldspec-fuzz-differential-replay.json
+
+      - name: Replay the committed minimized discovery
+        shell: bash
+        run: |
+          set +e
+          target/debug/shieldspec-fuzz replay \
+            --input crates/shieldspec-zcash-runner/fixtures/discoveries/tex-transparent-recipient.json \
+            --format json > /tmp/shieldspec-fuzz-replay.json
+          status=$?
+          set -e
+
+          cat /tmp/shieldspec-fuzz-replay.json
+          if [[ $status -ne 2 ]]; then
+            echo "Expected replayed privacy finding exit code 2, got $status" >&2
+            exit 1
+          fi
+          grep -q '"recorded_rule_reproduced": true' /tmp/shieldspec-fuzz-replay.json
+          grep -q 'SS001_TRANSPARENT_RECIPIENT' /tmp/shieldspec-fuzz-replay.json
