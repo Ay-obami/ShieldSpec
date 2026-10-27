@@ -1,0 +1,25 @@
+{
+  "seed": 1592642302,
+  "ordinal": 0,
+  "rule_id": "SS001_TRANSPARENT_RECIPIENT",
+  "original": {
+    "kind": "tex_payment",
+    "params": {
+      "funding_zat": 316000,
+      "payment_zat": 250000,
+      "recipient_tag": 126,
+      "note_count": 3,
+      "empty_blocks": 0
+    }
+  },
+  "minimized": {
+    "kind": "tex_payment",
+    "params": {
+      "funding_zat": 45001,
+      "payment_zat": 1,
+      "recipient_tag": 0,
+      "note_count": 1,
+      "empty_blocks": 0
+    }
+  }
+}

@@ -2192,6 +2192,7 @@ name = "shieldspec-zcash-runner"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "serde_json",
  "shieldspec-core",
  "shieldspec-zcash",
  "zcash_client_backend",
