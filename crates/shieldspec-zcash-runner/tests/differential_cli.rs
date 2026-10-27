@@ -441,13 +441,18 @@ fn replay_labels_the_recorded_snapshot_rule_even_if_a_wallet_policy_also_changes
 }
 
 #[test]
-fn legacy_style_ironwood_discovery_replay_retains_its_seed_reproduction_family() {
+fn saved_ironwood_discovery_replays_minimized_input_with_explicit_runners() {
     let directory = TestDirectory::new("ironwood-legacy-discovery");
     let root = directory.path();
     let baseline = observed_runner(root, "ironwood-base", WalletPolicyDecision::Accepted);
     let candidate = observed_runner(root, "ironwood-candidate", WalletPolicyDecision::Rejected);
     let discovery = root.join("ironwood-discovery.json");
     let scenario = shieldspec_zcash_runner::ScenarioGenerator::nu63_scenario_at(2026, 0);
+    let mut minimized = scenario.clone();
+    let shieldspec_zcash_runner::Scenario::Nu63OrchardPayment(ref mut payment) = minimized else {
+        panic!("expected Ironwood scenario");
+    };
+    payment.payment.note_count = 1;
     fs::write(
         &discovery,
         serde_json::to_vec(&serde_json::json!({
@@ -456,7 +461,7 @@ fn legacy_style_ironwood_discovery_replay_retains_its_seed_reproduction_family()
             "scenario_family": "ironwood",
             "rule_id": "WALLET_POLICY_DECISION_DIFFERENCE",
             "original": scenario,
-            "minimized": scenario,
+            "minimized": minimized,
             "wallet_policy_difference": {
                 "policy": "test_policy",
                 "baseline": "accepted",
@@ -480,12 +485,22 @@ fn legacy_style_ironwood_discovery_replay_retains_its_seed_reproduction_family()
     ]);
     assert_eq!(exit, 2, "{replay}");
     assert_eq!(replay["recorded_rule_reproduced"], true);
+    assert_eq!(
+        replay["scenario"],
+        serde_json::to_value(&minimized).expect("minimized JSON"),
+        "saved replay must run the minimized input"
+    );
+    let reproduction = replay["reproduction"]
+        .as_str()
+        .expect("reproduction command");
     assert!(
-        replay["reproduction"]
-            .as_str()
-            .expect("reproduction command")
-            .contains("--scenario-family ironwood"),
-        "stored Ironwood family must survive replay even without provenance: {replay}"
+        reproduction.contains("--input") && reproduction.contains("ironwood-discovery.json"),
+        "reproducer must use the same saved minimized scenario: {reproduction}"
+    );
+    assert!(reproduction.contains("--baseline-runner"), "{reproduction}");
+    assert!(
+        reproduction.contains("--candidate-runner"),
+        "{reproduction}"
     );
 }
 

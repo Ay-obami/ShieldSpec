@@ -643,8 +643,31 @@ fn replay(
                     .any(|finding| &finding.rule_id == rule_id)
             }
         });
-        let reproduction = if saved_provenance.is_some() {
-            format!("{single_reproduction} --policy {}", policy_name.as_str())
+        let reproduction = if input.is_some() {
+            // An --input discovery executes its minimized scenario. A seed-only
+            // command would regenerate the original input and misstate the
+            // replayed evidence when shrinking changed the scenario.
+            let mut command = format!("{single_reproduction} --policy {}", policy_name.as_str());
+            if saved_provenance.is_none() {
+                if let Some(regression) = demo_regression_from(&candidate) {
+                    command.push_str(&format!(" --demo-regression {}", regression.as_str()));
+                } else {
+                    command.push_str(&format!(
+                        " --baseline-runner {} --candidate-runner {}",
+                        shell_arg(&baseline.program.to_string_lossy()),
+                        shell_arg(&candidate.program.to_string_lossy())
+                    ));
+                    for arg in &baseline.args {
+                        command.push_str(" --baseline-arg ");
+                        command.push_str(&shell_arg(arg));
+                    }
+                    for arg in &candidate.args {
+                        command.push_str(" --candidate-arg ");
+                        command.push_str(&shell_arg(arg));
+                    }
+                }
+            }
+            command
         } else {
             differential_reproduction(
                 replay_seed,
