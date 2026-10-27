@@ -39,6 +39,7 @@
       tab.setAttribute("aria-selected", String(selected));
       tab.classList.toggle("is-active", selected);
       tab.tabIndex = selected ? 0 : -1;
+      if (selected && tab.id) field("case-panel")?.setAttribute("aria-labelledby", tab.id);
     }
   }
 
@@ -82,12 +83,16 @@
     if (!target) return;
     const original = button.textContent;
     const value = target.textContent.trim();
+    const status = field("copy-status");
+    if (status) status.textContent = "";
     try {
       await navigator.clipboard.writeText(value);
       button.textContent = "Copied ✓";
+      if (status) status.textContent = "Commands copied to clipboard.";
     } catch (_) {
       button.textContent = "Select code to copy";
       target.focus?.();
+      if (status) status.textContent = "Clipboard unavailable. Select the focused code block and copy manually.";
     }
     setTimeout(() => { button.textContent = original; }, 2200);
   }

@@ -229,3 +229,36 @@ h3{letter-spacing:-.04em;line-height:1.2}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}
 }
+
+/* Current runner evidence: keep the generated-case controls separate from historical verdicts. */
+.sdk-evidence{margin-top:53px;border-top:1px solid #2b4834;padding-top:47px}
+.sdk-evidence-heading{display:flex;align-items:end;justify-content:space-between;gap:30px;margin-bottom:28px}
+.sdk-evidence-heading>div{max-width:800px}
+.sdk-evidence-heading .section-kicker{margin-bottom:15px}
+.sdk-evidence h3{font-size:clamp(28px,3.5vw,43px);letter-spacing:-.055em;line-height:1.15;margin-bottom:13px}
+.sdk-evidence-heading p{font-size:14px;line-height:1.85;color:var(--muted);margin:0}
+.sdk-evidence code,.policy-proof code{color:#b4f6c8;overflow-wrap:anywhere}
+.control-table-wrap{overflow-x:auto;border:1px solid #2b4834;border-radius:10px;background:#101c15}
+.control-table{width:100%;min-width:640px;border-collapse:collapse;text-align:left;font-size:13px}
+.control-table caption{padding:15px 21px;text-align:left;color:#abc0b0;font-size:12px;background:#16271b;border-bottom:1px solid #2b4834}
+.control-table th,.control-table td{padding:16px 21px;border-bottom:1px solid #294231}
+.control-table thead th{color:#94bea0;font-size:10px;text-transform:uppercase;letter-spacing:.08em;background:#111e16}
+.control-table tbody th{color:var(--green);font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+.control-table tbody tr:last-child th,.control-table tbody tr:last-child td{border-bottom:0}
+.control-table tbody tr:nth-child(even){background:#132019}
+.policy-proof{margin-top:19px;padding:27px 30px;background:#132219;border:1px solid #345840;border-radius:10px}
+.policy-proof h4{font-size:21px;letter-spacing:-.04em;line-height:1.35;margin:16px 0 10px}
+.policy-proof p{font-size:13px;line-height:1.85;color:#acbdb0;margin:0 0 10px;max-width:950px}
+.policy-proof p:last-child{margin-bottom:0}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media (max-width:800px){
+  .sdk-evidence-heading{display:block}
+  .sdk-evidence-heading .text-link{display:inline-block;margin-top:19px}
+}
+@media (max-width:540px){
+  html{scroll-padding-top:132px}
+  .nav-links{flex-wrap:wrap;justify-content:flex-start;gap:8px 18px}
+  .sdk-evidence{margin-top:36px;padding-top:33px}
+  .control-table th,.control-table td{padding:13px 17px}
+  .policy-proof{padding:22px 19px}
+}
