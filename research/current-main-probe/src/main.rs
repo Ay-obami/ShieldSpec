@@ -21,6 +21,7 @@ use zcash_protocol::{ShieldedPool, value::Zatoshis};
 enum RecipientKind {
     SaplingOnly,
     DualShielded,
+    SaplingPlusTransparent,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -38,30 +39,6 @@ fn split(total: u64, count: usize) -> Vec<u64> {
     (0..count)
         .map(|i| base + u64::from((i as u64) < rem))
         .collect()
-}
-
-fn recipient(kind: RecipientKind, tag: u8) -> Address {
-    let sapling = match SaplingPoolTester::sk_default_address(&SaplingPoolTester::sk(&[tag; 32])) {
-        Address::Sapling(addr) => *addr,
-        other => panic!("expected Sapling address, got {other:?}"),
-    };
-
-    match kind {
-        RecipientKind::SaplingOnly => Address::Sapling(Box::new(sapling)),
-        RecipientKind::DualShielded => {
-            let orchard = match OrchardPoolTester::sk_default_address(&OrchardPoolTester::sk(&[
-                tag.wrapping_add(1);
-                32
-            ])) {
-                Address::Unified(ua) => ua.orchard().copied().expect("Orchard receiver"),
-                other => panic!("expected Orchard unified address, got {other:?}"),
-            };
-
-            UnifiedAddress::from_receivers(Some(orchard), Some(sapling), None, None, None)
-                .expect("valid dual-shielded UA")
-                .into()
-        }
-    }
 }
 
 fn run_case(
@@ -107,7 +84,48 @@ fn run_case(
         }
     }
 
-    let to = recipient(kind, tag);
+    let sapling_receiver =
+        match SaplingPoolTester::sk_default_address(&SaplingPoolTester::sk(&[tag; 32])) {
+            Address::Sapling(addr) => *addr,
+            other => panic!("expected Sapling address, got {other:?}"),
+        };
+
+    let to = match kind {
+        RecipientKind::SaplingOnly => Address::Sapling(Box::new(sapling_receiver)),
+        RecipientKind::DualShielded => {
+            let orchard_receiver =
+                match OrchardPoolTester::sk_default_address(&OrchardPoolTester::sk(&[
+                    tag.wrapping_add(1);
+                    32
+                ])) {
+                    Address::Unified(ua) => ua.orchard().copied().expect("Orchard receiver"),
+                    other => panic!("expected Orchard unified address, got {other:?}"),
+                };
+
+            UnifiedAddress::from_receivers(
+                Some(orchard_receiver),
+                Some(sapling_receiver),
+                None,
+                None,
+                None,
+            )
+            .expect("valid dual-shielded UA")
+            .into()
+        }
+        RecipientKind::SaplingPlusTransparent => {
+            let (transparent_receiver, _) = account.usk().default_transparent_address();
+            UnifiedAddress::from_receivers(
+                None,
+                Some(sapling_receiver),
+                Some(transparent_receiver),
+                None,
+                None,
+            )
+            .expect("valid Sapling+transparent UA")
+            .into()
+        }
+    };
+
     let proposal = st
         .propose_standard_transfer::<Infallible>(
             account.id(),
@@ -173,11 +191,15 @@ fn main() {
     let sapling_note_counts = [1_usize, 3];
     let orchard_totals = [1_000_u64, 20_000, 100_000, 1_000_000];
     let orchard_note_counts = [1_usize, 2];
-    let recipients = [RecipientKind::SaplingOnly, RecipientKind::DualShielded];
+    let recipients = [
+        RecipientKind::SaplingOnly,
+        RecipientKind::DualShielded,
+        RecipientKind::SaplingPlusTransparent,
+    ];
 
     let mut tested = 0_usize;
     let mut baseline_safe = 0_usize;
-    let mut baseline_non_sapling = 0_usize;
+    let mut known_dual_receiver_crossings = 0_usize;
     let mut operational = 0_usize;
     let mut candidates = Vec::new();
 
@@ -222,17 +244,28 @@ fn main() {
                             };
 
                             if !is_sapling_only(&baseline) {
-                                baseline_non_sapling += 1;
-                                println!(
-                                    "BASELINE_ROUTE case={tested} kind={kind:?} payment={payment} margin={margin} sap_notes={sapling_notes} shape={baseline:?}"
-                                );
+                                match kind {
+                                    RecipientKind::DualShielded => {
+                                        // Historical positive control: zcash/zcash#6229.
+                                        known_dual_receiver_crossings += 1;
+                                        println!(
+                                            "KNOWN_UA_CROSSING case={tested} payment={payment} margin={margin} sap_notes={sapling_notes} shape={baseline:?}"
+                                        );
+                                    }
+                                    RecipientKind::SaplingOnly
+                                    | RecipientKind::SaplingPlusTransparent => {
+                                        candidates.push(format!(
+                                            "CANDIDATE_BASELINE case={tested} kind={kind:?} payment={payment} margin={margin} sap_total={sapling_total} sap_notes={sapling_notes} baseline={baseline:?}"
+                                        ));
+                                    }
+                                }
                                 continue;
                             }
 
                             baseline_safe += 1;
                             if !is_sapling_only(&augmented) {
                                 candidates.push(format!(
-                                    "CANDIDATE case={tested} kind={kind:?} payment={payment} margin={margin} sap_total={sapling_total} sap_notes={sapling_notes} orchard_total={orchard_total} orchard_notes={orchard_notes} baseline={baseline:?} augmented={augmented:?}"
+                                    "CANDIDATE_AUGMENTED case={tested} kind={kind:?} payment={payment} margin={margin} sap_total={sapling_total} sap_notes={sapling_notes} orchard_total={orchard_total} orchard_notes={orchard_notes} baseline={baseline:?} augmented={augmented:?}"
                                 ));
                             }
                         }
@@ -243,7 +276,7 @@ fn main() {
     }
 
     println!(
-        "SUMMARY tested={tested} baseline_safe={baseline_safe} baseline_non_sapling={baseline_non_sapling} operational={operational} candidates={}",
+        "SUMMARY tested={tested} baseline_safe={baseline_safe} known_dual_receiver_crossings={known_dual_receiver_crossings} operational={operational} candidates={}",
         candidates.len()
     );
 
