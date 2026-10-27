@@ -14,6 +14,7 @@ use zcash_client_backend::{
         testing::{
             orchard::OrchardPoolTester,
             pool::{dsl::TestDsl, ShieldedPoolTester},
+            sapling::SaplingPoolTester,
         },
         wallet::ConfirmationsPolicy,
         Account,
@@ -24,10 +25,38 @@ use zcash_client_sqlite::testing::{db::TestDbFactory, BlockCache};
 use zcash_keys::{address::Address, keys::transparent::gap_limits::GapLimits};
 use zcash_protocol::{value::Zatoshis, ShieldedPool};
 
+/// Shielded funding or change pool used by a fuzzing scenario.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ShieldedPoolChoice {
+    Sapling,
+    Orchard,
+}
+
+impl ShieldedPoolChoice {
+    const fn protocol(self) -> ShieldedPool {
+        match self {
+            Self::Sapling => ShieldedPool::Sapling,
+            Self::Orchard => ShieldedPool::Orchard,
+        }
+    }
+
+    const fn complexity_weight(self) -> u128 {
+        match self {
+            Self::Sapling => 1,
+            Self::Orchard => 0,
+        }
+    }
+
+    const fn alternate(self) -> Self {
+        match self {
+            Self::Sapling => Self::Orchard,
+            Self::Orchard => Self::Sapling,
+        }
+    }
+}
+
 /// Small deterministic scenario used to prove the real proposal harness.
-///
-/// Broader property generation and shrinking live in the fuzzing layer; this
-/// type is intentionally limited to one well-understood Orchard payment path.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct OrchardPaymentScenario {
@@ -35,7 +64,10 @@ pub struct OrchardPaymentScenario {
     pub payment_zat: u64,
     pub recipient_seed: u8,
     pub note_count: u8,
+    pub confirmations: u8,
     pub empty_blocks: u8,
+    pub funding_pool: ShieldedPoolChoice,
+    pub change_pool: ShieldedPoolChoice,
 }
 
 impl OrchardPaymentScenario {
@@ -46,7 +78,10 @@ impl OrchardPaymentScenario {
             payment_zat: 100_000,
             recipient_seed: 0x42,
             note_count: 1,
+            confirmations: 1,
             empty_blocks: 0,
+            funding_pool: ShieldedPoolChoice::Orchard,
+            change_pool: ShieldedPoolChoice::Orchard,
         }
     }
 }
@@ -59,7 +94,10 @@ pub struct TexPaymentScenario {
     pub payment_zat: u64,
     pub recipient_tag: u8,
     pub note_count: u8,
+    pub confirmations: u8,
     pub empty_blocks: u8,
+    pub funding_pool: ShieldedPoolChoice,
+    pub change_pool: ShieldedPoolChoice,
 }
 
 impl TexPaymentScenario {
@@ -70,7 +108,10 @@ impl TexPaymentScenario {
             payment_zat: 50_000,
             recipient_tag: 0x04,
             note_count: 1,
+            confirmations: 1,
             empty_blocks: 0,
+            funding_pool: ShieldedPoolChoice::Orchard,
+            change_pool: ShieldedPoolChoice::Orchard,
         }
     }
 }
@@ -113,7 +154,12 @@ impl From<AdapterError> for RunnerError {
     }
 }
 
-fn validate_amounts(funding_zat: u64, payment_zat: u64, note_count: u8) -> Result<(), RunnerError> {
+fn validate_amounts(
+    funding_zat: u64,
+    payment_zat: u64,
+    note_count: u8,
+    confirmations: u8,
+) -> Result<(), RunnerError> {
     if note_count == 0 {
         return Err(RunnerError::InvalidScenario(
             "note_count must be greater than zero",
@@ -122,6 +168,16 @@ fn validate_amounts(funding_zat: u64, payment_zat: u64, note_count: u8) -> Resul
     if note_count > 8 {
         return Err(RunnerError::InvalidScenario(
             "note_count must not exceed eight",
+        ));
+    }
+    if confirmations == 0 {
+        return Err(RunnerError::InvalidScenario(
+            "confirmations must be greater than zero",
+        ));
+    }
+    if confirmations > 10 {
+        return Err(RunnerError::InvalidScenario(
+            "confirmations must not exceed ten",
         ));
     }
     if funding_zat < u64::from(note_count) {
@@ -147,105 +203,112 @@ fn validate_amounts(funding_zat: u64, payment_zat: u64, note_count: u8) -> Resul
     Ok(())
 }
 
-/// Builds an in-memory Zcash wallet, funds it through a synthetic compact block,
-/// scans that block, invokes the real librustzcash proposal engine, and then
-/// normalizes the resulting `Proposal` through ShieldSpec.
-///
-/// The synthetic part is the chain fixture; input selection, fees, change, pool
-/// selection, and proposal construction are performed by librustzcash itself.
-pub fn run_orchard_payment(
-    scenario: &OrchardPaymentScenario,
+fn run_payment_with_funding<T: ShieldedPoolTester>(
+    funding_zat: u64,
+    payment_zat: u64,
+    note_count: u8,
+    confirmations: u8,
+    empty_blocks: u8,
+    recipient: &Address,
+    change_pool: ShieldedPoolChoice,
 ) -> Result<ProposalSnapshot, RunnerError> {
-    validate_amounts(
-        scenario.funding_zat,
-        scenario.payment_zat,
-        scenario.note_count,
-    )?;
+    validate_amounts(funding_zat, payment_zat, note_count, confirmations)?;
 
+    let gap_limits = GapLimits::new(10, 5, 3);
     let mut wallet =
         TestDsl::with_sapling_birthday_account(TestDbFactory::default(), BlockCache::new())
-            .build::<OrchardPoolTester>();
+            .map(|builder| builder.with_gap_limits(gap_limits))
+            .build::<T>();
 
-    let note_count = u64::from(scenario.note_count);
-    let base_note_value = scenario.funding_zat / note_count;
-    let remainder = scenario.funding_zat % note_count;
-    let funding_blocks = (0..note_count)
+    let note_count_u64 = u64::from(note_count);
+    let base_note_value = funding_zat / note_count_u64;
+    let remainder = funding_zat % note_count_u64;
+    let funding_blocks = (0..note_count_u64)
         .map(|index| {
             let value = base_note_value + if index < remainder { 1 } else { 0 };
             vec![Zatoshis::const_from_u64(value)]
         })
         .collect::<Vec<_>>();
     wallet.add_notes_checking_balance(funding_blocks);
-    wallet.add_empty_blocks(usize::from(scenario.empty_blocks));
 
-    let recipient_sk = OrchardPoolTester::sk(&[scenario.recipient_seed; 32]);
-    let recipient = OrchardPoolTester::sk_default_address(&recipient_sk);
+    if confirmations > 1 {
+        wallet.add_empty_blocks(usize::from(confirmations - 1));
+    }
+    wallet.add_empty_blocks(usize::from(empty_blocks));
+
     let account_id = wallet.get_account().id();
+    let confirmations_policy =
+        ConfirmationsPolicy::new_symmetrical_unchecked(u32::from(confirmations), false);
 
     let proposal = wallet
         .propose_standard_transfer::<Infallible>(
             account_id,
             StandardFeeRule::Zip317,
-            ConfirmationsPolicy::MIN,
-            &recipient,
-            Zatoshis::const_from_u64(scenario.payment_zat),
+            confirmations_policy,
+            recipient,
+            Zatoshis::const_from_u64(payment_zat),
             None,
             None,
-            ShieldedPool::Orchard,
+            change_pool.protocol(),
         )
         .map_err(|error| RunnerError::Proposal(format!("{error:?}")))?;
 
     snapshot_from_proposal(&proposal, "local-test").map_err(Into::into)
 }
 
-/// Runs a real ZIP 320 shielded-to-TEX proposal.
-///
-/// librustzcash creates a two-step proposal: the first step moves enough value
-/// into an ephemeral transparent output and the second consumes that output to
-/// pay the TEX recipient. This is the critical multi-step path ShieldSpec must
-/// model without confusing the internal bridge for wallet transparent funding.
-pub fn run_tex_payment(scenario: &TexPaymentScenario) -> Result<ProposalSnapshot, RunnerError> {
-    validate_amounts(
-        scenario.funding_zat,
-        scenario.payment_zat,
-        scenario.note_count,
-    )?;
+/// Builds an in-memory Zcash wallet and pays an Orchard recipient.
+pub fn run_orchard_payment(
+    scenario: &OrchardPaymentScenario,
+) -> Result<ProposalSnapshot, RunnerError> {
+    let recipient_sk = OrchardPoolTester::sk(&[scenario.recipient_seed; 32]);
+    let recipient = OrchardPoolTester::sk_default_address(&recipient_sk);
 
-    let gap_limits = GapLimits::new(10, 5, 3);
-    let mut wallet =
-        TestDsl::with_sapling_birthday_account(TestDbFactory::default(), BlockCache::new())
-            .map(|builder| builder.with_gap_limits(gap_limits))
-            .build::<OrchardPoolTester>();
-
-    let note_count = u64::from(scenario.note_count);
-    let base_note_value = scenario.funding_zat / note_count;
-    let remainder = scenario.funding_zat % note_count;
-    let funding_blocks = (0..note_count)
-        .map(|index| {
-            let value = base_note_value + if index < remainder { 1 } else { 0 };
-            vec![Zatoshis::const_from_u64(value)]
-        })
-        .collect::<Vec<_>>();
-    wallet.add_notes_checking_balance(funding_blocks);
-    wallet.add_empty_blocks(usize::from(scenario.empty_blocks));
-
-    let recipient = Address::Tex([scenario.recipient_tag; 20]);
-    let account_id = wallet.get_account().id();
-
-    let proposal = wallet
-        .propose_standard_transfer::<Infallible>(
-            account_id,
-            StandardFeeRule::Zip317,
-            ConfirmationsPolicy::MIN,
+    match scenario.funding_pool {
+        ShieldedPoolChoice::Sapling => run_payment_with_funding::<SaplingPoolTester>(
+            scenario.funding_zat,
+            scenario.payment_zat,
+            scenario.note_count,
+            scenario.confirmations,
+            scenario.empty_blocks,
             &recipient,
-            Zatoshis::const_from_u64(scenario.payment_zat),
-            None,
-            None,
-            ShieldedPool::Orchard,
-        )
-        .map_err(|error| RunnerError::Proposal(format!("{error:?}")))?;
+            scenario.change_pool,
+        ),
+        ShieldedPoolChoice::Orchard => run_payment_with_funding::<OrchardPoolTester>(
+            scenario.funding_zat,
+            scenario.payment_zat,
+            scenario.note_count,
+            scenario.confirmations,
+            scenario.empty_blocks,
+            &recipient,
+            scenario.change_pool,
+        ),
+    }
+}
 
-    snapshot_from_proposal(&proposal, "local-test").map_err(Into::into)
+/// Runs a real ZIP 320 shielded-to-TEX proposal.
+pub fn run_tex_payment(scenario: &TexPaymentScenario) -> Result<ProposalSnapshot, RunnerError> {
+    let recipient = Address::Tex([scenario.recipient_tag; 20]);
+
+    match scenario.funding_pool {
+        ShieldedPoolChoice::Sapling => run_payment_with_funding::<SaplingPoolTester>(
+            scenario.funding_zat,
+            scenario.payment_zat,
+            scenario.note_count,
+            scenario.confirmations,
+            scenario.empty_blocks,
+            &recipient,
+            scenario.change_pool,
+        ),
+        ShieldedPoolChoice::Orchard => run_payment_with_funding::<OrchardPoolTester>(
+            scenario.funding_zat,
+            scenario.payment_zat,
+            scenario.note_count,
+            scenario.confirmations,
+            scenario.empty_blocks,
+            &recipient,
+            scenario.change_pool,
+        ),
+    }
 }
 
 /// Stable, SDK-independent fuzzing scenario envelope.
@@ -273,14 +336,20 @@ impl Scenario {
                     + scenario.payment_zat as u128
                     + scenario.recipient_seed as u128
                     + scenario.note_count as u128
+                    + scenario.confirmations as u128
                     + scenario.empty_blocks as u128
+                    + scenario.funding_pool.complexity_weight()
+                    + scenario.change_pool.complexity_weight()
             }
             Self::TexPayment(scenario) => {
                 scenario.funding_zat as u128
                     + scenario.payment_zat as u128
                     + scenario.recipient_tag as u128
                     + scenario.note_count as u128
+                    + scenario.confirmations as u128
                     + scenario.empty_blocks as u128
+                    + scenario.funding_pool.complexity_weight()
+                    + scenario.change_pool.complexity_weight()
             }
         }
     }
@@ -367,8 +436,20 @@ impl ScenarioGenerator {
         let note_count = self.pick(&[1_u8, 1, 1, 2, 2, 3, 4]);
         let empty_blocks = self.pick(&[0_u8, 0, 0, 1, 2, 5]);
         let payment_zat = self.pick(&[10_000_u64, 25_000, 50_000, 100_000, 250_000]);
+        let shape = self.next_u64();
+        let confirmations = [1_u8, 1, 2, 3, 5][((shape >> 1) as usize) % 5];
+        let funding_pool = if (shape & 0x10) == 0 {
+            ShieldedPoolChoice::Orchard
+        } else {
+            ShieldedPoolChoice::Sapling
+        };
+        let change_pool = if (shape & 0x20) == 0 {
+            funding_pool
+        } else {
+            funding_pool.alternate()
+        };
 
-        let scenario = if self.next_u64().is_multiple_of(2) {
+        let scenario = if shape.is_multiple_of(2) {
             let margin =
                 20_000 + u64::from(note_count) * 10_000 + self.pick(&[0_u64, 1_000, 5_000, 10_000]);
             Scenario::OrchardPayment(OrchardPaymentScenario {
@@ -376,7 +457,10 @@ impl ScenarioGenerator {
                 payment_zat,
                 recipient_seed: self.next_u64() as u8,
                 note_count,
+                confirmations,
                 empty_blocks,
+                funding_pool,
+                change_pool,
             })
         } else {
             let margin =
@@ -386,7 +470,10 @@ impl ScenarioGenerator {
                 payment_zat,
                 recipient_tag: self.next_u64() as u8,
                 note_count,
+                confirmations,
                 empty_blocks,
+                funding_pool,
+                change_pool,
             })
         };
 
@@ -412,6 +499,21 @@ fn shrink_candidates(scenario: &Scenario) -> Vec<Scenario> {
 
     match scenario {
         Scenario::OrchardPayment(current) => {
+            if current.confirmations != 1 {
+                let mut candidate = current.clone();
+                candidate.confirmations = 1;
+                candidates.push(Scenario::OrchardPayment(candidate));
+            }
+            if current.funding_pool != ShieldedPoolChoice::Orchard {
+                let mut candidate = current.clone();
+                candidate.funding_pool = ShieldedPoolChoice::Orchard;
+                candidates.push(Scenario::OrchardPayment(candidate));
+            }
+            if current.change_pool != ShieldedPoolChoice::Orchard {
+                let mut candidate = current.clone();
+                candidate.change_pool = ShieldedPoolChoice::Orchard;
+                candidates.push(Scenario::OrchardPayment(candidate));
+            }
             if current.empty_blocks != 0 {
                 let mut candidate = current.clone();
                 candidate.empty_blocks = 0;
@@ -455,6 +557,21 @@ fn shrink_candidates(scenario: &Scenario) -> Vec<Scenario> {
             }
         }
         Scenario::TexPayment(current) => {
+            if current.confirmations != 1 {
+                let mut candidate = current.clone();
+                candidate.confirmations = 1;
+                candidates.push(Scenario::TexPayment(candidate));
+            }
+            if current.funding_pool != ShieldedPoolChoice::Orchard {
+                let mut candidate = current.clone();
+                candidate.funding_pool = ShieldedPoolChoice::Orchard;
+                candidates.push(Scenario::TexPayment(candidate));
+            }
+            if current.change_pool != ShieldedPoolChoice::Orchard {
+                let mut candidate = current.clone();
+                candidate.change_pool = ShieldedPoolChoice::Orchard;
+                candidates.push(Scenario::TexPayment(candidate));
+            }
             if current.empty_blocks != 0 {
                 let mut candidate = current.clone();
                 candidate.empty_blocks = 0;
