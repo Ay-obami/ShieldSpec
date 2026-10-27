@@ -1,0 +1,12 @@
+[package]
+name = "shieldspec-mock-wallet"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+shieldspec-core = { path = "../../crates/shieldspec-core" }
+shieldspec-testkit = { path = "../../crates/shieldspec-testkit" }
+
+# Keep this downstream example independent from ShieldSpec's root workspace.
+[workspace]
