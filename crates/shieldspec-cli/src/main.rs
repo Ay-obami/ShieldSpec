@@ -6,7 +6,10 @@ use std::process::ExitCode;
 
 use clap::error::ErrorKind;
 use clap::{Parser, Subcommand, ValueEnum};
-use shieldspec_core::{assess, compare, Finding, Policy, ProposalSnapshot};
+use shieldspec_core::{
+    assess, compare, validate_comparison_context, validate_snapshot, Finding, Policy,
+    ProposalSnapshot,
+};
 use shieldspec_testkit::{fixture_names, write_fixture};
 
 use crate::reporter::{render, ReportFormat};
@@ -136,6 +139,8 @@ fn execute(command: Command) -> Result<ExitCode, String> {
         } => {
             let baseline_snapshot = read_snapshot(&baseline)?;
             let candidate_snapshot = read_snapshot(&candidate)?;
+            validate_comparison_context(&baseline_snapshot, &candidate_snapshot)
+                .map_err(|error| format!("cannot compare snapshots: {error}"))?;
             let report = compare(&baseline_snapshot, &candidate_snapshot, &policy.policy());
             print_report(report.passes, &report.findings, format, &candidate)?;
             Ok(privacy_exit(report.passes))
@@ -163,13 +168,8 @@ fn read_snapshot(path: &Path) -> Result<ProposalSnapshot, String> {
         fs::read(path).map_err(|error| format!("could not read {}: {error}", path.display()))?;
     let snapshot: ProposalSnapshot = serde_json::from_slice(&bytes)
         .map_err(|error| format!("could not parse {}: {error}", path.display()))?;
-    if snapshot.schema_version != 1 {
-        return Err(format!(
-            "unsupported schema version {} in {}; expected 1",
-            snapshot.schema_version,
-            path.display()
-        ));
-    }
+    validate_snapshot(&snapshot)
+        .map_err(|error| format!("invalid snapshot {}: {error}", path.display()))?;
     Ok(snapshot)
 }
 

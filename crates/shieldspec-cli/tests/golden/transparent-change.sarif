@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "runs": [
+    {
+      "results": [
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/data/transparent-change.json"
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Change output uses the transparent pool"
+          },
+          "partialFingerprints": {
+            "shieldspecFingerprint": "ss-fe7e518922ac04fd"
+          },
+          "properties": {
+            "evidence": {
+              "output_index": "1",
+              "pool": "transparent",
+              "role": "change",
+              "value_zat": "10000"
+            },
+            "fingerprint": "ss-fe7e518922ac04fd",
+            "severity": "error",
+            "step_index": 0
+          },
+          "ruleId": "SS003_TRANSPARENT_CHANGE"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/data/transparent-change.json"
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Value crosses the privacy boundary shielded_to_transparent"
+          },
+          "partialFingerprints": {
+            "shieldspecFingerprint": "ss-4842087d252fb04e"
+          },
+          "properties": {
+            "evidence": {
+              "crossing_value_zat": "10000",
+              "direction": "shielded_to_transparent",
+              "shielded_input_zat": "110000",
+              "shielded_output_zat": "90000",
+              "transparent_input_zat": "0",
+              "transparent_output_zat": "10000"
+            },
+            "fingerprint": "ss-4842087d252fb04e",
+            "severity": "warning",
+            "step_index": 0
+          },
+          "ruleId": "SS005_PRIVACY_BOUNDARY"
+        }
+      ],
+      "tool": {
+        "driver": {
+          "informationUri": "https://github.com/Ay-obami/ShieldSpec",
+          "name": "ShieldSpec",
+          "rules": [
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "id": "SS003_TRANSPARENT_CHANGE",
+              "name": "SS003_TRANSPARENT_CHANGE",
+              "shortDescription": {
+                "text": "Change output uses the transparent pool"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "id": "SS005_PRIVACY_BOUNDARY",
+              "name": "SS005_PRIVACY_BOUNDARY",
+              "shortDescription": {
+                "text": "Value crosses the transparent/shielded privacy boundary"
+              }
+            }
+          ],
+          "semanticVersion": "0.1.0"
+        }
+      }
+    }
+  ],
+  "version": "2.1.0"
+}

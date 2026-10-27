@@ -1,7 +1,6 @@
-use std::collections::BTreeSet;
-
 use shieldspec_core::{assess, OutputRole, Policy, Pool, ProposalSnapshot};
 use shieldspec_testkit::{fixture, fixture_names, write_fixture, FixtureWriteError};
+use std::collections::BTreeSet;
 
 const EXPECTED_NAMES: &[&str] = &[
     "shielded-payment",

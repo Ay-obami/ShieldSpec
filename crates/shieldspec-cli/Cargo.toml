@@ -13,5 +13,5 @@ path = "src/main.rs"
 clap.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-shieldspec-core = { path = "../shieldspec-core" }
-shieldspec-testkit = { path = "../shieldspec-testkit" }
+shieldspec-core = { version = "0.1.0", path = "../shieldspec-core" }
+shieldspec-testkit = { version = "0.1.0", path = "../shieldspec-testkit" }

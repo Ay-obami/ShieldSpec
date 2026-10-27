@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "network": "test",
+  "steps": [
+    {
+      "index": 0,
+      "inputs": [{ "pool": "orchard", "value_zat": 110000 }],
+      "outputs": [
+        { "pool": "transparent", "role": "recipient", "value_zat": 100000 }
+      ],
+      "fee_zat": 10000
+    }
+  ]
+}

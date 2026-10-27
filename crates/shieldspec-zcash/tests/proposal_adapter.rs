@@ -65,6 +65,16 @@ fn transparent_balance(change: u64, fee: u64) -> TransactionBalance {
     .expect("valid balance")
 }
 
+fn ephemeral_transparent_balance(value: u64, fee: u64) -> TransactionBalance {
+    TransactionBalance::new(
+        vec![ChangeValue::ephemeral_transparent(
+            Zatoshis::const_from_u64(value),
+        )],
+        Zatoshis::const_from_u64(fee),
+    )
+    .expect("valid ephemeral balance")
+}
+
 fn transparent_proposal() -> Proposal<(), u32> {
     Proposal::single_step(
         transparent_request(PAYMENT_VALUE, 0x11),
@@ -115,7 +125,7 @@ fn snapshots_transparent_funding_selected_payment_change_and_fee() {
 }
 
 #[test]
-fn snapshots_late_step_input_provenance_from_referenced_change() {
+fn snapshots_ephemeral_output_and_later_input_with_transparent_pool_and_value() {
     let first: Step<u32> = Step::from_parts(
         &[],
         transparent_request(PAYMENT_VALUE, 0x41),
@@ -124,7 +134,7 @@ fn snapshots_late_step_input_provenance_from_referenced_change() {
         None,
         None,
         vec![],
-        transparent_balance(CHANGE_VALUE, FEE_VALUE),
+        ephemeral_transparent_balance(CHANGE_VALUE, FEE_VALUE),
         false,
         false,
     )
@@ -154,6 +164,29 @@ fn snapshots_late_step_input_provenance_from_referenced_change() {
     let snapshot = snapshot_from_proposal(&proposal, "testnet").expect("snapshot");
 
     assert_eq!(snapshot.steps.len(), 2);
+    assert_eq!(
+        snapshot.steps[0],
+        StepSnapshot {
+            index: 0,
+            inputs: vec![InputFact {
+                pool: Pool::Transparent,
+                value_zat: INPUT_VALUE,
+            }],
+            outputs: vec![
+                OutputFact {
+                    pool: Pool::Transparent,
+                    role: OutputRole::Recipient,
+                    value_zat: PAYMENT_VALUE,
+                },
+                OutputFact {
+                    pool: Pool::Transparent,
+                    role: OutputRole::Other,
+                    value_zat: CHANGE_VALUE,
+                },
+            ],
+            fee_zat: FEE_VALUE,
+        }
+    );
     assert_eq!(snapshot.steps[1].index, 1);
     assert_eq!(
         snapshot.steps[1].inputs,

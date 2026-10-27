@@ -194,7 +194,11 @@ pub fn snapshot_from_proposal<FeeRule, NoteRef>(
                 .iter()
                 .map(|change| OutputFact {
                     pool: snapshot_pool(change.output_pool()),
-                    role: OutputRole::Change,
+                    role: if change.is_ephemeral() {
+                        OutputRole::Other
+                    } else {
+                        OutputRole::Change
+                    },
                     value_zat: change.value().into_u64(),
                 }),
         );

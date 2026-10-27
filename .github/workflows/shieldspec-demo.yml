@@ -20,7 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        # actions/checkout v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Confirm shielded proposal passes
         uses: ./
@@ -43,9 +44,9 @@ jobs:
         if: always()
         shell: bash
         env:
-          REGRESSION_OUTCOME: ${{ steps.regression.outcome }}
+          REGRESSION_STATUS: ${{ steps.regression.outputs.status }}
         run: |
-          if [[ "$REGRESSION_OUTCOME" != failure ]]; then
-            echo "Expected the regression check to fail, got: $REGRESSION_OUTCOME" >&2
+          if [[ "$REGRESSION_STATUS" != 2 ]]; then
+            echo "Expected ShieldSpec status 2, got: $REGRESSION_STATUS" >&2
             exit 1
           fi

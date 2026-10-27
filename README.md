@@ -6,7 +6,7 @@ ShieldSpec is a **Core & Tooling** project: a reusable Rust policy engine and te
 
 ## Five-minute demo
 
-You need a stable Rust toolchain and this repository. From its root, compare the canonical shielded baseline with a candidate that adds transparent change:
+You need Rust 1.95 or newer; this repository pins Rust 1.95.0 for reproducible verification. From its root, compare the canonical shielded baseline with a candidate that adds transparent change:
 
 ```bash
 cargo run -p shieldspec-cli -- \
@@ -34,7 +34,7 @@ Commit or generate proposal snapshots without keys, then add a workflow step:
 
 ```yaml
 - name: Check proposal privacy regression
-  uses: Ay-obami/ShieldSpec@main
+  uses: Ay-obami/ShieldSpec@v0.1.0
   with:
     baseline: fixtures/shielded-payment.json
     candidate: fixtures/transparent-change.json
@@ -42,7 +42,7 @@ Commit or generate proposal snapshots without keys, then add a workflow step:
     format: sarif
 ```
 
-Omit `baseline` to check one candidate against the selected policy. The action requires no wallet seed, spending key, signing access, or network credentials.
+Omit `baseline` to check one candidate against the selected policy. The action's `status` output is the CLI exit status: `0` for a pass, `1` for an operational error, or `2` for a privacy failure. Pin a specific release tag (for example, `v0.1.0`) rather than a mutable branch. The action requires no wallet seed, spending key, signing access, or network credentials. It does require outbound network access to install the pinned Rust toolchain and download Cargo dependencies unless those assets are already available in the runner's caches.
 
 ## Architecture
 

@@ -16,6 +16,7 @@ fn finding_profile(snapshot: &shieldspec_core::ProposalSnapshot) -> BTreeMap<Str
     assess(snapshot, &Policy::standard())
         .findings
         .into_iter()
+        .filter(|finding| !finding.rule_id.starts_with("SS000_"))
         .map(|finding| (finding.fingerprint, finding.severity))
         .collect()
 }
