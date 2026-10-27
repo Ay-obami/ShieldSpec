@@ -490,6 +490,7 @@ fn replay(
         recorded_rule_id,
         replay_seed,
         replay_ordinal,
+        replay_scenario_family,
         single_reproduction,
         saved_provenance,
         saved_wallet_policy_difference,
@@ -499,11 +500,29 @@ fn replay(
                 .map_err(|error| format!("could not read {}: {error}", path.display()))?;
             let discovery: Discovery = serde_json::from_slice(&bytes)
                 .map_err(|error| format!("could not parse {}: {error}", path.display()))?;
+            let inferred_family = match &discovery.original {
+                Scenario::Nu63OrchardPayment(_) => ScenarioFamily::Ironwood,
+                Scenario::OrchardPayment(_) | Scenario::TexPayment(_) => ScenarioFamily::Legacy,
+            };
+            let recorded_family = match discovery.scenario_family.as_deref() {
+                None => inferred_family,
+                Some("legacy") => ScenarioFamily::Legacy,
+                Some("ironwood") => ScenarioFamily::Ironwood,
+                Some(other) => {
+                    return Err(format!("unsupported recorded scenario family: {other}"))
+                }
+            };
+            if recorded_family != inferred_family {
+                return Err(
+                    "recorded scenario family conflicts with the original scenario kind".to_owned(),
+                );
+            }
             (
                     discovery.minimized,
                     Some(discovery.rule_id),
                     discovery.seed,
                     discovery.ordinal,
+                    recorded_family,
                     format!(
                         "cargo run --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz -- replay --input {}",
                         path.display()
@@ -519,6 +538,7 @@ fn replay(
                     None,
                     seed,
                     ordinal,
+                    scenario_family,
                     format!(
                         "cargo run --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz -- replay --seed {seed} --ordinal {ordinal}{}",
                         scenario_family.reproduction_arg(),
@@ -629,7 +649,7 @@ fn replay(
             differential_reproduction(
                 replay_seed,
                 replay_ordinal,
-                scenario_family,
+                replay_scenario_family,
                 policy_name,
                 &baseline,
                 &candidate,

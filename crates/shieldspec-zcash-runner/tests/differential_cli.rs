@@ -441,6 +441,55 @@ fn replay_labels_the_recorded_snapshot_rule_even_if_a_wallet_policy_also_changes
 }
 
 #[test]
+fn legacy_style_ironwood_discovery_replay_retains_its_seed_reproduction_family() {
+    let directory = TestDirectory::new("ironwood-legacy-discovery");
+    let root = directory.path();
+    let baseline = observed_runner(root, "ironwood-base", WalletPolicyDecision::Accepted);
+    let candidate = observed_runner(root, "ironwood-candidate", WalletPolicyDecision::Rejected);
+    let discovery = root.join("ironwood-discovery.json");
+    let scenario = shieldspec_zcash_runner::ScenarioGenerator::nu63_scenario_at(2026, 0);
+    fs::write(
+        &discovery,
+        serde_json::to_vec(&serde_json::json!({
+            "seed": 2026,
+            "ordinal": 0,
+            "scenario_family": "ironwood",
+            "rule_id": "WALLET_POLICY_DECISION_DIFFERENCE",
+            "original": scenario,
+            "minimized": scenario,
+            "wallet_policy_difference": {
+                "policy": "test_policy",
+                "baseline": "accepted",
+                "candidate": "rejected"
+            }
+        }))
+        .expect("discovery JSON"),
+    )
+    .expect("write legacy-style discovery without executable provenance");
+
+    let (exit, replay) = run_binary(&[
+        "replay",
+        "--input",
+        discovery.to_str().expect("discovery path"),
+        "--baseline-runner",
+        baseline.to_str().expect("baseline path"),
+        "--candidate-runner",
+        candidate.to_str().expect("candidate path"),
+        "--format",
+        "json",
+    ]);
+    assert_eq!(exit, 2, "{replay}");
+    assert_eq!(replay["recorded_rule_reproduced"], true);
+    assert!(
+        replay["reproduction"]
+            .as_str()
+            .expect("reproduction command")
+            .contains("--scenario-family ironwood"),
+        "stored Ironwood family must survive replay even without provenance: {replay}"
+    );
+}
+
+#[test]
 fn general_fuzzer_can_generate_and_replay_ironwood_scenarios_by_seed() {
     let directory = TestDirectory::new("ironwood-fuzz");
     let root = directory.path();
