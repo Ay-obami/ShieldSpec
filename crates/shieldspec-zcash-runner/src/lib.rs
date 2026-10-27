@@ -8,19 +8,26 @@ use std::{convert::Infallible, error::Error, fmt};
 
 use serde::{Deserialize, Serialize};
 use shieldspec_core::ProposalSnapshot;
-use shieldspec_fuzz::{DifferentialProvenance, WalletPolicyDifference};
+use shieldspec_fuzz::{
+    DifferentialProvenance, WalletPolicyDecision, WalletPolicyDifference, WalletPolicyVerdict,
+};
 use shieldspec_zcash::{snapshot_from_proposal, AdapterError};
 use zcash_client_backend::{
     data_api::{
+        error::Error as WalletError,
         testing::{
             orchard::OrchardPoolTester,
             pool::{dsl::TestDsl, ShieldedPoolTester},
             sapling::SaplingPoolTester,
         },
-        wallet::ConfirmationsPolicy,
+        wallet::{
+            input_selection::{GreedyInputSelector, SpendPolicy},
+            ConfirmationsPolicy,
+        },
         Account,
     },
-    fees::StandardFeeRule,
+    fees::{standard::SingleOutputChangeStrategy, DustOutputPolicy, StandardFeeRule},
+    zip321::{Payment, TransactionRequest},
 };
 use zcash_client_sqlite::testing::{db::TestDbFactory, BlockCache};
 use zcash_keys::{address::Address, keys::transparent::gap_limits::GapLimits};
@@ -204,15 +211,30 @@ fn validate_amounts(
     Ok(())
 }
 
-fn run_payment_with_funding<T: ShieldedPoolTester>(
+struct PaymentExecution<'a> {
     funding_zat: u64,
     payment_zat: u64,
     note_count: u8,
     confirmations: u8,
     empty_blocks: u8,
-    recipient: &Address,
+    recipient: &'a Address,
     change_pool: ShieldedPoolChoice,
-) -> Result<ProposalSnapshot, RunnerError> {
+    observe_orchard_only: bool,
+}
+
+fn run_payment_with_funding<T: ShieldedPoolTester>(
+    execution: PaymentExecution<'_>,
+) -> Result<(ProposalSnapshot, Option<WalletPolicyDecision>), RunnerError> {
+    let PaymentExecution {
+        funding_zat,
+        payment_zat,
+        note_count,
+        confirmations,
+        empty_blocks,
+        recipient,
+        change_pool,
+        observe_orchard_only,
+    } = execution;
     validate_amounts(funding_zat, payment_zat, note_count, confirmations)?;
 
     let gap_limits = GapLimits::new(10, 5, 3);
@@ -254,62 +276,132 @@ fn run_payment_with_funding<T: ShieldedPoolTester>(
         )
         .map_err(|error| RunnerError::Proposal(format!("{error:?}")))?;
 
-    snapshot_from_proposal(&proposal, "local-test").map_err(Into::into)
+    // Construct a complete, SDK-authored diagnostic proposal first. In the
+    // rejection case there can be no Orchard-only proposal to snapshot, but
+    // the unrestricted proposal proves that the transfer itself is fundable.
+    let snapshot = snapshot_from_proposal(&proposal, "local-test")?;
+
+    let wallet_decision = if observe_orchard_only {
+        let request = TransactionRequest::new(vec![Payment::without_memo(
+            recipient.to_zcash_address(wallet.network()),
+            Zatoshis::const_from_u64(payment_zat),
+        )])
+        .map_err(|error| RunnerError::Proposal(format!("invalid policy request: {error:?}")))?;
+        let selector = GreedyInputSelector::new();
+        let change_strategy = SingleOutputChangeStrategy::new(
+            StandardFeeRule::Zip317,
+            None,
+            change_pool.protocol(),
+            DustOutputPolicy::default(),
+        );
+        let spend_policy = SpendPolicy::shielded_pools([ShieldedPool::Orchard]);
+
+        // Only an SDK-reported shortage under the explicit spend policy is a
+        // normal rejection. Sync, database, address and proposal errors must
+        // remain operational failures, never fabricated policy decisions.
+        let decision = match wallet.propose_transfer_with_policy(
+            account_id,
+            &selector,
+            &change_strategy,
+            request,
+            confirmations_policy,
+            &spend_policy,
+        ) {
+            Ok(_) => WalletPolicyDecision::Accepted,
+            Err(WalletError::InsufficientFunds { .. }) => WalletPolicyDecision::Rejected,
+            Err(error) => {
+                return Err(RunnerError::Proposal(format!(
+                    "Orchard-only wallet spend policy evaluation failed: {error:?}"
+                )));
+            }
+        };
+        Some(decision)
+    } else {
+        None
+    };
+
+    Ok((snapshot, wallet_decision))
+}
+
+fn run_orchard_payment_internal(
+    scenario: &OrchardPaymentScenario,
+    observe_orchard_only: bool,
+) -> Result<(ProposalSnapshot, Option<WalletPolicyDecision>), RunnerError> {
+    let recipient_sk = OrchardPoolTester::sk(&[scenario.recipient_seed; 32]);
+    let recipient = OrchardPoolTester::sk_default_address(&recipient_sk);
+
+    match scenario.funding_pool {
+        ShieldedPoolChoice::Sapling => {
+            run_payment_with_funding::<SaplingPoolTester>(PaymentExecution {
+                funding_zat: scenario.funding_zat,
+                payment_zat: scenario.payment_zat,
+                note_count: scenario.note_count,
+                confirmations: scenario.confirmations,
+                empty_blocks: scenario.empty_blocks,
+                recipient: &recipient,
+                change_pool: scenario.change_pool,
+                observe_orchard_only,
+            })
+        }
+        ShieldedPoolChoice::Orchard => {
+            run_payment_with_funding::<OrchardPoolTester>(PaymentExecution {
+                funding_zat: scenario.funding_zat,
+                payment_zat: scenario.payment_zat,
+                note_count: scenario.note_count,
+                confirmations: scenario.confirmations,
+                empty_blocks: scenario.empty_blocks,
+                recipient: &recipient,
+                change_pool: scenario.change_pool,
+                observe_orchard_only,
+            })
+        }
+    }
 }
 
 /// Builds an in-memory Zcash wallet and pays an Orchard recipient.
 pub fn run_orchard_payment(
     scenario: &OrchardPaymentScenario,
 ) -> Result<ProposalSnapshot, RunnerError> {
-    let recipient_sk = OrchardPoolTester::sk(&[scenario.recipient_seed; 32]);
-    let recipient = OrchardPoolTester::sk_default_address(&recipient_sk);
+    run_orchard_payment_internal(scenario, false).map(|(snapshot, _)| snapshot)
+}
+
+fn run_tex_payment_internal(
+    scenario: &TexPaymentScenario,
+    observe_orchard_only: bool,
+) -> Result<(ProposalSnapshot, Option<WalletPolicyDecision>), RunnerError> {
+    let recipient = Address::Tex([scenario.recipient_tag; 20]);
 
     match scenario.funding_pool {
-        ShieldedPoolChoice::Sapling => run_payment_with_funding::<SaplingPoolTester>(
-            scenario.funding_zat,
-            scenario.payment_zat,
-            scenario.note_count,
-            scenario.confirmations,
-            scenario.empty_blocks,
-            &recipient,
-            scenario.change_pool,
-        ),
-        ShieldedPoolChoice::Orchard => run_payment_with_funding::<OrchardPoolTester>(
-            scenario.funding_zat,
-            scenario.payment_zat,
-            scenario.note_count,
-            scenario.confirmations,
-            scenario.empty_blocks,
-            &recipient,
-            scenario.change_pool,
-        ),
+        ShieldedPoolChoice::Sapling => {
+            run_payment_with_funding::<SaplingPoolTester>(PaymentExecution {
+                funding_zat: scenario.funding_zat,
+                payment_zat: scenario.payment_zat,
+                note_count: scenario.note_count,
+                confirmations: scenario.confirmations,
+                empty_blocks: scenario.empty_blocks,
+                recipient: &recipient,
+                change_pool: scenario.change_pool,
+                observe_orchard_only,
+            })
+        }
+        ShieldedPoolChoice::Orchard => {
+            run_payment_with_funding::<OrchardPoolTester>(PaymentExecution {
+                funding_zat: scenario.funding_zat,
+                payment_zat: scenario.payment_zat,
+                note_count: scenario.note_count,
+                confirmations: scenario.confirmations,
+                empty_blocks: scenario.empty_blocks,
+                recipient: &recipient,
+                change_pool: scenario.change_pool,
+                observe_orchard_only,
+            })
+        }
     }
 }
 
 /// Runs a real ZIP 320 shielded-to-TEX proposal.
 pub fn run_tex_payment(scenario: &TexPaymentScenario) -> Result<ProposalSnapshot, RunnerError> {
-    let recipient = Address::Tex([scenario.recipient_tag; 20]);
-
-    match scenario.funding_pool {
-        ShieldedPoolChoice::Sapling => run_payment_with_funding::<SaplingPoolTester>(
-            scenario.funding_zat,
-            scenario.payment_zat,
-            scenario.note_count,
-            scenario.confirmations,
-            scenario.empty_blocks,
-            &recipient,
-            scenario.change_pool,
-        ),
-        ShieldedPoolChoice::Orchard => run_payment_with_funding::<OrchardPoolTester>(
-            scenario.funding_zat,
-            scenario.payment_zat,
-            scenario.note_count,
-            scenario.confirmations,
-            scenario.empty_blocks,
-            &recipient,
-            scenario.change_pool,
-        ),
-    }
+    run_tex_payment_internal(scenario, false).map(|(snapshot, _)| snapshot)
 }
 
 /// Stable, SDK-independent fuzzing scenario envelope.
@@ -397,6 +489,31 @@ pub fn run_scenario(scenario: &Scenario) -> Result<ProposalSnapshot, RunnerError
         Scenario::OrchardPayment(scenario) => run_orchard_payment(scenario),
         Scenario::TexPayment(scenario) => run_tex_payment(scenario),
     }
+}
+
+/// Executes the SDK's Orchard-only spend selection against the same wallet state.
+///
+/// The snapshot records the real unrestricted diagnostic proposal. When the
+/// policy rejects, no policy-conforming proposal exists to snapshot; therefore
+/// the verdict is exclusively the independently observed SDK selection result.
+pub fn run_scenario_with_orchard_only_spend_policy(
+    scenario: &Scenario,
+) -> Result<(ProposalSnapshot, WalletPolicyVerdict), RunnerError> {
+    let (snapshot, decision) = match scenario {
+        Scenario::OrchardPayment(scenario) => run_orchard_payment_internal(scenario, true),
+        Scenario::TexPayment(scenario) => run_tex_payment_internal(scenario, true),
+    }?;
+    let decision = decision.ok_or_else(|| {
+        RunnerError::Proposal("Orchard-only wallet spend policy was not evaluated".to_owned())
+    })?;
+
+    Ok((
+        snapshot,
+        WalletPolicyVerdict {
+            policy: "zcash_spend_orchard_only_v1".to_owned(),
+            decision,
+        },
+    ))
 }
 
 /// Deterministic scenario generator. It deliberately generates semantic wallet
