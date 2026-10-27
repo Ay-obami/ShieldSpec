@@ -819,15 +819,13 @@ impl ScenarioGenerator {
     /// Use `sapling_recipient_scenario_at` for reproducible replay.
     #[must_use]
     pub fn next_sapling_recipient_scenario(&mut self) -> Scenario {
-        let mut generated = self.next_case();
-        if let Scenario::OrchardPayment(scenario) = &mut generated.scenario {
-            scenario.recipient_pool = ShieldedPoolChoice::Sapling;
-        } else {
-            let source = match generated.scenario {
-                Scenario::TexPayment(ref scenario) => scenario,
-                Scenario::OrchardPayment(_) => unreachable!(),
-            };
-            generated.scenario = Scenario::OrchardPayment(OrchardPaymentScenario {
+        let generated = self.next_case();
+        match generated.scenario {
+            Scenario::OrchardPayment(mut scenario) => {
+                scenario.recipient_pool = ShieldedPoolChoice::Sapling;
+                Scenario::OrchardPayment(scenario)
+            }
+            Scenario::TexPayment(source) => Scenario::OrchardPayment(OrchardPaymentScenario {
                 funding_zat: source.funding_zat,
                 payment_zat: source.payment_zat,
                 recipient_seed: source.recipient_tag,
@@ -837,9 +835,19 @@ impl ScenarioGenerator {
                 funding_pool: source.funding_pool,
                 change_pool: source.change_pool,
                 recipient_pool: ShieldedPoolChoice::Sapling,
-            });
+            }),
+            Scenario::UnifiedPayment(source) => Scenario::OrchardPayment(OrchardPaymentScenario {
+                funding_zat: source.funding_zat,
+                payment_zat: source.payment_zat,
+                recipient_seed: generated.ordinal as u8,
+                note_count: source.note_count,
+                confirmations: source.confirmations,
+                empty_blocks: source.empty_blocks,
+                funding_pool: source.funding_pool,
+                change_pool: source.change_pool,
+                recipient_pool: ShieldedPoolChoice::Sapling,
+            }),
         }
-        generated.scenario
     }
 
     #[must_use]

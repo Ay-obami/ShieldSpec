@@ -1,4 +1,4 @@
-use shieldspec_core::{assess, Policy};
+use shieldspec_core::{assess, Policy, Pool};
 use shieldspec_zcash_runner::{
     run_scenario, shrink_scenario, Discovery, GeneratedCase, Scenario, ScenarioGenerator,
     ShieldedPoolChoice,
