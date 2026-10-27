@@ -84,15 +84,42 @@ fn representative_generated_cases_execute_through_real_zcash_proposals() {
         let first = run_scenario(&case.scenario).expect("generated scenario must be executable");
         let second = run_scenario(&case.scenario).expect("generated scenario must replay");
         assert_eq!(first, second, "real proposal replay must be deterministic");
+
+        let assessment = assess(&first, &Policy::standard());
+        match &case.scenario {
+            Scenario::OrchardPayment(_) => assert!(
+                assessment.passes,
+                "ordinary shielded scenarios should stay clean: {:?}",
+                assessment.findings
+            ),
+            Scenario::TexPayment(_) => {
+                assert!(assessment
+                    .findings
+                    .iter()
+                    .any(|finding| finding.rule_id == "SS001_TRANSPARENT_RECIPIENT"));
+                assert!(assessment
+                    .findings
+                    .iter()
+                    .any(|finding| finding.rule_id == "SS005_PRIVACY_BOUNDARY"));
+                assert!(assessment
+                    .findings
+                    .iter()
+                    .all(|finding| finding.rule_id != "SS002_TRANSPARENT_FUNDING"));
+                assert!(assessment
+                    .findings
+                    .iter()
+                    .all(|finding| finding.rule_id != "SS003_TRANSPARENT_CHANGE"));
+            }
+        }
     }
 }
 
 #[test]
-fn committed_minimized_discovery_replays_from_seed_and_stays_minimal() {
+fn committed_known_tex_finding_replays_from_seed_and_stays_minimal() {
     let discovery: Discovery = serde_json::from_str(include_str!(
         "../fixtures/discoveries/tex-transparent-recipient.json"
     ))
-    .expect("committed discovery fixture");
+    .expect("committed replay corpus fixture");
 
     let generated = ScenarioGenerator::case_at(discovery.seed, discovery.ordinal);
     assert_eq!(generated.scenario, discovery.original);
@@ -103,12 +130,12 @@ fn committed_minimized_discovery_replays_from_seed_and_stays_minimal() {
     assert!(has_transparent_recipient_failure(&discovery.minimized));
     assert!(
         discovery.minimized.complexity() < discovery.original.complexity(),
-        "committed discovery should remain a real minimized counterexample"
+        "committed known-behavior case should remain a minimized counterexample"
     );
 
     let replayed = discovery
         .replay_minimized()
-        .expect("replay minimized discovery");
+        .expect("replay minimized corpus case");
     assert!(assess(&replayed, &Policy::standard())
         .findings
         .iter()

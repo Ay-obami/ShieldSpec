@@ -93,11 +93,13 @@ This is an important false-positive check: the tool must understand intended Zca
 
 ## Published motivation
 
-Show [zcash/zallet#693](https://github.com/zcash/zallet/issues/693). The issue documents a concrete ecosystem testability problem: realistic `Step` and `Proposal` construction can be cumbersome enough to block direct privacy-policy unit testing.
+Keep this brief in the video. Show [zcash/zallet#693](https://github.com/zcash/zallet/issues/693) as the primary evidence that realistic proposal construction can block direct privacy-policy testing. Optionally flash [zcash/librustzcash#2614](https://github.com/zcash/librustzcash/issues/2614) and [zcash/librustzcash#2775](https://github.com/zcash/librustzcash/issues/2775) as supporting evidence that proposal edge cases can escape hand-written tests and that privacy properties need explicit leak-regression assertions.
 
-Do **not** say ShieldSpec closes that issue. Say:
+Do **not** say ShieldSpec closes any of those issues. Say:
 
-> Zallet #693 is published evidence of the underlying testability pain. ShieldSpec takes a broader external approach: generate wallet state, invoke the real proposal engine, evaluate privacy invariants, and minimize failures into deterministic regression cases.
+> Zcash developers have publicly documented proposal testability gaps and the need for explicit privacy regression assertions. ShieldSpec turns that testing problem into an automated workflow: generate wallet state, invoke the real proposal engine, compare privacy invariants, and minimize failures into deterministic regression cases.
+
+Then immediately return to the live ShieldSpec demo; the upstream issues validate the idea but are not the center of the project.
 
 ## CI close
 
@@ -106,7 +108,7 @@ Show the `Privacy differential fuzzer smoke` job. It verifies:
 - a deterministic baseline-vs-itself campaign produces no regression;
 - the judge demo exits `2` and includes `SS003_TRANSPARENT_CHANGE`;
 - the exact differential replay also exits `2`;
-- a committed minimized discovery replays its recorded rule.
+- the committed known-behavior TEX corpus case replays its recorded rule without false transparent-funding/change findings.
 
 Then show the original ShieldSpec Action as the lightweight production CI gate.
 

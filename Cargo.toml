@@ -13,6 +13,8 @@ resolver = "2"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 rust-version = "1.95"
+repository = "https://github.com/Ay-obami/ShieldSpec"
+homepage = "https://github.com/Ay-obami/ShieldSpec"
 
 [workspace.dependencies]
 clap = { version = "4", features = ["derive"] }

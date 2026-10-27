@@ -109,9 +109,9 @@ Generated dimensions currently include shielded funding pool, fallback change po
 
 A reported case contains its seed and ordinal. The semantic shrinker removes unnecessary state while repeatedly executing the real proposal path and preserving the target privacy regression.
 
-## Discovery corpus
+## Replay corpus
 
-Committed discoveries live under:
+Replayable minimized cases live under:
 
 ```text
 crates/shieldspec-zcash-runner/fixtures/discoveries/
@@ -126,13 +126,17 @@ cargo run --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz -- \
   --format human
 ```
 
-A stored discovery records its generator seed, ordinal, rule ID, original scenario, and minimized scenario.
+The committed TEX case is a **known expected Zcash behavior**, not a claimed upstream vulnerability: it preserves the transparent recipient finding while proving the ZIP 320 ephemeral bridge is not mislabeled as wallet transparent funding or transparent change. A future differential finding saved with `--save` uses the same seed/ordinal/original/minimized replay format.
 
 ## Published motivation
 
-ShieldSpec was motivated in part by a concrete Zcash developer-testing problem documented in [zcash/zallet#693](https://github.com/zcash/zallet/issues/693): realistic `Step` and `Proposal` values were cumbersome enough to make direct privacy-policy unit testing difficult.
+ShieldSpec is grounded in public Zcash developer-testing gaps, without claiming to close those upstream issues:
 
-ShieldSpec does **not** claim to close that Zallet issue. It attacks the underlying testability problem from outside the wallet: generate realistic wallet conditions, let the actual Zcash proposal machinery construct the proposal, evaluate privacy invariants, and minimize failures into replayable regression cases.
+- [zcash/zallet#693](https://github.com/zcash/zallet/issues/693) documents that realistic `Step` and `Proposal` values can be cumbersome enough to block direct privacy-policy unit testing.
+- [zcash/librustzcash#2614](https://github.com/zcash/librustzcash/issues/2614) documents proposal-construction edge cases that escaped existing tests because the exercised path did not reach the affected behavior.
+- [zcash/librustzcash#2775](https://github.com/zcash/librustzcash/issues/2775) explicitly calls for privacy `leak-regression` tests where ordinary correctness assertions did not verify the privacy property itself.
+
+Those issues validate the problem; they are not the product. ShieldSpec's contribution is the reusable workflow around them: generate realistic wallet conditions, let the actual Zcash proposal machinery construct proposals, evaluate explicit privacy invariants, compare implementations, and minimize failures into replayable regression cases.
 
 ## Original ShieldSpec regression gate
 
@@ -209,4 +213,4 @@ cargo test --locked -p shieldspec-fuzz -p shieldspec-zcash-runner --all-targets
 cargo clippy --locked -p shieldspec-fuzz -p shieldspec-zcash-runner --all-targets -- -D warnings
 ```
 
-The CI suite also runs a deterministic clean differential campaign, the judge demo, exact demo differential replay, and committed discovery replay.
+The CI suite also runs a deterministic clean differential campaign, the judge demo, exact demo differential replay, and committed replay-corpus verification.

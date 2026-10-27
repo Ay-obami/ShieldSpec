@@ -5,6 +5,9 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 publish = false
+repository.workspace = true
+homepage.workspace = true
+description = "Real-wallet librustzcash proposal harness for ShieldSpec differential fuzzing"
 
 [dependencies]
 clap.workspace = true

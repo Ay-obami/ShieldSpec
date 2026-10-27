@@ -215,7 +215,7 @@ jobs:
           grep -q '"status": "privacy_regression_reproduced"' /tmp/shieldspec-fuzz-differential-replay.json
           grep -q 'SS003_TRANSPARENT_CHANGE' /tmp/shieldspec-fuzz-differential-replay.json
 
-      - name: Replay the committed minimized discovery
+      - name: Replay the committed known-behavior corpus case
         shell: bash
         run: |
           set +e

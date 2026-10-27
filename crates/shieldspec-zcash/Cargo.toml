@@ -4,6 +4,9 @@ version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Adapter from real librustzcash proposals to ShieldSpec privacy snapshots"
 
 [dependencies]
 shieldspec-core = { version = "0.1.0", path = "../shieldspec-core" }
