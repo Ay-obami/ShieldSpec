@@ -23,6 +23,8 @@ ShieldSpec infers a privacy regression only under the selected policy: a candida
 
 Terms such as “exposure” or “privacy boundary” describe policy interpretations of known proposal structure. They do not establish who controls an address, who a person is, or how observable data will be combined outside the proposal.
 
+**Current cross-pool boundary:** The existing `SS005_PRIVACY_BOUNDARY` snapshot rule distinguishes transparent and shielded value movements but groups Sapling, Orchard, and Ironwood together. It therefore does not, by itself, establish whether a real wallet under `FullPrivacy` wrongly accepted a shielded-to-shielded public value-balance crossing. Our pinned [Zallet historical witness](../evidence/historical-zallet-677/README.md) calls the actual upstream policy engine and is separate from the general differential fuzzer. Extending the generalized engine with first-class wallet policy verdicts, tested cross-pool semantics, and automatic replay is [tracked as active development](roadmap.md).
+
 ## Unknowns
 
 The snapshot does not establish:

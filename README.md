@@ -4,6 +4,10 @@ ShieldSpec is privacy differential fuzzing and regression testing for Zcash wall
 
 ShieldSpec is a **Core & Tooling** project. The privacy oracle remains usable as a lightweight Rust library, CLI, and GitHub Action; the fuzzing layer adds a real-wallet proposal harness, deterministic semantic scenario generation, differential runner isolation, shrinking, and a replayable discovery corpus.
 
+## Developer product and first steps
+
+ShieldSpec is being built as lasting open-source developer infrastructure, beyond the Zecathon submission. Start with the [developer quickstart](docs/getting-started.md), review the [product roadmap and current implementation boundaries](docs/roadmap.md), or preview the [responsive static website](site/README.md). The website includes a read-only historical-evidence explorer and does not pretend to run live Zcash fuzzing in a browser; public hosting is pending.
+
 ## Reproduced Zcash wallet privacy history and ShieldSpec's fuzzer demo
 
 **Real historical privacy-policy difference:** The same test-only Rust witness invokes real `zallet-core` privacy-policy code at revisions [`f496c9b`](https://github.com/zcash/zallet/commit/f496c9b6b2c6ebb0065b329c11bda4a5fdf73568) and [`e966780`](https://github.com/zcash/zallet/commit/e966780216b7a86b0a1a6618f2fde5b574da7171), from [zallet#677](https://github.com/zcash/zallet/pull/677). Under `FullPrivacy`, the affected code **accepted Ironwood→Sapling** shielded-pool crossing (which exposes a public value balance), while the fixed code **rejects** it. Pinned sources, control tests, both raw logs and a reproducible CLI are in [the Zallet privacy-history evidence](evidence/historical-zallet-677/README.md). It is a previously documented and fixed upstream wallet-core issue, not a new discovery or an automatically found ShieldSpec fuzzer result.
