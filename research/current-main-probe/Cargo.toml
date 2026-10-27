@@ -1,0 +1,13 @@
+[package]
+name = "shieldspec-current-main-probe"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+zcash_client_backend = { git = "https://github.com/zcash/librustzcash.git", rev = "a551fac8a233f54799ca1920ef78ef098cfda929", features = ["orchard", "transparent-inputs", "test-dependencies"] }
+zcash_client_sqlite = { git = "https://github.com/zcash/librustzcash.git", rev = "a551fac8a233f54799ca1920ef78ef098cfda929", features = ["orchard", "transparent-inputs", "test-dependencies"] }
+zcash_keys = { git = "https://github.com/zcash/librustzcash.git", rev = "a551fac8a233f54799ca1920ef78ef098cfda929", features = ["orchard", "sapling", "transparent-inputs", "test-dependencies"] }
+zcash_protocol = { git = "https://github.com/zcash/librustzcash.git", rev = "a551fac8a233f54799ca1920ef78ef098cfda929" }
