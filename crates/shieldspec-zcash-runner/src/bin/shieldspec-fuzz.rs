@@ -56,6 +56,9 @@ enum Command {
         seed: u64,
         #[arg(long, default_value_t = 25)]
         cases: u64,
+        /// Opt into real transparent-UTXO funding cases (legacy seeds remain unchanged by default).
+        #[arg(long)]
+        transparent_funding: bool,
         #[arg(long, value_enum, default_value_t = PolicyName::Standard)]
         policy: PolicyName,
         #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
@@ -76,6 +79,9 @@ enum Command {
         seed: Option<u64>,
         #[arg(long)]
         ordinal: Option<u64>,
+        /// Replay an extended-generator seed containing transparent funding.
+        #[arg(long)]
+        transparent_funding: bool,
         #[arg(long)]
         baseline_runner: Option<PathBuf>,
         #[arg(long)]
@@ -139,6 +145,7 @@ impl PolicyName {
 enum ScenarioFamily {
     Legacy,
     Ironwood,
+    Transparent,
 }
 
 impl ScenarioFamily {
@@ -146,6 +153,7 @@ impl ScenarioFamily {
         match self {
             Self::Legacy => "legacy",
             Self::Ironwood => "ironwood",
+            Self::Transparent => "transparent",
         }
     }
 
@@ -153,18 +161,33 @@ impl ScenarioFamily {
         match self {
             Self::Legacy => "",
             Self::Ironwood => " --scenario-family ironwood",
+            Self::Transparent => " --transparent-funding",
         }
     }
 
     fn generated_case(self, seed: u64, ordinal: u64) -> GeneratedCase {
         match self {
             Self::Legacy => ScenarioGenerator::case_at(seed, ordinal),
+            Self::Transparent => ScenarioGenerator::case_at_with_transparent_funding(seed, ordinal),
             Self::Ironwood => GeneratedCase {
                 seed,
                 ordinal,
                 scenario: ScenarioGenerator::nu63_scenario_at(seed, ordinal),
             },
         }
+    }
+}
+
+fn effective_scenario_family(
+    scenario_family: ScenarioFamily,
+    transparent_funding: bool,
+) -> Result<ScenarioFamily, String> {
+    match (scenario_family, transparent_funding) {
+        (ScenarioFamily::Ironwood, true) => Err(
+            "--transparent-funding cannot be combined with --scenario-family ironwood".to_owned(),
+        ),
+        (ScenarioFamily::Legacy, true) => Ok(ScenarioFamily::Transparent),
+        (family, _) => Ok(family),
     }
 }
 
@@ -243,6 +266,7 @@ fn main() -> ExitCode {
             candidate_sdk,
             seed,
             cases,
+            transparent_funding,
             policy,
             format,
             save,
@@ -258,6 +282,7 @@ fn main() -> ExitCode {
                     seed,
                     cases,
                     scenario_family,
+                    transparent_funding,
                     policy,
                     format,
                     save.as_deref(),
@@ -271,6 +296,7 @@ fn main() -> ExitCode {
             input,
             seed,
             ordinal,
+            transparent_funding,
             baseline_runner,
             candidate_runner,
             baseline_args,
@@ -283,6 +309,7 @@ fn main() -> ExitCode {
             seed,
             ordinal,
             scenario_family,
+            transparent_funding,
             baseline_runner,
             candidate_runner,
             baseline_args,
@@ -316,6 +343,7 @@ fn run_campaign(
     seed: u64,
     cases: u64,
     scenario_family: ScenarioFamily,
+    transparent_funding: bool,
     policy_name: PolicyName,
     format: OutputFormat,
     save: Option<&Path>,
@@ -323,6 +351,7 @@ fn run_campaign(
     candidate_sdk: Option<String>,
 ) -> Result<ExitCode, String> {
     let policy = policy_name.policy();
+    let scenario_family = effective_scenario_family(scenario_family, transparent_funding)?;
     let provenance = if save.is_some() {
         Some(DifferentialProvenance {
             baseline: RunnerProvenance::capture(baseline, baseline_sdk)?,
@@ -332,14 +361,17 @@ fn run_campaign(
     } else {
         None
     };
-    let mut legacy_generator = ScenarioGenerator::new(seed);
+    let mut legacy_generator = match scenario_family {
+        ScenarioFamily::Transparent => ScenarioGenerator::new_with_transparent_funding(seed),
+        ScenarioFamily::Legacy | ScenarioFamily::Ironwood => ScenarioGenerator::new(seed),
+    };
     let mut baseline_wallet_policy_observations = 0;
     let mut candidate_wallet_policy_observations = 0;
     let mut comparable_wallet_policy_cases = 0;
 
     for case_number in 1..=cases {
         let generated = match scenario_family {
-            ScenarioFamily::Legacy => legacy_generator.next_case(),
+            ScenarioFamily::Legacy | ScenarioFamily::Transparent => legacy_generator.next_case(),
             ScenarioFamily::Ironwood => scenario_family.generated_case(seed, case_number - 1),
         };
         let scenario_json =
@@ -408,7 +440,7 @@ fn run_campaign(
                 let discovery = Discovery {
                     seed,
                     ordinal: generated.ordinal,
-                    scenario_family: (scenario_family == ScenarioFamily::Ironwood)
+                    scenario_family: (scenario_family != ScenarioFamily::Legacy)
                         .then(|| scenario_family.as_str().to_owned()),
                     rule_id,
                     original: original.clone(),
@@ -477,6 +509,7 @@ fn replay(
     seed: Option<u64>,
     ordinal: Option<u64>,
     scenario_family: ScenarioFamily,
+    transparent_funding: bool,
     baseline_runner: Option<PathBuf>,
     candidate_runner: Option<PathBuf>,
     baseline_args: Vec<String>,
@@ -485,6 +518,7 @@ fn replay(
     policy_name: Option<PolicyName>,
     format: OutputFormat,
 ) -> Result<ExitCode, String> {
+    let scenario_family = effective_scenario_family(scenario_family, transparent_funding)?;
     let (
         scenario,
         recorded_rule_id,
@@ -502,17 +536,24 @@ fn replay(
                 .map_err(|error| format!("could not parse {}: {error}", path.display()))?;
             let inferred_family = match &discovery.original {
                 Scenario::Nu63OrchardPayment(_) => ScenarioFamily::Ironwood,
-                Scenario::OrchardPayment(_) | Scenario::TexPayment(_) => ScenarioFamily::Legacy,
+                Scenario::TransparentFundedPayment(_) => ScenarioFamily::Transparent,
+                Scenario::OrchardPayment(_)
+                | Scenario::TexPayment(_)
+                | Scenario::UnifiedPayment(_) => ScenarioFamily::Legacy,
             };
             let recorded_family = match discovery.scenario_family.as_deref() {
                 None => inferred_family,
                 Some("legacy") => ScenarioFamily::Legacy,
                 Some("ironwood") => ScenarioFamily::Ironwood,
+                Some("transparent") => ScenarioFamily::Transparent,
                 Some(other) => {
                     return Err(format!("unsupported recorded scenario family: {other}"))
                 }
             };
-            if recorded_family != inferred_family {
+            if recorded_family != inferred_family
+                && !(recorded_family == ScenarioFamily::Transparent
+                    && inferred_family == ScenarioFamily::Legacy)
+            {
                 return Err(
                     "recorded scenario family conflicts with the original scenario kind".to_owned(),
                 );
@@ -816,6 +857,7 @@ fn demo(format: OutputFormat) -> Result<ExitCode, String> {
         148,
         1,
         ScenarioFamily::Legacy,
+        false,
         PolicyName::Standard,
         format,
         None,

@@ -21,4 +21,6 @@ zcash_client_sqlite = { version = "=0.23.0-pre.2", features = ["orchard", "trans
 zcash_keys = "=0.17.0-pre.2"
 zcash_protocol = "=0.11.0-pre.1"
 zcash_primitives = "=0.31.0-pre.2"
+zcash_transparent = "=0.11.0-pre.2"
+zip321 = "=0.10.0-pre.2"
 

@@ -31,6 +31,29 @@ fn seed_and_ordinal_replay_the_exact_generated_case() {
 }
 
 #[test]
+fn sapling_recipient_corpus_runs_real_cross_pool_proposals_and_replays() {
+    let seed = 0x5a91_1eaf;
+    let mut generator = ScenarioGenerator::new(seed);
+    for ordinal in 0..4 {
+        let scenario = generator.next_sapling_recipient_scenario();
+        assert_eq!(
+            scenario,
+            ScenarioGenerator::sapling_recipient_scenario_at(seed, ordinal)
+        );
+        let Scenario::OrchardPayment(ref params) = scenario else {
+            panic!("dedicated generator must produce a shielded payment");
+        };
+        assert_eq!(params.recipient_pool, ShieldedPoolChoice::Sapling);
+        let snapshot = run_scenario(&scenario).expect("real Zcash wallet proposal");
+        assert!(snapshot.steps[0].outputs.iter().any(|output| {
+            output.pool == Pool::Sapling
+                && output.role == shieldspec_core::OutputRole::Recipient
+                && output.value_zat == params.payment_zat
+        }));
+    }
+}
+
+#[test]
 fn generated_case_json_is_a_stable_replay_contract() {
     let case = ScenarioGenerator::case_at(7, 3);
     let json = serde_json::to_string_pretty(&case).expect("serialize generated case");
@@ -46,7 +69,7 @@ fn generated_case_json_is_a_stable_replay_contract() {
 #[test]
 fn representative_generated_cases_execute_through_real_zcash_proposals() {
     let mut generator = ScenarioGenerator::new(0x0a11_ce55);
-    let cases = (0..6).map(|_| generator.next_case()).collect::<Vec<_>>();
+    let cases = (0..16).map(|_| generator.next_case()).collect::<Vec<_>>();
 
     assert!(
         cases
@@ -60,29 +83,47 @@ fn representative_generated_cases_execute_through_real_zcash_proposals() {
             .any(|case| matches!(case.scenario, Scenario::OrchardPayment(_))),
         "sample should include a shielded baseline path"
     );
+    assert!(
+        cases
+            .iter()
+            .any(|case| matches!(case.scenario, Scenario::UnifiedPayment(_))),
+        "sample should include mixed Unified Address receiver selection"
+    );
     assert!(cases.iter().any(|case| match &case.scenario {
         Scenario::OrchardPayment(scenario) => scenario.funding_pool == ShieldedPoolChoice::Sapling,
         Scenario::TexPayment(scenario) => scenario.funding_pool == ShieldedPoolChoice::Sapling,
+        Scenario::UnifiedPayment(scenario) => scenario.funding_pool == ShieldedPoolChoice::Sapling,
+        Scenario::TransparentFundedPayment(scenario) =>
+            scenario.recipient_pool == ShieldedPoolChoice::Sapling,
         Scenario::Nu63OrchardPayment(_) => unreachable!("legacy generator emits legacy cases"),
     }));
     assert!(cases.iter().any(|case| match &case.scenario {
         Scenario::OrchardPayment(scenario) => scenario.funding_pool != scenario.change_pool,
         Scenario::TexPayment(scenario) => scenario.funding_pool != scenario.change_pool,
+        Scenario::UnifiedPayment(scenario) => scenario.funding_pool != scenario.change_pool,
+        Scenario::TransparentFundedPayment(scenario) =>
+            scenario.recipient_pool != scenario.change_pool,
         Scenario::Nu63OrchardPayment(_) => unreachable!("legacy generator emits legacy cases"),
     }));
     assert!(cases.iter().any(|case| match &case.scenario {
         Scenario::OrchardPayment(scenario) => scenario.confirmations > 1,
         Scenario::TexPayment(scenario) => scenario.confirmations > 1,
+        Scenario::UnifiedPayment(scenario) => scenario.confirmations > 1,
+        Scenario::TransparentFundedPayment(scenario) => scenario.confirmations > 1,
         Scenario::Nu63OrchardPayment(_) => unreachable!("legacy generator emits legacy cases"),
     }));
     assert!(cases.iter().any(|case| match &case.scenario {
         Scenario::OrchardPayment(scenario) => scenario.note_count > 1,
         Scenario::TexPayment(scenario) => scenario.note_count > 1,
+        Scenario::UnifiedPayment(scenario) => scenario.note_count > 1,
+        Scenario::TransparentFundedPayment(scenario) => scenario.utxo_count > 1,
         Scenario::Nu63OrchardPayment(_) => unreachable!("legacy generator emits legacy cases"),
     }));
     assert!(cases.iter().any(|case| match &case.scenario {
         Scenario::OrchardPayment(scenario) => scenario.empty_blocks > 0,
         Scenario::TexPayment(scenario) => scenario.empty_blocks > 0,
+        Scenario::UnifiedPayment(scenario) => scenario.empty_blocks > 0,
+        Scenario::TransparentFundedPayment(_) => false,
         Scenario::Nu63OrchardPayment(_) => unreachable!("legacy generator emits legacy cases"),
     }));
 
@@ -140,6 +181,22 @@ fn representative_generated_cases_execute_through_real_zcash_proposals() {
                     .iter()
                     .all(|finding| finding.rule_id != "SS003_TRANSPARENT_CHANGE"));
             }
+            Scenario::UnifiedPayment(_) => assert!(
+                assessment.findings.iter().all(|finding| {
+                    !matches!(
+                        finding.rule_id.as_str(),
+                        "SS001_TRANSPARENT_RECIPIENT"
+                            | "SS002_TRANSPARENT_FUNDING"
+                            | "SS003_TRANSPARENT_CHANGE"
+                    )
+                }),
+                "Unified Address receiver selection must avoid transparent exposure: {:?}",
+                assessment.findings
+            ),
+            Scenario::TransparentFundedPayment(_) => assert!(assessment
+                .findings
+                .iter()
+                .any(|finding| finding.rule_id == "SS002_TRANSPARENT_FUNDING")),
             Scenario::Nu63OrchardPayment(_) => {
                 unreachable!("legacy generator emits legacy cases")
             }

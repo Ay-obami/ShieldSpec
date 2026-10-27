@@ -1,6 +1,7 @@
 use shieldspec_core::{assess, InputOrigin, OutputRole, Policy, Pool, PriorStepOutput};
 use shieldspec_zcash_runner::{
-    run_orchard_payment, run_tex_payment, OrchardPaymentScenario, TexPaymentScenario,
+    run_orchard_payment, run_tex_payment, run_unified_payment, OrchardPaymentScenario,
+    ShieldedPoolChoice, TexPaymentScenario, UnifiedPaymentScenario, UnifiedReceiverSet,
 };
 
 #[test]
@@ -34,6 +35,22 @@ fn orchard_scenario_runs_through_real_wallet_proposal_machinery() {
         "shielded Orchard proposal should pass: {:?}",
         assessment.findings
     );
+}
+
+#[test]
+fn sapling_recipient_uses_real_wallet_proposal_machinery() {
+    let mut scenario = OrchardPaymentScenario::demo();
+    scenario.recipient_pool = ShieldedPoolChoice::Sapling;
+    let snapshot = run_orchard_payment(&scenario).expect("real Sapling recipient proposal");
+
+    let step = &snapshot.steps[0];
+    assert!(step.outputs.iter().any(|output| {
+        output.pool == Pool::Sapling
+            && output.role == OutputRole::Recipient
+            && output.value_zat == scenario.payment_zat
+    }));
+    assert!(step.inputs.iter().all(|input| input.pool == Pool::Orchard));
+    assert_eq!(run_orchard_payment(&scenario).expect("replay"), snapshot);
 }
 
 #[test]
@@ -109,4 +126,104 @@ fn invalid_scenario_is_rejected_before_wallet_execution() {
 
     let error = run_orchard_payment(&scenario).expect_err("invalid scenario");
     assert!(error.to_string().contains("leave room"));
+}
+
+#[test]
+fn mixed_unified_addresses_keep_recipient_delivery_shielded() {
+    for receivers in [
+        UnifiedReceiverSet::OrchardSapling,
+        UnifiedReceiverSet::OrchardTransparent,
+        UnifiedReceiverSet::SaplingTransparent,
+        UnifiedReceiverSet::OrchardSaplingTransparent,
+    ] {
+        for funding_pool in [ShieldedPoolChoice::Orchard, ShieldedPoolChoice::Sapling] {
+            let scenario = UnifiedPaymentScenario {
+                funding_zat: 120_000,
+                payment_zat: 75_000,
+                note_count: 2,
+                confirmations: 2,
+                empty_blocks: 1,
+                funding_pool,
+                change_pool: ShieldedPoolChoice::Orchard,
+                receivers,
+            };
+
+            let snapshot = run_unified_payment(&scenario).expect("real Unified Address proposal");
+            let recipient_outputs = snapshot
+                .steps
+                .iter()
+                .flat_map(|step| step.outputs.iter())
+                .filter(|output| output.role == OutputRole::Recipient)
+                .collect::<Vec<_>>();
+
+            assert_eq!(recipient_outputs.len(), 1);
+            let expected_pool = match receivers {
+                UnifiedReceiverSet::SaplingTransparent => Pool::Sapling,
+                UnifiedReceiverSet::OrchardSapling
+                | UnifiedReceiverSet::OrchardTransparent
+                | UnifiedReceiverSet::OrchardSaplingTransparent => Pool::Orchard,
+            };
+            assert_eq!(
+                recipient_outputs[0].pool, expected_pool,
+                "wallet should select the preferred shielded receiver: {scenario:?} -> {snapshot:?}"
+            );
+            assert_eq!(recipient_outputs[0].value_zat, scenario.payment_zat);
+
+            let assessment = assess(&snapshot, &Policy::standard());
+            assert!(
+                assessment.findings.iter().all(|finding| {
+                    !matches!(
+                        finding.rule_id.as_str(),
+                        "SS001_TRANSPARENT_RECIPIENT"
+                            | "SS002_TRANSPARENT_FUNDING"
+                            | "SS003_TRANSPARENT_CHANGE"
+                    )
+                }),
+                "shielded receiver selection must not introduce transparent exposure: {scenario:?} -> {:?}",
+                assessment.findings
+            );
+        }
+    }
+}
+
+#[test]
+fn actual_change_outputs_stay_shielded_and_conserve_value_across_pool_preferences() {
+    for change_pool in [ShieldedPoolChoice::Orchard, ShieldedPoolChoice::Sapling] {
+        for funding_pool in [ShieldedPoolChoice::Orchard, ShieldedPoolChoice::Sapling] {
+            let mut scenario = OrchardPaymentScenario::demo();
+            scenario.funding_pool = funding_pool;
+            scenario.change_pool = change_pool;
+            let snapshot = run_orchard_payment(&scenario).expect("real change proposal");
+            let change = snapshot
+                .steps
+                .iter()
+                .flat_map(|step| step.outputs.iter())
+                .filter(|output| output.role == OutputRole::Change)
+                .collect::<Vec<_>>();
+            assert!(!change.is_empty(), "expected change outputs: {scenario:?}");
+            // The requested pool is a wallet preference, not a guaranteed output pool.
+            // Real ZIP-317 proposals may keep change with the funding pool and may
+            // include zero-value shielded padding outputs.
+            assert!(
+                change
+                    .iter()
+                    .all(|output| matches!(output.pool, Pool::Orchard | Pool::Sapling)),
+                "change must remain shielded: {scenario:?} -> {snapshot:?}"
+            );
+            for step in &snapshot.steps {
+                let input_total: u64 = step.inputs.iter().map(|input| input.value_zat).sum();
+                let output_total: u64 = step.outputs.iter().map(|output| output.value_zat).sum();
+                assert_eq!(
+                    input_total,
+                    output_total + step.fee_zat,
+                    "proposal must conserve input value: {scenario:?} -> {snapshot:?}"
+                );
+            }
+            assert!(assess(&snapshot, &Policy::standard())
+                .findings
+                .iter()
+                .all(|finding| finding.rule_id != "SS003_TRANSPARENT_CHANGE"));
+            assert_eq!(run_orchard_payment(&scenario).expect("replay"), snapshot);
+        }
+    }
 }
