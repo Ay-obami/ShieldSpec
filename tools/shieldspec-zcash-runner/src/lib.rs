@@ -11,12 +11,12 @@ use shieldspec_core::ProposalSnapshot;
 use shieldspec_zcash::{snapshot_from_proposal, AdapterError};
 use zcash_client_backend::{
     data_api::{
-        Account,
         testing::{
             orchard::OrchardPoolTester,
             pool::{dsl::TestDsl, ShieldedPoolTester},
         },
         wallet::ConfirmationsPolicy,
+        Account,
     },
     fees::StandardFeeRule,
 };
