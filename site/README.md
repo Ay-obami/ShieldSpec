@@ -25,7 +25,7 @@ node --check site/app.js
 
 The `site/` folder may be deployed directly to any static hosting provider. Configure the web/public root to `site/`. No Node build step, account, wallet, secrets, or backend required.
 
-For GitHub Pages using a branch whose pages folder is `/docs`, either publish the `site/` contents as a standalone pages artifact or copy only these assets into the selected output folder as part of the deployment workflow. Do not accidentally publish repository evidence logs as user-facing browser data.
+A tested [GitHub Pages workflow](../.github/workflows/site.yml) uploads **only** `site/` whenever a reviewed change reaches `main` (or when manually dispatched). The repository's Pages setting has been enabled in GitHub Actions mode and its configured URL is `https://ay-obami.github.io/ShieldSpec/`. Merging the workflow alone is not evidence the site is live: verify a successful workflow run and a real HTTP response before announcing public availability. Do not accidentally publish repository evidence logs as user-facing browser data.
 
 ## Evidence integrity
 

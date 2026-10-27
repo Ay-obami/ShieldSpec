@@ -54,8 +54,24 @@ test("integration commands and links are usable rather than placeholders", () =>
   assert.doesNotMatch(page, /lorem ipsum/i);
 });
 
+test("the engine names the shipped cross-pool observation without claiming an upstream policy verdict", () => {
+  const page = html();
+  assert.match(page, /SS006_CROSS_SHIELDED_POOL_VALUE_BALANCE/);
+  assert.match(page, /wallet policy verdict/);
+});
+
 test("the sticky navigation is not trapped by an overflow scrolling ancestor", () => {
   assert.doesNotMatch(css(), /\.site-shell\s*\{\s*overflow:\s*hidden\s*\}/);
+});
+
+test("GitHub Pages workflow publishes only the reviewed static site after main merges", () => {
+  const workflow = readFileSync(new URL("../../.github/workflows/site.yml", import.meta.url), "utf8");
+  assert.match(workflow, /push:/);
+  assert.match(workflow, /branches:\s*\[main\]/);
+  assert.match(workflow, /path:\s*site\/?/);
+  assert.match(workflow, /actions\/deploy-pages@/);
+  assert.match(workflow, /pages:\s*write/);
+  assert.match(workflow, /id-token:\s*write/);
 });
 
 test("all local section links resolve to real ids", () => {

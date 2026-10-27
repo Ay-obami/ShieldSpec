@@ -9,13 +9,14 @@ The roadmap separates verified features from active and speculative work. The pu
 | Capability | Current boundary |
 | --- | --- |
 | Rust privacy policy core | Assesses normalized Zcash proposal snapshots and explicit transparent exposure/routing rules |
+| Cross-shielded-pool balance oracle (`SS006`) | Warns when a real normalized proposal moves public value balances between Sapling, Orchard or Ironwood; does not infer the actual wallet policy verdict |
 | Snapshot CLI | `check`, `diff`, human/JSON/SARIF output and stable 0/1/2 status contract |
 | GitHub Action | A lightweight baseline-vs-candidate privacy gate for snapshot files |
 | Real proposal runner | Isolated in-memory wallet states and real Zcash proposal construction for supported Orchard and ZIP-320 TEX scenarios |
 | Differential fuzz loop | Deterministic scenario generation, two runner processes, assessment, semantic minimization and replay |
 | Reproduction identities | Runner executable SHA-256, declared SDK labels, seeds, ordinals and minimized corpus artifacts |
 | Historical source evidence | Pinned before/after Zallet wallet-core privacy-policy witness for [zallet#677](https://github.com/zcash/zallet/pull/677), with control cases; separate librustzcash correctness history |
-| Website source | Developer-first static product landing and read-only historical evidence explorer, under `site/`. **Public hosting is not yet confirmed.** |
+| Product website and deployment workflow | Developer-first static landing, read-only historical explorer, eight site checks and a GitHub Pages workflow that publishes only `site/`. Pages has been configured; **successful public deployment is not yet verified.** |
 
 A passing run asserts only that specified invariants held for scenarios executed. It does not guarantee that users are anonymous or that a wallet has no other leak.
 
@@ -25,14 +26,14 @@ A passing run asserts only that specified invariants held for scenarios executed
 
 1. [#35 — realistic cross-pool scenarios](https://github.com/Ay-obami/ShieldSpec/issues/35): meaningful Ironwood/Sapling pool combinations with semantically valid values.
 2. [#36 — authentic policy runner input and provenance](https://github.com/Ay-obami/ShieldSpec/issues/36): reusable, machine-readable real policy outcomes with strict operational error distinctions.
-3. [#37 — cross-pool privacy oracle](https://github.com/Ay-obami/ShieldSpec/issues/37): explicit leaked-value-balance semantics and differential verdict observations.
+3. [#37 — cross-pool privacy oracle](https://github.com/Ay-obami/ShieldSpec/issues/37): the snapshot-level `SS006` warning and real SDK tests are implemented; first-class upstream wallet policy-verdict observations remain.
 4. [#40 — automatic discovery and replay integration](https://github.com/Ay-obami/ShieldSpec/issues/40): ordinary general campaign finds a real historical divergence without a purpose-built comparison flag and stores a minimized replay.
 
 The historical Ironwood→Sapling FullPrivacy regression is **not yet automatic** in the general fuzzer. Existing evidence is an independent previously published and fixed upstream reproduction, not a novel vulnerability.
 
 **Product upgrades:**
 
-5. [#38 — developer-first website](https://github.com/Ay-obami/ShieldSpec/issues/38): source integrated into the feature branch, with static tests; hosting remains.
+5. [#38 — developer-first website](https://github.com/Ay-obami/ShieldSpec/issues/38): source and checks integrated, GitHub Pages enabled and deployment workflow ready; public deployment verification remains.
 6. [#39 — onboarding and docs](https://github.com/Ay-obami/ShieldSpec/issues/39): installation, CI examples, responsible claim boundaries and contributor documentation.
 7. [#41 — final sprint integration](https://github.com/Ay-obami/ShieldSpec/issues/41): compatibility, full verification, releases, deployment status and evidence-grade demo.
 
@@ -45,7 +46,7 @@ These are goals, not promises of completion or timing. Each issue needs verified
 - **Stable developer interfaces:** Version the scenario, policy-observation, normalized snapshot, and output report schemas with migration notes.
 - **Better rule configuration:** Allow wallets to select relevant invariants, with explicit distinction between acceptable cross-pool behavior and policy violations.
 - **Contributor workflow:** Small fixture guide, test templates, code review guidelines, issue taxonomy and reproducible release artifacts.
-- **Website deployment and developer feedback:** Publish to a verified domain, add documentation navigation and issue feedback only after a deployment can be maintained responsibly.
+- **Website operational maturity:** Verify the GitHub Pages build after merge, consider a dedicated domain, and add maintainer feedback channels and documentation navigation once production uptime is established.
 
 ## Out of scope for now
 
