@@ -7,11 +7,10 @@ use std::{
     process,
 };
 
-use serde_json::json;
+use serde_json::{json, Value};
 use shieldspec_core::Policy;
 use shieldspec_fuzz::{
-    compare_snapshots, run_differential, DifferentialError, RunnerCommand, RunnerResponse,
-    RunnerSide,
+    run_differential, DifferentialError, RunnerCommand, RunnerResponse, RunnerSide,
 };
 use shieldspec_testkit::fixture;
 
@@ -26,7 +25,7 @@ fn fake_runner(
     name: &str,
     response: &RunnerResponse,
     exit_code: i32,
-) -> RunnerCommand {
+) -> (RunnerCommand, PathBuf) {
     let response_path = root.join(format!("{name}.json"));
     fs::write(
         &response_path,
@@ -34,11 +33,13 @@ fn fake_runner(
     )
     .expect("write response");
 
+    let input_path = root.join(format!("{name}-stdin.json"));
     let script_path = root.join(format!("{name}.sh"));
     fs::write(
         &script_path,
         format!(
-            "#!/bin/sh\ncat >/dev/null\ncat '{}'\nexit {exit_code}\n",
+            "#!/bin/sh\ncat > '{}'\ncat '{}'\nexit {exit_code}\n",
+            input_path.display(),
             response_path.display()
         ),
     )
@@ -49,30 +50,89 @@ fn fake_runner(
     permissions.set_mode(0o755);
     fs::set_permissions(&script_path, permissions).expect("make runner executable");
 
-    RunnerCommand::new(script_path)
+    (RunnerCommand::new(script_path), input_path)
+}
+
+fn captured_scenario(path: &Path) -> Value {
+    serde_json::from_slice(&fs::read(path).expect("read captured scenario"))
+        .expect("captured stdin is JSON")
 }
 
 #[test]
-fn candidate_only_privacy_regression_is_reported_by_rule_id() {
-    let baseline = fixture("shielded-payment").expect("baseline");
-    let candidate = fixture("transparent-change").expect("candidate");
+fn candidate_only_privacy_regression_is_reported_through_process_boundary() {
+    let root = temp_path("privacy-regression");
+    let (baseline, baseline_input) = fake_runner(
+        &root,
+        "baseline",
+        &RunnerResponse::Ok {
+            snapshot: fixture("shielded-payment").expect("baseline"),
+        },
+        0,
+    );
+    let (candidate, candidate_input) = fake_runner(
+        &root,
+        "candidate",
+        &RunnerResponse::Ok {
+            snapshot: fixture("transparent-change").expect("candidate"),
+        },
+        0,
+    );
+    let scenario = json!({
+        "kind": "tex_payment",
+        "params": {
+            "funding_zat": 100000,
+            "payment_zat": 50000
+        }
+    });
 
-    let report = compare_snapshots(&baseline, &candidate, &Policy::standard());
+    let report = run_differential(&baseline, &candidate, &scenario, &Policy::standard())
+        .expect("differential execution");
 
     assert!(!report.passes);
     assert!(report
         .findings
         .iter()
         .any(|finding| finding.rule_id == "SS003_TRANSPARENT_CHANGE"));
+    assert_eq!(captured_scenario(&baseline_input), scenario);
+    assert_eq!(captured_scenario(&candidate_input), scenario);
 }
 
 #[test]
-fn two_independent_runner_commands_receive_the_same_scenario() {
+fn two_independent_runner_commands_receive_identical_scenario_json() {
     let root = temp_path("same-scenario");
-    let baseline_snapshot = fixture("shielded-payment").expect("baseline");
-    let candidate_snapshot = baseline_snapshot.clone();
+    let snapshot = fixture("shielded-payment").expect("snapshot");
+    let (baseline, baseline_input) = fake_runner(
+        &root,
+        "baseline",
+        &RunnerResponse::Ok {
+            snapshot: snapshot.clone(),
+        },
+        0,
+    );
+    let (candidate, candidate_input) =
+        fake_runner(&root, "candidate", &RunnerResponse::Ok { snapshot }, 0);
+    let scenario = json!({
+        "seed": 42,
+        "kind": "orchard_payment",
+        "params": {"funding_zat": 120000}
+    });
 
-    let baseline = fake_runner(
+    let report = run_differential(&baseline, &candidate, &scenario, &Policy::standard())
+        .expect("differential execution");
+
+    assert!(report.passes);
+    assert_eq!(captured_scenario(&baseline_input), scenario);
+    assert_eq!(captured_scenario(&candidate_input), scenario);
+}
+
+#[test]
+fn benign_structural_reordering_does_not_fail_the_differential_oracle() {
+    let root = temp_path("benign-structure");
+    let baseline_snapshot = fixture("transparent-change").expect("baseline");
+    let mut candidate_snapshot = baseline_snapshot.clone();
+    candidate_snapshot.steps[0].outputs.reverse();
+
+    let (baseline, _) = fake_runner(
         &root,
         "baseline",
         &RunnerResponse::Ok {
@@ -80,7 +140,7 @@ fn two_independent_runner_commands_receive_the_same_scenario() {
         },
         0,
     );
-    let candidate = fake_runner(
+    let (candidate, _) = fake_runner(
         &root,
         "candidate",
         &RunnerResponse::Ok {
@@ -92,18 +152,22 @@ fn two_independent_runner_commands_receive_the_same_scenario() {
     let report = run_differential(
         &baseline,
         &candidate,
-        &json!({"kind":"orchard_payment","params":{"funding_zat":120000}}),
+        &json!({"kind":"same-semantics"}),
         &Policy::standard(),
     )
     .expect("differential execution");
 
-    assert!(report.passes);
+    assert!(
+        report.passes,
+        "reordering existing facts is not a new privacy regression"
+    );
+    assert!(report.findings.is_empty());
 }
 
 #[test]
 fn candidate_operational_failure_is_not_misreported_as_privacy_regression() {
     let root = temp_path("operational");
-    let baseline = fake_runner(
+    let (baseline, _) = fake_runner(
         &root,
         "baseline",
         &RunnerResponse::Ok {
@@ -111,7 +175,7 @@ fn candidate_operational_failure_is_not_misreported_as_privacy_regression() {
         },
         0,
     );
-    let candidate = fake_runner(
+    let (candidate, _) = fake_runner(
         &root,
         "candidate",
         &RunnerResponse::Error {
