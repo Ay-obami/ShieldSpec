@@ -141,4 +141,139 @@ fn general_fuzzer_minimizes_and_replays_a_wallet_policy_decision_difference() {
     ]);
     assert_eq!(changed_exit, 2);
     assert_eq!(changed_replay["recorded_rule_reproduced"], false);
+    assert_eq!(changed_replay["status"], "other_wallet_policy_difference");
+
+    let now_agree = RunnerResponse::Observed {
+        snapshot: serde_json::from_str(include_str!("../../../fixtures/shielded-payment.json"))
+            .expect("fixture"),
+        wallet_policy: WalletPolicyVerdict {
+            policy: "test_policy".to_owned(),
+            decision: WalletPolicyDecision::Rejected,
+        },
+    };
+    fs::write(
+        root.join("candidate.json"),
+        serde_json::to_vec(&now_agree).expect("json"),
+    )
+    .expect("update observation");
+    let (no_difference_exit, no_difference_replay) = run_binary(&[
+        "replay",
+        "--input",
+        discovery.to_str().expect("path"),
+        "--baseline-runner",
+        baseline.to_str().expect("path"),
+        "--candidate-runner",
+        candidate.to_str().expect("path"),
+        "--format",
+        "json",
+    ]);
+    assert_eq!(no_difference_exit, 0, "{no_difference_replay}");
+    assert_eq!(no_difference_replay["recorded_rule_reproduced"], false);
+    assert_eq!(
+        no_difference_replay["status"],
+        "recorded_finding_not_reproduced"
+    );
+}
+
+#[test]
+fn clean_campaign_reports_real_wallet_policy_coverage_even_without_a_finding() {
+    let root = std::env::temp_dir().join(format!("shieldspec-coverage-cli-{}", process::id()));
+    fs::create_dir_all(&root).expect("temporary directory");
+    let baseline = observed_runner(&root, "coverage-baseline", WalletPolicyDecision::Accepted);
+    let candidate = observed_runner(&root, "coverage-candidate", WalletPolicyDecision::Accepted);
+
+    let run = || {
+        run_binary(&[
+            "fuzz",
+            "--baseline-runner",
+            baseline.to_str().expect("path"),
+            "--candidate-runner",
+            candidate.to_str().expect("path"),
+            "--seed",
+            "23",
+            "--cases",
+            "3",
+            "--format",
+            "json",
+        ])
+    };
+
+    let (exit, both_observed) = run();
+    assert_eq!(exit, 0, "{both_observed}");
+    assert_eq!(both_observed["status"], "no_regression_found");
+    assert_eq!(both_observed["cases_executed"], 3);
+    assert_eq!(both_observed["baseline_wallet_policy_observations"], 3);
+    assert_eq!(both_observed["candidate_wallet_policy_observations"], 3);
+    assert_eq!(both_observed["comparable_wallet_policy_cases"], 3);
+
+    // A legacy snapshot-only runner must not be reported as policy-covered.
+    let legacy_response = RunnerResponse::Ok {
+        snapshot: serde_json::from_str(include_str!("../../../fixtures/shielded-payment.json"))
+            .expect("fixture"),
+    };
+    fs::write(
+        root.join("coverage-candidate.json"),
+        serde_json::to_vec(&legacy_response).expect("legacy response"),
+    )
+    .expect("update response");
+    let (legacy_exit, partly_observed) = run();
+    assert_eq!(legacy_exit, 0, "{partly_observed}");
+    assert_eq!(partly_observed["baseline_wallet_policy_observations"], 3);
+    assert_eq!(partly_observed["candidate_wallet_policy_observations"], 0);
+    assert_eq!(partly_observed["comparable_wallet_policy_cases"], 0);
+}
+
+#[test]
+fn transient_policy_difference_is_not_saved_as_a_stable_discovery() {
+    let root = std::env::temp_dir().join(format!("shieldspec-unstable-cli-{}", process::id()));
+    fs::create_dir_all(&root).expect("temporary directory");
+    let baseline = observed_runner(&root, "stable-baseline", WalletPolicyDecision::Accepted);
+    let _accepted = observed_runner(&root, "later-accepted", WalletPolicyDecision::Accepted);
+    let _rejected = observed_runner(&root, "first-rejected", WalletPolicyDecision::Rejected);
+    let seen = root.join("seen");
+    let candidate = root.join("unstable-candidate.sh");
+    fs::write(
+        &candidate,
+        format!(
+            "#!/bin/sh\ncat >/dev/null\nif [ -f '{}' ]; then cat '{}'; else touch '{}'; cat '{}'; fi\n",
+            seen.display(),
+            root.join("later-accepted.json").display(),
+            seen.display(),
+            root.join("first-rejected.json").display(),
+        ),
+    )
+    .expect("write changing runner");
+    let mut permissions = fs::metadata(&candidate).expect("metadata").permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&candidate, permissions).expect("executable");
+    let discovery = root.join("must-not-save.json");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_shieldspec-fuzz"))
+        .args([
+            "fuzz",
+            "--baseline-runner",
+            baseline.to_str().expect("path"),
+            "--candidate-runner",
+            candidate.to_str().expect("path"),
+            "--seed",
+            "77",
+            "--cases",
+            "1",
+            "--save",
+            discovery.to_str().expect("path"),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("launch campaign");
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("no longer reproduces"),
+        "unexpected error: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        !discovery.exists(),
+        "a transient finding must never be saved as reproducible evidence"
+    );
 }

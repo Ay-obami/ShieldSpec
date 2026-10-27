@@ -153,6 +153,9 @@ struct CampaignOutput {
     status: &'static str,
     seed: u64,
     cases_executed: u64,
+    baseline_wallet_policy_observations: u64,
+    candidate_wallet_policy_observations: u64,
+    comparable_wallet_policy_cases: u64,
     ordinal: Option<u64>,
     scenario: Option<Scenario>,
     minimized_scenario: Option<Scenario>,
@@ -285,6 +288,9 @@ fn run_campaign(
         None
     };
     let mut generator = ScenarioGenerator::new(seed);
+    let mut baseline_wallet_policy_observations = 0;
+    let mut candidate_wallet_policy_observations = 0;
+    let mut comparable_wallet_policy_cases = 0;
 
     for case_number in 1..=cases {
         let generated = generator.next_case();
@@ -297,6 +303,15 @@ fn run_campaign(
                     case_number, generated.ordinal
                 )
             })?;
+        if report.baseline_wallet_policy.is_some() {
+            baseline_wallet_policy_observations += 1;
+        }
+        if report.candidate_wallet_policy.is_some() {
+            candidate_wallet_policy_observations += 1;
+        }
+        if report.baseline_wallet_policy.is_some() && report.candidate_wallet_policy.is_some() {
+            comparable_wallet_policy_cases += 1;
+        }
 
         if report.has_difference() {
             let original = generated.scenario.clone();
@@ -315,6 +330,12 @@ fn run_campaign(
                 serde_json::to_value(&minimized).map_err(|error| error.to_string())?;
             let minimized_report = run_differential(baseline, candidate, &minimized_value, &policy)
                 .map_err(|error| format!("minimized case could not replay: {error}"))?;
+            if !minimized_report.preserves_discovery(&report) {
+                return Err(format!(
+                    "minimized discovery no longer reproduces the original finding at seed {seed}, ordinal {} (runner behavior may be nondeterministic)",
+                    generated.ordinal
+                ));
+            }
 
             let rule_id = if minimized_report.wallet_policy_difference.is_some() {
                 WALLET_POLICY_DIFFERENCE_RULE_ID.to_owned()
@@ -356,6 +377,9 @@ fn run_campaign(
                 status,
                 seed,
                 cases_executed: case_number,
+                baseline_wallet_policy_observations,
+                candidate_wallet_policy_observations,
+                comparable_wallet_policy_cases,
                 ordinal: Some(generated.ordinal),
                 scenario: Some(original),
                 minimized_scenario: Some(minimized),
@@ -372,6 +396,9 @@ fn run_campaign(
         status: "no_regression_found",
         seed,
         cases_executed: cases,
+        baseline_wallet_policy_observations,
+        candidate_wallet_policy_observations,
+        comparable_wallet_policy_cases,
         ordinal: None,
         scenario: None,
         minimized_scenario: None,
@@ -545,12 +572,16 @@ fn replay(
             )
         };
         let output = DifferentialReplayOutput {
-            status: if report.wallet_policy_difference.is_some() {
-                if recorded_rule_reproduced == Some(false) {
+            status: if recorded_rule_reproduced == Some(false) {
+                if report.wallet_policy_difference.is_some() {
                     "other_wallet_policy_difference"
+                } else if !report.regression.passes {
+                    "other_privacy_regression"
                 } else {
-                    "wallet_policy_difference_reproduced"
+                    "recorded_finding_not_reproduced"
                 }
+            } else if report.wallet_policy_difference.is_some() {
+                "wallet_policy_difference_reproduced"
             } else if !report.regression.passes {
                 "privacy_regression_reproduced"
             } else {
@@ -752,6 +783,12 @@ fn render_campaign(output: &CampaignOutput, format: OutputFormat) -> Result<(), 
             println!("status: {}", output.status);
             println!("seed: {}", output.seed);
             println!("cases executed: {}", output.cases_executed);
+            println!(
+                "wallet policy evidence: baseline {}, candidate {}, comparable {}",
+                output.baseline_wallet_policy_observations,
+                output.candidate_wallet_policy_observations,
+                output.comparable_wallet_policy_cases,
+            );
             if let Some(ordinal) = output.ordinal {
                 println!("failing ordinal: {ordinal}");
             }
