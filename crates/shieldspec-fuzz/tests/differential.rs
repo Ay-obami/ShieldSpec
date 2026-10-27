@@ -127,6 +127,10 @@ fn two_independent_runner_commands_receive_identical_scenario_json() {
         .expect("differential execution");
 
     assert!(report.regression.passes);
+    assert_eq!(
+        report.require_comparable_wallet_policy_observations(),
+        Err(shieldspec_fuzz::MissingWalletPolicyObservations::Both)
+    );
     assert_eq!(captured_scenario(&baseline_input), scenario);
     assert_eq!(captured_scenario(&candidate_input), scenario);
 }
@@ -249,6 +253,10 @@ fn genuine_wallet_policy_decision_difference_is_reported_without_snapshot_change
         report.has_difference(),
         "a changed wallet decision must be discoverable"
     );
+    assert_eq!(
+        report.require_comparable_wallet_policy_observations(),
+        Ok(())
+    );
     let difference = report.wallet_policy_difference.expect("decision evidence");
     assert_eq!(difference.policy, "test_policy");
     assert_eq!(difference.baseline, WalletPolicyDecision::Rejected);
@@ -291,6 +299,10 @@ fn uninstrumented_runner_does_not_invent_a_wallet_policy_verdict() {
     .expect("runner protocol");
     assert!(!report.has_difference());
     assert!(report.wallet_policy_difference.is_none());
+    assert_eq!(
+        report.require_comparable_wallet_policy_observations(),
+        Err(shieldspec_fuzz::MissingWalletPolicyObservations::Baseline)
+    );
     assert!(report.baseline_wallet_policy.is_none());
     assert_eq!(
         report.candidate_wallet_policy,
@@ -346,6 +358,98 @@ fn differently_named_wallet_policies_cannot_be_compared_as_if_equivalent() {
             ..
         }
     ));
+}
+
+#[test]
+fn unsupported_runner_version_is_caught_across_the_process_boundary() {
+    let root = temp_path("unsupported-runner-version");
+    let snapshot = fixture("shielded-payment").expect("snapshot");
+    let (baseline, _) = fake_runner(
+        &root,
+        "baseline",
+        &RunnerResponse::Ok {
+            snapshot: snapshot.clone(),
+        },
+        0,
+    );
+    let (candidate, _) = fake_runner(&root, "candidate", &RunnerResponse::Ok { snapshot }, 0);
+    let response_path = root.join("candidate.json");
+    let mut wire: Value = serde_json::from_slice(&fs::read(&response_path).expect("response"))
+        .expect("JSON response");
+    wire["protocol_version"] = json!(2);
+    fs::write(
+        &response_path,
+        serde_json::to_vec(&wire).expect("versioned JSON"),
+    )
+    .expect("rewrite candidate wire response");
+
+    let error = run_differential(
+        &baseline,
+        &candidate,
+        &json!({"scenario": 1}),
+        &Policy::standard(),
+    )
+    .expect_err("unsupported candidate version must fail closed");
+
+    assert!(matches!(
+        error,
+        DifferentialError::Protocol {
+            side: RunnerSide::Candidate,
+            ..
+        }
+    ));
+    assert!(
+        error
+            .to_string()
+            .contains("unsupported_runner_protocol_version"),
+        "{error}"
+    );
+}
+
+#[test]
+fn empty_observed_wallet_policy_is_a_protocol_violation_not_an_operational_failure() {
+    use shieldspec_fuzz::{WalletPolicyDecision, WalletPolicyVerdict};
+
+    let root = temp_path("empty-wallet-policy");
+    let snapshot = fixture("shielded-payment").expect("fixture");
+    let (baseline, _) = fake_runner(
+        &root,
+        "baseline",
+        &RunnerResponse::Ok {
+            snapshot: snapshot.clone(),
+        },
+        0,
+    );
+    let (candidate, _) = fake_runner(
+        &root,
+        "candidate",
+        &RunnerResponse::Observed {
+            snapshot,
+            wallet_policy: WalletPolicyVerdict {
+                policy: " \t ".to_owned(),
+                decision: WalletPolicyDecision::Rejected,
+            },
+        },
+        0,
+    );
+
+    let error = run_differential(
+        &baseline,
+        &candidate,
+        &json!({"scenario": 1}),
+        &Policy::standard(),
+    )
+    .expect_err("a blank named policy is not an observed decision");
+    assert!(
+        matches!(
+            error,
+            DifferentialError::Protocol {
+                side: RunnerSide::Candidate,
+                ..
+            }
+        ),
+        "{error}"
+    );
 }
 
 #[test]

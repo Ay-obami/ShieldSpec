@@ -49,6 +49,83 @@ pub enum RunnerResponse {
     },
 }
 
+/// Current explicitly versioned runner JSON protocol. Unversioned responses remain
+/// valid legacy wire messages for compatibility with existing runner binaries.
+pub const RUNNER_PROTOCOL_VERSION: u64 = 1;
+
+/// A malformed runner response is distinct from a valid operational failure.
+/// Codes are stable identifiers for callers that need machine-readable diagnostics.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum RunnerProtocolViolation {
+    InvalidJson(String),
+    InvalidVersion,
+    UnsupportedVersion { found: u64, supported: u64 },
+    EmptyWalletPolicy,
+}
+
+impl RunnerProtocolViolation {
+    #[must_use]
+    pub const fn code(&self) -> &'static str {
+        match self {
+            Self::InvalidJson(_) => "invalid_runner_json",
+            Self::InvalidVersion => "invalid_runner_protocol_version",
+            Self::UnsupportedVersion { .. } => "unsupported_runner_protocol_version",
+            Self::EmptyWalletPolicy => "empty_wallet_policy",
+        }
+    }
+}
+
+impl fmt::Display for RunnerProtocolViolation {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidJson(error) => write!(formatter, "invalid runner JSON: {error}"),
+            Self::InvalidVersion => {
+                formatter.write_str("protocol_version must be a JSON unsigned integer")
+            }
+            Self::UnsupportedVersion { found, supported } => {
+                write!(
+                    formatter,
+                    "unsupported runner protocol version {found}; supported version is {supported}"
+                )
+            }
+            Self::EmptyWalletPolicy => {
+                formatter.write_str("observed wallet policy name must not be empty")
+            }
+        }
+    }
+}
+
+impl Error for RunnerProtocolViolation {}
+
+/// Parse either a legacy unversioned response or an explicitly versioned v1
+/// response. The version is an optional envelope field, deliberately outside
+/// `RunnerResponse` so existing Rust constructors and serializers keep working.
+pub fn parse_runner_response(wire: &[u8]) -> Result<RunnerResponse, RunnerProtocolViolation> {
+    let value: Value = serde_json::from_slice(wire)
+        .map_err(|error| RunnerProtocolViolation::InvalidJson(error.to_string()))?;
+
+    if let Some(version) = value.get("protocol_version") {
+        let found = version
+            .as_u64()
+            .ok_or(RunnerProtocolViolation::InvalidVersion)?;
+        if found != RUNNER_PROTOCOL_VERSION {
+            return Err(RunnerProtocolViolation::UnsupportedVersion {
+                found,
+                supported: RUNNER_PROTOCOL_VERSION,
+            });
+        }
+    }
+
+    let response: RunnerResponse = serde_json::from_value(value)
+        .map_err(|error| RunnerProtocolViolation::InvalidJson(error.to_string()))?;
+    if let RunnerResponse::Observed { wallet_policy, .. } = &response {
+        if wallet_policy.policy.trim().is_empty() {
+            return Err(RunnerProtocolViolation::EmptyWalletPolicy);
+        }
+    }
+    Ok(response)
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RunnerSide {
     Baseline,
@@ -235,6 +312,40 @@ impl fmt::Display for DifferentialError {
 
 impl Error for DifferentialError {}
 
+/// Why a differential report cannot support a comparable wallet-policy claim.
+/// Snapshot-only comparisons still succeed; callers explicitly opt into this check.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum MissingWalletPolicyObservations {
+    Baseline,
+    Candidate,
+    Both,
+}
+
+impl MissingWalletPolicyObservations {
+    #[must_use]
+    pub const fn code(&self) -> &'static str {
+        "missing_wallet_policy_observations"
+    }
+}
+
+impl fmt::Display for MissingWalletPolicyObservations {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Baseline => {
+                formatter.write_str("baseline runner provided no wallet-policy observation")
+            }
+            Self::Candidate => {
+                formatter.write_str("candidate runner provided no wallet-policy observation")
+            }
+            Self::Both => {
+                formatter.write_str("neither runner provided a wallet-policy observation")
+            }
+        }
+    }
+}
+
+impl Error for MissingWalletPolicyObservations {}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct WalletPolicyDifference {
     pub policy: String,
@@ -261,6 +372,19 @@ impl DifferentialReport {
     #[must_use]
     pub fn has_difference(&self) -> bool {
         !self.regression.passes || self.wallet_policy_difference.is_some()
+    }
+
+    /// Require evidence from both wallets before asserting observed agreement or
+    /// difference. Legacy snapshot-only runs remain valid without this opt-in check.
+    pub fn require_comparable_wallet_policy_observations(
+        &self,
+    ) -> Result<(), MissingWalletPolicyObservations> {
+        match (&self.baseline_wallet_policy, &self.candidate_wallet_policy) {
+            (Some(_), Some(_)) => Ok(()),
+            (None, Some(_)) => Err(MissingWalletPolicyObservations::Baseline),
+            (Some(_), None) => Err(MissingWalletPolicyObservations::Candidate),
+            (None, None) => Err(MissingWalletPolicyObservations::Both),
+        }
     }
 
     /// The shrinker must retain the primary original discovery, not merely any finding.
@@ -390,13 +514,13 @@ fn run_runner(
         })?;
 
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
-    let response: RunnerResponse =
-        serde_json::from_slice(&output.stdout).map_err(|error| DifferentialError::Protocol {
+    let response =
+        parse_runner_response(&output.stdout).map_err(|error| DifferentialError::Protocol {
             side,
             message: if stderr.is_empty() {
-                error.to_string()
+                format!("{}: {error}", error.code())
             } else {
-                format!("{error}; stderr: {stderr}")
+                format!("{}: {error}; stderr: {stderr}", error.code())
             },
         })?;
 
@@ -408,12 +532,10 @@ fn run_runner(
         RunnerResponse::Observed {
             snapshot,
             wallet_policy,
-        } if output.status.success() && !wallet_policy.policy.trim().is_empty() => {
-            Ok(RunnerObservation {
-                snapshot,
-                wallet_policy: Some(wallet_policy),
-            })
-        }
+        } if output.status.success() => Ok(RunnerObservation {
+            snapshot,
+            wallet_policy: Some(wallet_policy),
+        }),
         RunnerResponse::Ok { .. } | RunnerResponse::Observed { .. } => {
             Err(DifferentialError::Operational {
                 side,
