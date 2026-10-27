@@ -30,6 +30,29 @@ fn seed_and_ordinal_replay_the_exact_generated_case() {
 }
 
 #[test]
+fn sapling_recipient_corpus_runs_real_cross_pool_proposals_and_replays() {
+    let seed = 0x5a91_1eaf;
+    let mut generator = ScenarioGenerator::new(seed);
+    for ordinal in 0..4 {
+        let scenario = generator.next_sapling_recipient_scenario();
+        assert_eq!(
+            scenario,
+            ScenarioGenerator::sapling_recipient_scenario_at(seed, ordinal)
+        );
+        let Scenario::OrchardPayment(ref params) = scenario else {
+            panic!("dedicated generator must produce a shielded payment");
+        };
+        assert_eq!(params.recipient_pool, ShieldedPoolChoice::Sapling);
+        let snapshot = run_scenario(&scenario).expect("real Zcash wallet proposal");
+        assert!(snapshot.steps[0].outputs.iter().any(|output| {
+            output.pool == Pool::Sapling
+                && output.role == shieldspec_core::OutputRole::Recipient
+                && output.value_zat == params.payment_zat
+        }));
+    }
+}
+
+#[test]
 fn generated_case_json_is_a_stable_replay_contract() {
     let case = ScenarioGenerator::case_at(7, 3);
     let json = serde_json::to_string_pretty(&case).expect("serialize generated case");

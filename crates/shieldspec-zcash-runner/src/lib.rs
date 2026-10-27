@@ -71,6 +71,21 @@ pub struct OrchardPaymentScenario {
     pub empty_blocks: u8,
     pub funding_pool: ShieldedPoolChoice,
     pub change_pool: ShieldedPoolChoice,
+    /// Shielded receiver selected for the payment. Omitted in older corpus
+    /// records, which always targeted Orchard.
+    #[serde(
+        default = "default_orchard_pool",
+        skip_serializing_if = "is_orchard_pool"
+    )]
+    pub recipient_pool: ShieldedPoolChoice,
+}
+
+const fn default_orchard_pool() -> ShieldedPoolChoice {
+    ShieldedPoolChoice::Orchard
+}
+
+fn is_orchard_pool(pool: &ShieldedPoolChoice) -> bool {
+    *pool == ShieldedPoolChoice::Orchard
 }
 
 impl OrchardPaymentScenario {
@@ -85,6 +100,7 @@ impl OrchardPaymentScenario {
             empty_blocks: 0,
             funding_pool: ShieldedPoolChoice::Orchard,
             change_pool: ShieldedPoolChoice::Orchard,
+            recipient_pool: ShieldedPoolChoice::Orchard,
         }
     }
 }
@@ -318,12 +334,20 @@ fn run_payment_with_funding<T: ShieldedPoolTester>(
     snapshot_from_proposal(&proposal, "local-test").map_err(Into::into)
 }
 
-/// Builds an in-memory Zcash wallet and pays an Orchard recipient.
+/// Builds an in-memory Zcash wallet and pays a real Sapling or Orchard recipient.
 pub fn run_orchard_payment(
     scenario: &OrchardPaymentScenario,
 ) -> Result<ProposalSnapshot, RunnerError> {
-    let recipient_sk = OrchardPoolTester::sk(&[scenario.recipient_seed; 32]);
-    let recipient = OrchardPoolTester::sk_default_address(&recipient_sk);
+    let recipient = match scenario.recipient_pool {
+        ShieldedPoolChoice::Sapling => {
+            let sk = SaplingPoolTester::sk(&[scenario.recipient_seed; 32]);
+            SaplingPoolTester::sk_default_address(&sk)
+        }
+        ShieldedPoolChoice::Orchard => {
+            let sk = OrchardPoolTester::sk(&[scenario.recipient_seed; 32]);
+            OrchardPoolTester::sk_default_address(&sk)
+        }
+    };
 
     match scenario.funding_pool {
         ShieldedPoolChoice::Sapling => run_payment_with_funding::<SaplingPoolTester>(
@@ -503,6 +527,7 @@ impl Scenario {
                     + scenario.empty_blocks as u128
                     + scenario.funding_pool.complexity_weight()
                     + scenario.change_pool.complexity_weight()
+                    + scenario.recipient_pool.complexity_weight()
             }
             Self::TexPayment(scenario) => {
                 scenario.funding_zat as u128
@@ -654,6 +679,7 @@ impl ScenarioGenerator {
                 empty_blocks,
                 funding_pool,
                 change_pool,
+                recipient_pool: ShieldedPoolChoice::Orchard,
             })
         } else {
             let margin =
@@ -675,6 +701,43 @@ impl ScenarioGenerator {
             ordinal,
             scenario,
         }
+    }
+
+    /// Produces an explicit Sapling-recipient scenario without changing the
+    /// seed/ordinal mapping of the existing published discovery corpus.
+    /// Use `sapling_recipient_scenario_at` for reproducible replay.
+    #[must_use]
+    pub fn next_sapling_recipient_scenario(&mut self) -> Scenario {
+        let mut generated = self.next_case();
+        if let Scenario::OrchardPayment(scenario) = &mut generated.scenario {
+            scenario.recipient_pool = ShieldedPoolChoice::Sapling;
+        } else {
+            let source = match generated.scenario {
+                Scenario::TexPayment(ref scenario) => scenario,
+                Scenario::OrchardPayment(_) => unreachable!(),
+            };
+            generated.scenario = Scenario::OrchardPayment(OrchardPaymentScenario {
+                funding_zat: source.funding_zat,
+                payment_zat: source.payment_zat,
+                recipient_seed: source.recipient_tag,
+                note_count: source.note_count,
+                confirmations: source.confirmations,
+                empty_blocks: source.empty_blocks,
+                funding_pool: source.funding_pool,
+                change_pool: source.change_pool,
+                recipient_pool: ShieldedPoolChoice::Sapling,
+            });
+        }
+        generated.scenario
+    }
+
+    #[must_use]
+    pub fn sapling_recipient_scenario_at(seed: u64, ordinal: u64) -> Scenario {
+        let mut generator = Self::new(seed);
+        for _ in 0..ordinal {
+            let _ = generator.next_case();
+        }
+        generator.next_sapling_recipient_scenario()
     }
 
     #[must_use]

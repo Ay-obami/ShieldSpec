@@ -38,6 +38,22 @@ fn orchard_scenario_runs_through_real_wallet_proposal_machinery() {
 }
 
 #[test]
+fn sapling_recipient_uses_real_wallet_proposal_machinery() {
+    let mut scenario = OrchardPaymentScenario::demo();
+    scenario.recipient_pool = ShieldedPoolChoice::Sapling;
+    let snapshot = run_orchard_payment(&scenario).expect("real Sapling recipient proposal");
+
+    let step = &snapshot.steps[0];
+    assert!(step.outputs.iter().any(|output| {
+        output.pool == Pool::Sapling
+            && output.role == OutputRole::Recipient
+            && output.value_zat == scenario.payment_zat
+    }));
+    assert!(step.inputs.iter().all(|input| input.pool == Pool::Orchard));
+    assert_eq!(run_orchard_payment(&scenario).expect("replay"), snapshot);
+}
+
+#[test]
 fn tex_scenario_uses_real_ephemeral_two_step_proposal() {
     let scenario = TexPaymentScenario::demo();
     let snapshot = run_tex_payment(&scenario).expect("real ZIP 320 proposal");
