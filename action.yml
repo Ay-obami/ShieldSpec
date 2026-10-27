@@ -1,0 +1,66 @@
+name: ShieldSpec Privacy Check
+description: Check a Zcash proposal snapshot or compare it with a privacy baseline.
+author: ShieldSpec
+
+inputs:
+  candidate:
+    description: Path to the candidate proposal snapshot.
+    required: true
+  baseline:
+    description: Optional path to a baseline proposal snapshot. When set, ShieldSpec runs a diff.
+    required: false
+    default: ""
+  policy:
+    description: Privacy policy to enforce (standard or strict).
+    required: false
+    default: standard
+  format:
+    description: Output format (human, json, or sarif).
+    required: false
+    default: human
+
+runs:
+  using: composite
+  steps:
+    - name: Install Rust stable
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Run ShieldSpec
+      shell: bash
+      env:
+        SHIELDSPEC_ACTION_PATH: ${{ github.action_path }}
+        SHIELDSPEC_BASELINE: ${{ inputs.baseline }}
+        SHIELDSPEC_CANDIDATE: ${{ inputs.candidate }}
+        SHIELDSPEC_FORMAT: ${{ inputs.format }}
+        SHIELDSPEC_POLICY: ${{ inputs.policy }}
+      run: |
+        set -euo pipefail
+
+        resolve_snapshot_path() {
+          if [[ "$1" = /* ]]; then
+            printf '%s\n' "$1"
+          else
+            printf '%s/%s\n' "$GITHUB_WORKSPACE" "$1"
+          fi
+        }
+
+        candidate_path="$(resolve_snapshot_path "$SHIELDSPEC_CANDIDATE")"
+        cd "$SHIELDSPEC_ACTION_PATH"
+
+        if [[ -n "$SHIELDSPEC_BASELINE" ]]; then
+          baseline_path="$(resolve_snapshot_path "$SHIELDSPEC_BASELINE")"
+          cargo run --locked -p shieldspec-cli -- diff \
+            --baseline "$baseline_path" \
+            --candidate "$candidate_path" \
+            --policy "$SHIELDSPEC_POLICY" \
+            --format "$SHIELDSPEC_FORMAT"
+        else
+          cargo run --locked -p shieldspec-cli -- check \
+            --input "$candidate_path" \
+            --policy "$SHIELDSPEC_POLICY" \
+            --format "$SHIELDSPEC_FORMAT"
+        fi
+
+branding:
+  icon: shield
+  color: purple

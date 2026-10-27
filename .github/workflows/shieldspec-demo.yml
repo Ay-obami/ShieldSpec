@@ -1,0 +1,51 @@
+name: ShieldSpec Action Demo
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - action.yml
+      - Cargo.lock
+      - Cargo.toml
+      - crates/**
+      - fixtures/**
+      - .github/workflows/shieldspec-demo.yml
+
+permissions:
+  contents: read
+
+jobs:
+  action-demo:
+    name: Repository fixture demo
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Confirm shielded proposal passes
+        uses: ./
+        with:
+          candidate: fixtures/shielded-payment.json
+          policy: standard
+          format: human
+
+      - name: Detect transparent-change regression
+        id: regression
+        continue-on-error: true
+        uses: ./
+        with:
+          baseline: fixtures/shielded-payment.json
+          candidate: fixtures/transparent-change.json
+          policy: standard
+          format: human
+
+      - name: Confirm the action blocked the regression
+        if: always()
+        shell: bash
+        env:
+          REGRESSION_OUTCOME: ${{ steps.regression.outcome }}
+        run: |
+          if [[ "$REGRESSION_OUTCOME" != failure ]]; then
+            echo "Expected the regression check to fail, got: $REGRESSION_OUTCOME" >&2
+            exit 1
+          fi
