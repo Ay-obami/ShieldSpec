@@ -6,7 +6,7 @@ ShieldSpec is a **Core & Tooling** project: a reusable Rust policy engine and te
 
 ## Five-minute demo
 
-You need a stable Rust toolchain and this repository. From its root, compare the canonical shielded baseline with a candidate that adds transparent change:
+You need Rust 1.89 or newer; this repository pins Rust 1.95.0 for reproducible verification. From its root, compare the canonical shielded baseline with a candidate that adds transparent change:
 
 ```bash
 cargo run -p shieldspec-cli -- \
