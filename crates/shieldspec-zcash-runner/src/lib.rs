@@ -16,6 +16,7 @@ use zcash_client_backend::{
             orchard::OrchardPoolTester,
             pool::{dsl::TestDsl, ShieldedPoolTester},
             sapling::SaplingPoolTester,
+            AddressType,
         },
         wallet::input_selection::{GreedyInputSelector, SpendPolicy, TransparentSpendPolicy},
         wallet::ConfirmationsPolicy,
@@ -200,6 +201,92 @@ pub struct UnifiedPaymentScenario {
     pub funding_pool: ShieldedPoolChoice,
     pub change_pool: ShieldedPoolChoice,
     pub receivers: UnifiedReceiverSet,
+}
+
+/// A real wallet holding spendable Sapling and Orchard notes simultaneously.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct MixedPoolPaymentScenario {
+    pub sapling_funding_zat: u64,
+    pub orchard_funding_zat: u64,
+    pub payment_zat: u64,
+    pub recipient_pool: ShieldedPoolChoice,
+    pub change_pool: ShieldedPoolChoice,
+    pub confirmations: u8,
+}
+
+/// Exercises genuine cross-pool input selection, including insufficient-funds
+/// outcomes, through librustzcash's wallet proposal machinery.
+pub fn run_mixed_pool_payment(
+    scenario: &MixedPoolPaymentScenario,
+) -> Result<ProposalSnapshot, RunnerError> {
+    if scenario.sapling_funding_zat == 0 || scenario.orchard_funding_zat == 0 {
+        return Err(RunnerError::InvalidScenario(
+            "both funding pools must be nonempty",
+        ));
+    }
+    let funding_total = scenario
+        .sapling_funding_zat
+        .checked_add(scenario.orchard_funding_zat)
+        .ok_or(RunnerError::InvalidScenario("funding total overflow"))?;
+    validate_amounts(
+        funding_total,
+        scenario.payment_zat,
+        2,
+        scenario.confirmations,
+    )?;
+
+    let mut wallet =
+        TestDsl::with_sapling_birthday_account(TestDbFactory::default(), BlockCache::new())
+            .map(|builder| builder.with_gap_limits(GapLimits::new(10, 5, 3)))
+            .build::<OrchardPoolTester>();
+
+    let sapling_fvk = SaplingPoolTester::test_account_fvk(&wallet);
+    let (sapling_height, _, _) = wallet.generate_next_block(
+        &sapling_fvk,
+        AddressType::DefaultExternal,
+        Zatoshis::const_from_u64(scenario.sapling_funding_zat),
+    );
+    wallet.scan_cached_blocks(sapling_height, 1);
+
+    let orchard_fvk = OrchardPoolTester::test_account_fvk(&wallet);
+    let (orchard_height, _, _) = wallet.generate_next_block(
+        &orchard_fvk,
+        AddressType::DefaultExternal,
+        Zatoshis::const_from_u64(scenario.orchard_funding_zat),
+    );
+    wallet.scan_cached_blocks(orchard_height, 1);
+    if scenario.confirmations > 1 {
+        wallet.add_empty_blocks(usize::from(scenario.confirmations - 1));
+    }
+
+    let recipient = match scenario.recipient_pool {
+        ShieldedPoolChoice::Sapling => {
+            let sk = SaplingPoolTester::sk(&[0x61; 32]);
+            SaplingPoolTester::sk_default_address(&sk)
+        }
+        ShieldedPoolChoice::Orchard => {
+            let sk = OrchardPoolTester::sk(&[0x62; 32]);
+            OrchardPoolTester::sk_default_address(&sk)
+        }
+    };
+    let account_id = wallet.get_account().id();
+    let proposal = wallet
+        .propose_standard_transfer::<Infallible>(
+            account_id,
+            StandardFeeRule::Zip317,
+            ConfirmationsPolicy::new_symmetrical_unchecked(
+                u32::from(scenario.confirmations),
+                false,
+            ),
+            &recipient,
+            Zatoshis::const_from_u64(scenario.payment_zat),
+            None,
+            None,
+            scenario.change_pool.protocol(),
+        )
+        .map_err(|error| RunnerError::Proposal(format!("{error:?}")))?;
+    snapshot_from_proposal(&proposal, "local-test").map_err(Into::into)
 }
 
 /// Exercises real wallet-owned transparent UTXOs funding a shielded recipient.
