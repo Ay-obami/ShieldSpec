@@ -181,3 +181,23 @@ test("historical tab navigation moves the panel's accessible name with selection
   listeners[1]();
   assert.equal(panel.attributes["aria-labelledby"], "case-tab-orchard-sapling");
 });
+
+test("the copyable four-case campaign checks out the PR containing its flags", () => {
+  const match = html().match(/<pre id="sdk-command"[^>]*><code>([\s\S]*?)<\/code><\/pre>/);
+  assert.ok(match, "Missing copyable SDK campaign commands");
+  const command = match[1];
+  const fetch = command.indexOf("git fetch origin pull/42/head");
+  const checkout = command.indexOf("git switch --detach FETCH_HEAD");
+  const build = command.indexOf("cargo build --locked -p shieldspec-zcash-runner --bins");
+  assert.ok(fetch >= 0 && checkout > fetch && build > checkout,
+    "A fresh main clone must check out PR #42 before building the Ironwood runner");
+});
+
+test("the NU6.3 runner evidence links to a pinned source revision, not stale main", () => {
+  const match = html().match(/href="([^"]+)"[^>]*>Inspect runner tests/);
+  assert.ok(match, "Missing test provenance link");
+  const url = new URL(match[1]);
+  assert.equal(url.host, "github.com");
+  assert.match(url.pathname,
+    /^\/Ay-obami\/ShieldSpec\/blob\/[0-9a-f]{40}\/crates\/shieldspec-zcash-runner\/tests\/scenario_generation\.rs$/);
+});
