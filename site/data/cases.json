@@ -1,0 +1,82 @@
+{
+  "meta": {
+    "source": "https://github.com/zcash/zallet/pull/677",
+    "proof": "https://github.com/Ay-obami/ShieldSpec/tree/feat/historical-sdk-proof/evidence/historical-zallet-677",
+    "notice": "Historical reproduction of a documented, previously fixed upstream privacy-policy issue. Not a new vulnerability or a finding automatically discovered by the present general fuzzer."
+  },
+  "findings": [
+    {
+      "id": "zallet-677",
+      "title": "Cross-pool FullPrivacy policy bypass",
+      "kind": "historical reproduction",
+      "category": "Historical wallet-core difference",
+      "description": "An Ironwood input with Sapling change exposes a cross-pool public value balance. The historical policy check accepted the proposal, while the corrected policy rejected it.",
+      "scenario": "Ironwood → Sapling",
+      "policy": "FullPrivacy",
+      "publicBalance": "10,000 zat",
+      "seed": "Deterministic test-only wallet fixture",
+      "expected": "rejected",
+      "before": {
+        "label": "Affected Zallet wallet-core",
+        "revision": "f496c9b6b2c6ebb0065b329c11bda4a5fdf73568",
+        "verdict": "accepted"
+      },
+      "after": {
+        "label": "Corrected Zallet wallet-core",
+        "revision": "e966780216b7a86b0a1a6618f2fde5b574da7171",
+        "verdict": "rejected"
+      },
+      "provenance": "https://github.com/zcash/zallet/pull/677",
+      "discoveredByShieldSpec": false,
+      "newVulnerability": false
+    },
+    {
+      "id": "orchard-sapling",
+      "title": "Cross-pool control: Orchard → Sapling",
+      "kind": "historical control",
+      "category": "Control case",
+      "description": "The existing cross-pool policy check recognized Orchard-to-Sapling and rejected it in both tested revisions.",
+      "scenario": "Orchard → Sapling",
+      "policy": "FullPrivacy",
+      "publicBalance": "10,000 zat",
+      "expected": "rejected",
+      "before": {
+        "label": "Affected Zallet wallet-core",
+        "revision": "f496c9b6b2c6ebb0065b329c11bda4a5fdf73568",
+        "verdict": "rejected"
+      },
+      "after": {
+        "label": "Corrected Zallet wallet-core",
+        "revision": "e966780216b7a86b0a1a6618f2fde5b574da7171",
+        "verdict": "rejected"
+      },
+      "provenance": "https://github.com/zcash/zallet/pull/677",
+      "discoveredByShieldSpec": false,
+      "newVulnerability": false
+    },
+    {
+      "id": "ironwood-same-pool",
+      "title": "Same-pool control: Ironwood → Ironwood",
+      "kind": "historical control",
+      "category": "Control case",
+      "description": "The same-pool operation did not cross a privacy pool boundary, and both revisions allowed the fixture.",
+      "scenario": "Ironwood → Ironwood",
+      "policy": "FullPrivacy",
+      "publicBalance": "None from a cross-pool transfer",
+      "expected": "accepted",
+      "before": {
+        "label": "Affected Zallet wallet-core",
+        "revision": "f496c9b6b2c6ebb0065b329c11bda4a5fdf73568",
+        "verdict": "accepted"
+      },
+      "after": {
+        "label": "Corrected Zallet wallet-core",
+        "revision": "e966780216b7a86b0a1a6618f2fde5b574da7171",
+        "verdict": "accepted"
+      },
+      "provenance": "https://github.com/zcash/zallet/pull/677",
+      "discoveredByShieldSpec": false,
+      "newVulnerability": false
+    }
+  ]
+}

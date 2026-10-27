@@ -31,6 +31,12 @@ jobs:
       - name: Check canonical fixture copies stay in sync
         run: diff -ru fixtures crates/shieldspec-testkit/fixtures
 
+      - name: Validate historical reproduction harness without network
+        run: python3 -m unittest discover -s scripts/tests -v
+
+      - name: Test fail-closed campaign evidence checker
+        run: python3 -m unittest discover -s scripts/tests -p 'ci_*test.py' -v
+
       - name: Run workspace tests
         run: cargo test --locked --workspace --all-targets
 
@@ -177,6 +183,41 @@ jobs:
           --seed 148
           --cases 2
           --format json
+
+      - name: Assert real SDK observed verdicts in four NU6.3 Ironwood cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          fuzz=target/debug/shieldspec-fuzz
+          runner=target/debug/shieldspec-zcash-runner
+          seed=1593835520
+          # These digests identify the two tested binaries, not a claimed SDK Git SHA.
+          git rev-parse HEAD
+          sha256sum "$fuzz" "$runner"
+          policy_args=(
+            --baseline-runner "$runner"
+            --candidate-runner "$runner"
+            --baseline-arg=--wallet-spend-policy
+            --baseline-arg=orchard-only
+            --candidate-arg=--wallet-spend-policy
+            --candidate-arg=orchard-only
+          )
+          # This is an opt-in negative control for the pinned SDK Orchard-only
+          # spend-source policy, never the historical Zallet FullPrivacy policy.
+          "$fuzz" fuzz --scenario-family ironwood "${policy_args[@]}" \
+            --seed "$seed" --cases 4 --format json \
+            > "$RUNNER_TEMP/shieldspec-ironwood-campaign.json"
+          python3 scripts/tests/ci_campaign_check.py campaign \
+            "$RUNNER_TEMP/shieldspec-ironwood-campaign.json" --seed "$seed" --cases 4
+
+          for ordinal in 0 1 2 3; do
+            "$fuzz" replay --scenario-family ironwood "${policy_args[@]}" \
+              --seed "$seed" --ordinal "$ordinal" --format json \
+              > "$RUNNER_TEMP/shieldspec-ironwood-replay-$ordinal.json"
+            python3 scripts/tests/ci_campaign_check.py replay \
+              "$RUNNER_TEMP/shieldspec-ironwood-replay-$ordinal.json" \
+              --seed "$seed" --ordinal "$ordinal"
+          done
 
       - name: Assert judge demo catches the injected regression
         shell: bash

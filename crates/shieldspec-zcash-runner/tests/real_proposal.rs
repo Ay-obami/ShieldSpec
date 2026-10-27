@@ -171,8 +171,15 @@ fn mixed_unified_addresses_keep_recipient_delivery_shielded() {
 
             let assessment = assess(&snapshot, &Policy::standard());
             assert!(
-                assessment.passes,
-                "mixed Unified Address should remain shielded: {scenario:?} -> {:?}",
+                assessment.findings.iter().all(|finding| {
+                    !matches!(
+                        finding.rule_id.as_str(),
+                        "SS001_TRANSPARENT_RECIPIENT"
+                            | "SS002_TRANSPARENT_FUNDING"
+                            | "SS003_TRANSPARENT_CHANGE"
+                    )
+                }),
+                "shielded receiver selection must not introduce transparent exposure: {scenario:?} -> {:?}",
                 assessment.findings
             );
         }

@@ -1,0 +1,35 @@
+name: Historical librustzcash #2614 reproduction
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  historical-send-max:
+    name: Genuine upstream SDK before/after comparison
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out ShieldSpec
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Install Rust 1.95.0
+        uses: dtolnay/rust-toolchain@035fceb3c12fb0c6a9461b52775e16473133e591
+
+      - name: Run harness self-tests
+        run: python3 -m unittest discover -s scripts/tests -v
+
+      - name: Execute the same real Zcash wallet test against both SDK revisions
+        run: >-
+          python3 scripts/reproduce_librustzcash_2614.py
+          --output evidence/historical-2614/results
+
+      - name: Upload immutable test logs and verdict, even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: historical-librustzcash-2614
+          path: evidence/historical-2614/results/
+          if-no-files-found: warn

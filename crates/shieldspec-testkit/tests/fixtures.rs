@@ -102,26 +102,30 @@ fn unified_selected_transparent_records_the_selected_receiver_pool() {
 }
 
 #[test]
-fn multi_step_leak_occurs_only_in_the_late_step() {
+fn multi_step_reports_cross_pool_balance_first_and_transparent_change_later() {
     let snapshot = fixture("multi-step-late-leak").unwrap();
     let assessment = assess(&snapshot, &Policy::standard());
 
     assert!(snapshot.steps.len() > 1);
+    assert!(assessment.findings.iter().any(|finding| finding.rule_id
+        == "SS006_CROSS_SHIELDED_POOL_VALUE_BALANCE"
+        && finding.step_index == 0));
     assert!(assessment
         .findings
         .iter()
-        .all(|finding| finding.step_index > 0));
-    assert!(assessment
-        .findings
-        .iter()
-        .any(|finding| finding.rule_id == "SS003_TRANSPARENT_CHANGE"));
+        .any(|finding| finding.rule_id == "SS003_TRANSPARENT_CHANGE" && finding.step_index == 1));
 }
 
 #[test]
-fn migrations_distinguish_private_and_full_balance_routes() {
-    let private = fixture("privacy-preserving-migration").unwrap();
-    assert!(rule_ids(&private).is_empty());
-    assert!(private.steps[0]
+fn migrations_distinguish_shielded_pool_balances_from_transparent_funding() {
+    // This legacy-named fixture uses only shielded addresses, but
+    // Sapling→Orchard still exposes public pool-specific value balances.
+    let shielded_migration = fixture("privacy-preserving-migration").unwrap();
+    let shielded_rules = rule_ids(&shielded_migration);
+    assert!(shielded_rules.contains("SS006_CROSS_SHIELDED_POOL_VALUE_BALANCE"));
+    assert!(!shielded_rules.contains("SS002_TRANSPARENT_FUNDING"));
+    assert!(!shielded_rules.contains("SS005_PRIVACY_BOUNDARY"));
+    assert!(shielded_migration.steps[0]
         .outputs
         .iter()
         .all(|output| output.pool != Pool::Transparent));
@@ -130,4 +134,5 @@ fn migrations_distinguish_private_and_full_balance_routes() {
     let rules = rule_ids(&full_balance);
     assert!(rules.contains("SS002_TRANSPARENT_FUNDING"));
     assert!(rules.contains("SS005_PRIVACY_BOUNDARY"));
+    assert!(!rules.contains("SS006_CROSS_SHIELDED_POOL_VALUE_BALANCE"));
 }

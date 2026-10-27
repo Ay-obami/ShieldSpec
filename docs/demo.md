@@ -1,5 +1,11 @@
 # Zecathon demo storyboard
 
+For the full Zcash-only submission narrative and filming schedule, see
+[submission.md](submission.md) and [demo-video-script.md](demo-video-script.md).
+The independently verified [historical SDK #2614 evidence](../evidence/historical-2614/README.md)
+is a real *correctness* before/after comparison and is separate from the
+controlled privacy-fault injection demonstrated below.
+
 ## The problem in one sentence
 
 A wallet upgrade can keep producing valid Zcash transactions while silently changing their privacy properties.

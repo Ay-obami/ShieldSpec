@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "classification": "historical_sdk_correctness_difference_not_privacy_regression",
+  "status": "historical_difference_reproduced",
+  "documented_issue": "https://github.com/zcash/librustzcash/issues/2614",
+  "upstream_fix": "https://github.com/zcash/librustzcash/pull/2615",
+  "test_name": "send_max_spendable_to_transparent",
+  "test_source_sha256": "cd251f47902d5c525ce651c227b01803fc433e954a01d707debf69792adc0127",
+  "test_method": "identical upstream post-fix test; test-only backport to affected checkout",
+  "test_scenario": {
+    "funding_pool": "sapling",
+    "notes": 1,
+    "funding_zat": 60000,
+    "recipient": "plain_transparent_p2pkh",
+    "mode": "send_max_everything",
+    "fee_rule": "zip317",
+    "expected_before": "PaymentPoolsMismatch",
+    "expected_after": "valid_single_step_transparent_payment"
+  },
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "zcash_client_sqlite",
+    "--features",
+    "transparent-inputs",
+    "--lib",
+    "send_max_spendable_to_transparent",
+    "--",
+    "--nocapture"
+  ],
+  "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
+  "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)",
+  "utc_time": "2026-10-27T10:55:47.549033+00:00",
+  "sdk": {
+    "before": {
+      "sdk_git_commit": "54ff673169ec8be5a4b023a7ae69bcf5caead2a3",
+      "cargo_exit_code": 101,
+      "output_log": "before.log",
+      "matched_test": true
+    },
+    "after": {
+      "sdk_git_commit": "25766a4c754a847b0a9e3a63801d8f46a270c01b",
+      "cargo_exit_code": 0,
+      "output_log": "after.log",
+      "matched_test": true
+    }
+  },
+  "privacy_vulnerability_discovered": false
+}

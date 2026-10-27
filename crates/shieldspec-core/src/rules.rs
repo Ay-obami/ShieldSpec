@@ -8,6 +8,8 @@ pub(crate) const TRANSPARENT_FUNDING: &str = "SS002_TRANSPARENT_FUNDING";
 pub(crate) const TRANSPARENT_CHANGE: &str = "SS003_TRANSPARENT_CHANGE";
 pub(crate) const UNKNOWN_ROUTE: &str = "SS004_UNKNOWN_ROUTE";
 pub(crate) const PRIVACY_BOUNDARY: &str = "SS005_PRIVACY_BOUNDARY";
+pub(crate) const CROSS_SHIELDED_POOL_VALUE_BALANCE: &str =
+    "SS006_CROSS_SHIELDED_POOL_VALUE_BALANCE";
 
 pub(crate) fn evaluate(snapshot: &ProposalSnapshot, policy: &Policy) -> Vec<Finding> {
     let mut findings = Vec::new();
@@ -18,6 +20,7 @@ pub(crate) fn evaluate(snapshot: &ProposalSnapshot, policy: &Policy) -> Vec<Find
         unknown_routes(step, policy, &mut findings);
     }
     privacy_boundaries(snapshot, policy, &mut findings);
+    cross_shielded_pool_value_balances(snapshot, policy, &mut findings);
     findings
 }
 
@@ -146,6 +149,83 @@ fn privacy_boundaries(snapshot: &ProposalSnapshot, policy: &Policy, findings: &m
             totals,
             findings,
         );
+    }
+}
+
+fn cross_shielded_pool_value_balances(
+    snapshot: &ProposalSnapshot,
+    policy: &Policy,
+    findings: &mut Vec<Finding>,
+) {
+    // A shielded pool's public value balance is observable even though
+    // individual shielded notes are not. A fee-only balance in one pool
+    // must not trigger this cross-pool observation rule.
+    const SHIELDED_POOLS: [Pool; 3] = [Pool::Sapling, Pool::Orchard, Pool::Ironwood];
+
+    for step in &snapshot.steps {
+        let mut outflows = Vec::new();
+        let mut inflows = Vec::new();
+        for pool in SHIELDED_POOLS {
+            let input_zat: u128 = step
+                .inputs
+                .iter()
+                .filter(|input| input.pool == pool)
+                .map(|input| u128::from(input.value_zat))
+                .sum();
+            let output_zat: u128 = step
+                .outputs
+                .iter()
+                .filter(|output| output.pool == pool && output.role != OutputRole::Ephemeral)
+                .map(|output| u128::from(output.value_zat))
+                .sum();
+            if input_zat > output_zat {
+                outflows.push((pool.name(), input_zat - output_zat));
+            } else if output_zat > input_zat {
+                inflows.push((pool.name(), output_zat - input_zat));
+            }
+        }
+
+        if outflows.is_empty() || inflows.is_empty() {
+            continue;
+        }
+
+        let source_pools = outflows
+            .iter()
+            .map(|(pool, _)| *pool)
+            .collect::<Vec<_>>()
+            .join(",");
+        let destination_pools = inflows
+            .iter()
+            .map(|(pool, _)| *pool)
+            .collect::<Vec<_>>()
+            .join(",");
+        let source_outflow: u128 = outflows.iter().map(|(_, value)| value).sum();
+        let destination_inflow: u128 = inflows.iter().map(|(_, value)| value).sum();
+
+        findings.push(Finding {
+            rule_id: CROSS_SHIELDED_POOL_VALUE_BALANCE.to_owned(),
+            severity: policy.severity(Severity::Warning),
+            step_index: step.index,
+            message: "Shielded-pool transition exposes public pool value balances".to_owned(),
+            evidence: BTreeMap::from([
+                ("source_pool".to_owned(), source_pools.clone()),
+                ("destination_pool".to_owned(), destination_pools.clone()),
+                (
+                    "crossing_value_zat".to_owned(),
+                    source_outflow.min(destination_inflow).to_string(),
+                ),
+                ("source_outflow_zat".to_owned(), source_outflow.to_string()),
+                (
+                    "destination_inflow_zat".to_owned(),
+                    destination_inflow.to_string(),
+                ),
+            ]),
+            fingerprint: fingerprint(
+                CROSS_SHIELDED_POOL_VALUE_BALANCE,
+                step.index,
+                &[&source_pools, &destination_pools],
+            ),
+        });
     }
 }
 

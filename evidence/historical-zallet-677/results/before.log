@@ -1,0 +1,25 @@
+
+running 3 tests
+SHIELDSPEC_ORCHARD_TO_SAPLING_FULL_PRIVACY accepted=false
+test components::json_rpc::payments::shieldspec_privacy_history::shieldspec_orchard_to_sapling_control_rejected ... ok
+SHIELDSPEC_IRONWOOD_TO_IRONWOOD_FULL_PRIVACY accepted=true
+test components::json_rpc::payments::shieldspec_privacy_history::shieldspec_ironwood_same_pool_control_allowed ... ok
+SHIELDSPEC_IRONWOOD_TO_SAPLING_FULL_PRIVACY accepted=true
+test components::json_rpc::payments::shieldspec_privacy_history::shieldspec_ironwood_to_sapling_full_privacy_rejected ... FAILED
+
+failures:
+
+failures:
+    components::json_rpc::payments::shieldspec_privacy_history::shieldspec_ironwood_to_sapling_full_privacy_rejected
+
+test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 264 filtered out; finished in 0.03s
+
+
+   Compiling zallet-core v0.1.0-beta.2 (/tmp/shieldspec-zallet-before/zallet-core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 14.70s
+     Running unittests src/lib.rs (/tmp/shieldspec-zallet-target/debug/deps/zallet_core-adc9ea0218be1a1a)
+
+thread 'components::json_rpc::payments::shieldspec_privacy_history::shieldspec_ironwood_to_sapling_full_privacy_rejected' (648107) panicked at zallet-core/src/components/json_rpc/shieldspec_privacy_history.rs:93:5:
+Ironwood -> Sapling crosses a publicly visible value balance; FullPrivacy must reject
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+error: test failed, to rerun pass `-p zallet-core --lib`

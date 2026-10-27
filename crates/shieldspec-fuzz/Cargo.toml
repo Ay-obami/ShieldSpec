@@ -12,6 +12,7 @@ description = "SDK-independent differential fuzz orchestration for ShieldSpec"
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
+sha2 = "0.10"
 shieldspec-core = { version = "0.1.0", path = "../shieldspec-core" }
 
 [dev-dependencies]
