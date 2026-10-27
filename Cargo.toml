@@ -1,5 +1,9 @@
 [workspace]
-members = ["crates/shieldspec-core", "crates/shieldspec-zcash"]
+members = [
+    "crates/shieldspec-core",
+    "crates/shieldspec-testkit",
+    "crates/shieldspec-zcash",
+]
 resolver = "2"
 
 [workspace.package]
