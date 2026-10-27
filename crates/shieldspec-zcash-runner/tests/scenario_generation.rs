@@ -1,4 +1,4 @@
-use shieldspec_core::{assess, Policy};
+use shieldspec_core::{assess, Policy, Pool};
 use shieldspec_zcash_runner::{
     run_scenario, shrink_scenario, Discovery, GeneratedCase, Scenario, ScenarioGenerator,
     ShieldedPoolChoice,
@@ -87,11 +87,35 @@ fn representative_generated_cases_execute_through_real_zcash_proposals() {
 
         let assessment = assess(&first, &Policy::standard());
         match &case.scenario {
-            Scenario::OrchardPayment(_) => assert!(
-                assessment.passes,
-                "ordinary shielded scenarios should stay clean: {:?}",
-                assessment.findings
-            ),
+            Scenario::OrchardPayment(scenario) => {
+                // Actual proposal routing is authoritative: the SDK may keep
+                // change in Orchard despite a Sapling change-pool preference.
+                // This payment always has an Orchard recipient; any observed
+                // Sapling input or output therefore crosses shielded pools.
+                let crosses_pools = first.steps.iter().any(|step| {
+                    step.inputs.iter().any(|input| input.pool == Pool::Sapling)
+                        || step
+                            .outputs
+                            .iter()
+                            .any(|output| output.pool == Pool::Sapling)
+                });
+                assert_eq!(
+                    assessment
+                        .findings
+                        .iter()
+                        .any(|finding| finding.rule_id == "SS006_CROSS_SHIELDED_POOL_VALUE_BALANCE"),
+                    crosses_pools,
+                    "cross-pool routing mismatch: scenario={scenario:?}, snapshot={first:?}, findings={:?}",
+                    assessment.findings
+                );
+                assert!(
+                    assessment.findings.iter().all(|finding| {
+                        finding.rule_id == "SS006_CROSS_SHIELDED_POOL_VALUE_BALANCE"
+                    }),
+                    "ordinary shielded payments must not have unrelated findings: {:?}",
+                    assessment.findings
+                );
+            }
             Scenario::TexPayment(_) => {
                 assert!(assessment
                     .findings

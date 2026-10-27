@@ -132,7 +132,7 @@ fn crossing_between_shielded_and_transparent_pools_is_a_privacy_boundary() {
 }
 
 #[test]
-fn shielded_pool_migration_does_not_cross_a_privacy_boundary() {
+fn shielded_pool_migration_exposes_a_cross_pool_value_balance_without_transparent_routing() {
     let snapshot = proposal(vec![step(
         vec![Pool::Sapling],
         vec![(Pool::Orchard, OutputRole::Other)],
@@ -140,8 +140,16 @@ fn shielded_pool_migration_does_not_cross_a_privacy_boundary() {
 
     let assessment = assess(&snapshot, &Policy::standard());
 
-    assert!(assessment.findings.is_empty());
-    assert!(assessment.passes);
+    let exposure = finding(&assessment, "SS006_CROSS_SHIELDED_POOL_VALUE_BALANCE");
+    assert_eq!(exposure.severity, Severity::Warning);
+    assert_eq!(exposure.evidence["source_pool"], "sapling");
+    assert_eq!(exposure.evidence["destination_pool"], "orchard");
+    assert_eq!(exposure.evidence["crossing_value_zat"], "40000");
+    assert!(!assessment.passes);
+    assert!(assessment
+        .findings
+        .iter()
+        .all(|f| f.rule_id != "SS005_PRIVACY_BOUNDARY"));
 }
 
 #[test]
@@ -834,4 +842,81 @@ fn public_compare_fails_closed_for_invalid_snapshots_and_contexts() {
         .findings
         .iter()
         .any(|finding| finding.rule_id == "SS000_INVALID_COMPARISON"));
+}
+
+#[test]
+fn ironwood_to_sapling_change_exposes_public_cross_pool_balance() {
+    let snapshot = proposal(vec![StepSnapshot {
+        index: 0,
+        inputs: vec![InputFact {
+            pool: Pool::Ironwood,
+            value_zat: 20_000,
+            origin: InputOrigin::Wallet,
+        }],
+        outputs: vec![OutputFact {
+            pool: Pool::Sapling,
+            role: OutputRole::Change,
+            value_zat: 10_000,
+        }],
+        fee_zat: 10_000,
+    }]);
+
+    let assessment = assess(&snapshot, &Policy::standard());
+    let exposure = finding(&assessment, "SS006_CROSS_SHIELDED_POOL_VALUE_BALANCE");
+    assert_eq!(exposure.evidence["source_pool"], "ironwood");
+    assert_eq!(exposure.evidence["destination_pool"], "sapling");
+    assert_eq!(exposure.evidence["crossing_value_zat"], "10000");
+    assert!(!assessment.passes);
+}
+
+#[test]
+fn same_shielded_pool_change_has_no_cross_pool_balance_finding() {
+    let snapshot = proposal(vec![step(
+        vec![Pool::Ironwood],
+        vec![(Pool::Ironwood, OutputRole::Change)],
+    )]);
+
+    let assessment = assess(&snapshot, &Policy::standard());
+    assert!(assessment
+        .findings
+        .iter()
+        .all(|f| f.rule_id != "SS006_CROSS_SHIELDED_POOL_VALUE_BALANCE"));
+}
+
+#[test]
+fn shielded_pool_inflows_balanced_by_same_pool_outputs_are_not_cross_pool_exposures() {
+    let snapshot = proposal(vec![StepSnapshot {
+        index: 0,
+        inputs: vec![
+            InputFact {
+                pool: Pool::Ironwood,
+                value_zat: 20_000,
+                origin: InputOrigin::Wallet,
+            },
+            InputFact {
+                pool: Pool::Sapling,
+                value_zat: 20_000,
+                origin: InputOrigin::Wallet,
+            },
+        ],
+        outputs: vec![
+            OutputFact {
+                pool: Pool::Ironwood,
+                role: OutputRole::Other,
+                value_zat: 20_000,
+            },
+            OutputFact {
+                pool: Pool::Sapling,
+                role: OutputRole::Other,
+                value_zat: 20_000,
+            },
+        ],
+        fee_zat: 0,
+    }]);
+
+    let assessment = assess(&snapshot, &Policy::standard());
+    assert!(assessment
+        .findings
+        .iter()
+        .all(|f| f.rule_id != "SS006_CROSS_SHIELDED_POOL_VALUE_BALANCE"));
 }
