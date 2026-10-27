@@ -3,7 +3,7 @@ use shieldspec_zcash_runner::{run_scenario, shrink_scenario, Scenario, ScenarioG
 
 #[test]
 fn extended_generator_produces_replayable_transparent_funding() {
-    let seed = 0x72ca_fe_u64;
+    let seed = 0x0072_cafe_u64;
     let mut generator = ScenarioGenerator::new_with_transparent_funding(seed);
     let cases = (0..48).map(|_| generator.next_case()).collect::<Vec<_>>();
     let funded = cases
@@ -40,7 +40,7 @@ fn extended_generator_produces_replayable_transparent_funding() {
 
 #[test]
 fn cli_replays_extended_transparent_seed_by_ordinal() {
-    let seed = 0x72ca_fe_u64;
+    let seed = 0x0072_cafe_u64;
     let mut generator = ScenarioGenerator::new_with_transparent_funding(seed);
     let ordinal = (0..48)
         .map(|_| generator.next_case())
