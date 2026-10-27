@@ -8,13 +8,13 @@ use serde_json::{json, Value};
 
 static NEXT_TEMP_DIR: AtomicU64 = AtomicU64::new(0);
 
-fn repository_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+fn package_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
 }
 
 fn run(args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_shieldspec"))
-        .current_dir(repository_root())
+        .current_dir(package_root())
         .args(args)
         .output()
         .expect("run shieldspec")
@@ -69,7 +69,7 @@ fn representative_reports_match_committed_golden_files() {
         let output = run(&[
             "check",
             "--input",
-            "fixtures/transparent-change.json",
+            "tests/data/transparent-change.json",
             "--policy",
             "standard",
             "--format",
@@ -87,7 +87,7 @@ fn operational_error_matches_committed_golden_file() {
     let output = run(&[
         "check",
         "--input",
-        "crates/shieldspec-cli/tests/data/malformed.json",
+        "tests/data/malformed.json",
         "--policy",
         "standard",
         "--format",

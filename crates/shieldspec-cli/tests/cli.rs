@@ -9,10 +9,10 @@ use serde_json::{json, Value};
 static NEXT_TEMP_FILE: AtomicU64 = AtomicU64::new(0);
 
 fn fixture(name: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .join("fixtures")
-        .join(format!("{name}.json"))
+    let path = temp_file(&format!("fixture-{name}.json"));
+    shieldspec_testkit::write_fixture(name, &path)
+        .unwrap_or_else(|error| panic!("could not materialize fixture {name}: {error}"));
+    path
 }
 
 fn temp_file(label: &str) -> PathBuf {

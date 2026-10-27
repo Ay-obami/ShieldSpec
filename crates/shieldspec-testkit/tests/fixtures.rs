@@ -45,6 +45,10 @@ fn every_fixture_roundtrips_with_the_canonical_envelope() {
 #[test]
 fn embedded_fixtures_semantically_match_repository_fixtures() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures");
+    if !root.is_dir() {
+        // A published crate is self-contained and has no monorepo root to compare against.
+        return;
+    }
 
     for &name in fixture_names() {
         let path = root.join(format!("{name}.json"));

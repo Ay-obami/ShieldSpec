@@ -9,7 +9,7 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
-                  "uri": "fixtures/transparent-change.json"
+                  "uri": "tests/data/transparent-change.json"
                 }
               }
             }
@@ -39,7 +39,7 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
-                  "uri": "fixtures/transparent-change.json"
+                  "uri": "tests/data/transparent-change.json"
                 }
               }
             }
