@@ -12,6 +12,19 @@ pinned Zcash SDK's **actual Orchard-only spend-source policy** and emits a verdi
 policy is distinct from Zallet's FullPrivacy policy and is not a test of any historical
 FullPrivacy bypass.
 
+**Availability:** The generic decision comparison, real SDK Orchard-only adapter and
+`--scenario-family ironwood` implementation are in [open PR #42](https://github.com/Ay-obami/ShieldSpec/pull/42),
+not yet merged into `main` as of 2026-10-27. From a fresh clone, preview the exact PR head with:
+
+```bash
+git fetch origin pull/42/head
+git switch --detach FETCH_HEAD
+cargo build --locked -p shieldspec-zcash-runner --bins
+```
+
+The detached checkout is for feature preview; the lightweight snapshot CLI on `main`
+does not require it.
+
 ## Runner JSON protocol
 
 Existing runners continue returning `{"status":"ok","snapshot":{...}}`.
@@ -78,7 +91,49 @@ policy may flag `SS006`, regardless of whether two wallet runners report the sam
 named Orchard-only spend-policy decision. The campaign's comparable-verdict count
 is the evidence that both wallet-policy runners actually participated. Replay by
 `--scenario-family ironwood --seed ... --ordinal ...` retains that scenario family.
-The original legacy seed/ordinal sequence is unaffected.
+The original legacy seed/ordinal sequence is unaffected. For the four-case generator,
+ordinals map as follows:
+
+| Ordinal | Source | NU6.3 | Actual SDK Orchard-only spend verdict |
+| --- | --- | --- | --- |
+| `0` | Orchard | At activation | `accepted` |
+| `1` | Orchard | Before activation | `accepted` |
+| `2` | Sapling | At activation | `rejected` |
+| `3` | Sapling | Before activation | `rejected` |
+
+The following is a **negative control**, with the same instrumented runner on both
+sides. It is a real SDK proposal campaign and a real SDK policy-observation run, but
+**not** a differential comparison of two different wallet implementations:
+
+```bash
+target/debug/shieldspec-fuzz fuzz \
+  --baseline-runner target/debug/shieldspec-zcash-runner \
+  --candidate-runner target/debug/shieldspec-zcash-runner \
+  --baseline-arg=--wallet-spend-policy --baseline-arg=orchard-only \
+  --candidate-arg=--wallet-spend-policy --candidate-arg=orchard-only \
+  --scenario-family ironwood --seed 2026 --cases 4 --format json
+```
+
+Expect `status: "no_regression_found"` and the three wallet-policy coverage counts
+(`baseline_wallet_policy_observations`, `candidate_wallet_policy_observations`, and
+`comparable_wallet_policy_cases`) each at `4`. The campaign reports **differences**;
+it does not show every individual agreeing verdict. Inspect a specific SDK-generated
+case and the actual agreement with:
+
+```bash
+target/debug/shieldspec-fuzz replay \
+  --scenario-family ironwood --seed 2026 --ordinal 2 \
+  --baseline-runner target/debug/shieldspec-zcash-runner \
+  --candidate-runner target/debug/shieldspec-zcash-runner \
+  --baseline-arg=--wallet-spend-policy --baseline-arg=orchard-only \
+  --candidate-arg=--wallet-spend-policy --candidate-arg=orchard-only \
+  --format json
+```
+
+At-activation cases can show `SS006_CROSS_SHIELDED_POOL_VALUE_BALANCE` in both
+snapshots, yet a same-runner differential still passes. `SS006` observes a proposal
+balance movement, while `zcash_spend_orchard_only_v1` observes a restricted spend-source
+verdict. Neither implies that Zallet's separate `FullPrivacy` policy was tested.
 
 ## Generic comparison
 
