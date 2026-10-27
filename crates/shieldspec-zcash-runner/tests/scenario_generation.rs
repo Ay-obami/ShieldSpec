@@ -1,6 +1,7 @@
 use shieldspec_core::{assess, Policy};
 use shieldspec_zcash_runner::{
     run_scenario, shrink_scenario, Discovery, GeneratedCase, Scenario, ScenarioGenerator,
+    ShieldedPoolChoice,
 };
 
 fn has_transparent_recipient_failure(scenario: &Scenario) -> bool {
@@ -58,6 +59,26 @@ fn representative_generated_cases_execute_through_real_zcash_proposals() {
             .any(|case| matches!(case.scenario, Scenario::OrchardPayment(_))),
         "sample should include a shielded baseline path"
     );
+    assert!(cases.iter().any(|case| match &case.scenario {
+        Scenario::OrchardPayment(scenario) => scenario.funding_pool == ShieldedPoolChoice::Sapling,
+        Scenario::TexPayment(scenario) => scenario.funding_pool == ShieldedPoolChoice::Sapling,
+    }));
+    assert!(cases.iter().any(|case| match &case.scenario {
+        Scenario::OrchardPayment(scenario) => scenario.funding_pool != scenario.change_pool,
+        Scenario::TexPayment(scenario) => scenario.funding_pool != scenario.change_pool,
+    }));
+    assert!(cases.iter().any(|case| match &case.scenario {
+        Scenario::OrchardPayment(scenario) => scenario.confirmations > 1,
+        Scenario::TexPayment(scenario) => scenario.confirmations > 1,
+    }));
+    assert!(cases.iter().any(|case| match &case.scenario {
+        Scenario::OrchardPayment(scenario) => scenario.note_count > 1,
+        Scenario::TexPayment(scenario) => scenario.note_count > 1,
+    }));
+    assert!(cases.iter().any(|case| match &case.scenario {
+        Scenario::OrchardPayment(scenario) => scenario.empty_blocks > 0,
+        Scenario::TexPayment(scenario) => scenario.empty_blocks > 0,
+    }));
 
     for case in cases {
         let first = run_scenario(&case.scenario).expect("generated scenario must be executable");
