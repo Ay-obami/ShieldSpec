@@ -35,9 +35,9 @@ enum Command {
         baseline_runner: PathBuf,
         #[arg(long)]
         candidate_runner: PathBuf,
-        #[arg(long = "baseline-arg")]
+        #[arg(long = "baseline-arg", allow_hyphen_values = true)]
         baseline_args: Vec<String>,
-        #[arg(long = "candidate-arg")]
+        #[arg(long = "candidate-arg", allow_hyphen_values = true)]
         candidate_args: Vec<String>,
         #[arg(long, default_value_t = 0x5eed_cafe_u64)]
         seed: u64,
@@ -64,9 +64,9 @@ enum Command {
         baseline_runner: Option<PathBuf>,
         #[arg(long)]
         candidate_runner: Option<PathBuf>,
-        #[arg(long = "baseline-arg")]
+        #[arg(long = "baseline-arg", allow_hyphen_values = true)]
         baseline_args: Vec<String>,
-        #[arg(long = "candidate-arg")]
+        #[arg(long = "candidate-arg", allow_hyphen_values = true)]
         candidate_args: Vec<String>,
         /// Reproduce the built-in judge-demo candidate fault.
         #[arg(long, value_enum)]
