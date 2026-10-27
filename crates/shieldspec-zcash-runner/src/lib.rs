@@ -296,6 +296,23 @@ pub struct GeneratedCase {
     pub scenario: Scenario,
 }
 
+/// Persisted minimized privacy discovery tied back to its generator origin.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Discovery {
+    pub seed: u64,
+    pub ordinal: u64,
+    pub rule_id: String,
+    pub original: Scenario,
+    pub minimized: Scenario,
+}
+
+impl Discovery {
+    pub fn replay_minimized(&self) -> Result<ProposalSnapshot, RunnerError> {
+        run_scenario(&self.minimized)
+    }
+}
+
 /// Executes a stable fuzzing scenario against the pinned real-wallet runner.
 pub fn run_scenario(scenario: &Scenario) -> Result<ProposalSnapshot, RunnerError> {
     match scenario {
