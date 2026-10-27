@@ -2,7 +2,12 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{assess, Finding, Policy, ProposalSnapshot, Severity};
+use crate::rules::evaluate;
+use crate::validation::{
+    comparison_context_finding, snapshot_validation_finding, validate_comparison_context,
+    validate_snapshot,
+};
+use crate::{Finding, Policy, ProposalSnapshot, Severity};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct RegressionReport {
@@ -16,9 +21,19 @@ pub fn compare(
     candidate: &ProposalSnapshot,
     policy: &Policy,
 ) -> RegressionReport {
-    let baseline_findings = assess(baseline, policy).findings;
-    let candidate_findings = assess(candidate, policy).findings;
-    let findings = regression_findings(baseline_findings, candidate_findings);
+    let baseline_findings = evaluate(baseline, policy);
+    let candidate_findings = evaluate(candidate, policy);
+    let mut findings = regression_findings(baseline_findings, candidate_findings);
+
+    if let Err(error) = validate_snapshot(baseline) {
+        findings.push(snapshot_validation_finding(&error, "baseline"));
+    }
+    if let Err(error) = validate_snapshot(candidate) {
+        findings.push(snapshot_validation_finding(&error, "candidate"));
+    }
+    if let Err(error) = validate_comparison_context(baseline, candidate) {
+        findings.push(comparison_context_finding(&error));
+    }
 
     RegressionReport {
         passes: findings.is_empty(),

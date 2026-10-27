@@ -1,7 +1,12 @@
+use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt;
 
-use crate::ProposalSnapshot;
+use crate::fingerprint::fingerprint;
+use crate::{Finding, ProposalSnapshot, Severity};
+
+pub(crate) const INVALID_SNAPSHOT: &str = "SS000_INVALID_SNAPSHOT";
+pub(crate) const INVALID_COMPARISON: &str = "SS000_INVALID_COMPARISON";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum SnapshotValidationError {
@@ -176,4 +181,54 @@ pub fn validate_comparison_context(
         });
     }
     Ok(())
+}
+
+pub(crate) fn snapshot_validation_finding(
+    error: &SnapshotValidationError,
+    source: &str,
+) -> Finding {
+    let (code, step_index) = match error {
+        SnapshotValidationError::UnsupportedSchemaVersion { .. } => {
+            ("unsupported_schema_version", 0)
+        }
+        SnapshotValidationError::EmptyNetwork => ("empty_network", 0),
+        SnapshotValidationError::NoSteps => ("no_steps", 0),
+        SnapshotValidationError::InvalidStepIndex { position, .. } => {
+            ("invalid_step_index", *position)
+        }
+        SnapshotValidationError::NoInputs { step_index } => ("no_inputs", *step_index),
+        SnapshotValidationError::NoOutputs { step_index } => ("no_outputs", *step_index),
+        SnapshotValidationError::ArithmeticOverflow { step_index } => {
+            ("arithmetic_overflow", *step_index)
+        }
+        SnapshotValidationError::UnbalancedStep { step_index, .. } => {
+            ("unbalanced_step", *step_index)
+        }
+    };
+    Finding {
+        rule_id: INVALID_SNAPSHOT.to_owned(),
+        severity: Severity::Error,
+        step_index,
+        message: format!("Invalid {source} proposal snapshot: {error}"),
+        evidence: BTreeMap::from([
+            ("source".to_owned(), source.to_owned()),
+            ("validation_error".to_owned(), error.to_string()),
+        ]),
+        fingerprint: fingerprint(INVALID_SNAPSHOT, step_index, &[source, code]),
+    }
+}
+
+pub(crate) fn comparison_context_finding(error: &ComparisonContextError) -> Finding {
+    let code = match error {
+        ComparisonContextError::SchemaVersionMismatch { .. } => "schema_version_mismatch",
+        ComparisonContextError::NetworkMismatch { .. } => "network_mismatch",
+    };
+    Finding {
+        rule_id: INVALID_COMPARISON.to_owned(),
+        severity: Severity::Error,
+        step_index: 0,
+        message: format!("Invalid proposal comparison context: {error}"),
+        evidence: BTreeMap::from([("comparison_error".to_owned(), error.to_string())]),
+        fingerprint: fingerprint(INVALID_COMPARISON, 0, &[code]),
+    }
 }

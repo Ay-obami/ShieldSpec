@@ -725,3 +725,42 @@ fn snapshot_models_deny_unknown_json_fields() {
         assert!(serde_json::from_value::<ProposalSnapshot>(json).is_err());
     }
 }
+
+#[test]
+fn public_assess_fails_closed_for_invalid_snapshots() {
+    let invalid = proposal(vec![]);
+
+    let assessment = assess(&invalid, &Policy::standard());
+
+    assert!(!assessment.passes);
+    assert!(assessment
+        .findings
+        .iter()
+        .any(|finding| finding.rule_id == "SS000_INVALID_SNAPSHOT"));
+}
+
+#[test]
+fn public_compare_fails_closed_for_invalid_snapshots_and_contexts() {
+    let valid = proposal(vec![step(
+        vec![Pool::Orchard],
+        vec![(Pool::Orchard, OutputRole::Recipient)],
+    )]);
+    let mut invalid = valid.clone();
+    invalid.steps.clear();
+
+    let invalid_report = compare(&valid, &invalid, &Policy::standard());
+    assert!(!invalid_report.passes);
+    assert!(invalid_report
+        .findings
+        .iter()
+        .any(|finding| finding.rule_id == "SS000_INVALID_SNAPSHOT"));
+
+    let mut other_network = valid.clone();
+    other_network.network = "mainnet".to_owned();
+    let context_report = compare(&valid, &other_network, &Policy::standard());
+    assert!(!context_report.passes);
+    assert!(context_report
+        .findings
+        .iter()
+        .any(|finding| finding.rule_id == "SS000_INVALID_COMPARISON"));
+}
