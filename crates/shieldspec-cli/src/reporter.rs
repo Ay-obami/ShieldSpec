@@ -154,6 +154,10 @@ fn rule_metadata(rule_id: &str) -> RuleMetadata {
             description: "Value crosses the transparent/shielded privacy boundary",
             default_severity: Severity::Warning,
         },
+        "SS006_CROSS_SHIELDED_POOL_VALUE_BALANCE" => RuleMetadata {
+            description: "Cross-shielded-pool public value-balance exposure",
+            default_severity: Severity::Warning,
+        },
         _ => RuleMetadata {
             description: "ShieldSpec policy finding",
             default_severity: Severity::Warning,
@@ -270,8 +274,21 @@ const fn sarif_level(severity: Severity) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::artifact_uri_with_context;
+    use super::{artifact_uri_with_context, rule_metadata};
     use std::path::Path;
+
+    #[test]
+    fn cross_pool_public_balance_rule_has_meaningful_sarif_metadata() {
+        let metadata = rule_metadata("SS006_CROSS_SHIELDED_POOL_VALUE_BALANCE");
+        assert_eq!(
+            metadata.description,
+            "Cross-shielded-pool public value-balance exposure"
+        );
+        assert_eq!(
+            metadata.default_severity,
+            shieldspec_core::Severity::Warning
+        );
+    }
 
     #[test]
     fn artifact_uri_is_repository_relative_under_source_root() {

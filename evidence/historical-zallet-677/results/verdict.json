@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "status": "historical_privacy_policy_difference_reproduced",
+  "classification": "historical_zallet_fullprivacy_cross_pool_bypass_not_new_vulnerability",
+  "source": "https://github.com/zcash/zallet/pull/677",
+  "upstream": "https://github.com/zcash/zallet.git",
+  "test_source_sha256": "0494a4841b114ccb12c21b0ef0d95b2480092c527316cc79b5d5e12c515f4e64",
+  "test_method": "identical test-only Rust module in before/after pinned Zallet checkouts",
+  "scenario": {
+    "input_pool": "ironwood",
+    "change_pool": "sapling",
+    "input_zat": 20000,
+    "change_zat": 10000,
+    "fee_zat": 10000,
+    "requested_policy": "FullPrivacy",
+    "fixture_shape": "single step, one shielded note, one shielded change; no upstream-case auto-shrinking claimed",
+    "deterministic_test_vectors": {
+      "spending_key_bytes": "0x2a repeated 32 times (fixed test-only key)",
+      "rho_bytes": "0x00 repeated 32 times",
+      "rseed_bytes": "0x1b repeated 32 times",
+      "txid_bytes": "0x00 repeated 32 times",
+      "note_position": 0,
+      "received_height": 100,
+      "target_height": 101
+    },
+    "privacy_property": "cross-pool value balance reveals amount; FullPrivacy must reject"
+  },
+  "controls": [
+    "orchard_to_sapling_rejected",
+    "ironwood_to_ironwood_accepted"
+  ],
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "zallet-core",
+    "--lib",
+    "shieldspec_",
+    "--",
+    "--nocapture"
+  ],
+  "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
+  "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)",
+  "cargo_target_dir": "/tmp/shieldspec-zallet-target",
+  "utc_time": "2026-10-27T12:04:44.942586+00:00",
+  "sdk": {
+    "before": {
+      "sdk_git_commit": "f496c9b6b2c6ebb0065b329c11bda4a5fdf73568",
+      "runner_binary_name": "zallet_core-adc9ea0218be1a1a",
+      "runner_binary_sha256": "9ca3736990c51f39224fe40fa2468accf5f82f68e0bd934d3316bd8052ba9a4c",
+      "cargo_exit_code": 101,
+      "output_log": "before.log",
+      "log_sha256": "4af1d594da76830c34282946179da007b11e1f03402f19c7e5523db66a5626f3",
+      "full_privacy_accepted": true
+    },
+    "after": {
+      "sdk_git_commit": "e966780216b7a86b0a1a6618f2fde5b574da7171",
+      "runner_binary_name": "zallet_core-adc9ea0218be1a1a",
+      "runner_binary_sha256": "ecb807b22471da00f4479c2feef81aba62c8a07fe3fb658a66b9b733ddf7886c",
+      "cargo_exit_code": 0,
+      "output_log": "after.log",
+      "log_sha256": "f3dfd689a45181cdd97bcdab76785838c87bbffff406cc718cebeff9cb87706a",
+      "full_privacy_accepted": false
+    }
+  },
+  "is_documented_prior_bug": true,
+  "is_new_privacy_vulnerability": false,
+  "is_shieldspec_fuzzer_discovery": false
+}

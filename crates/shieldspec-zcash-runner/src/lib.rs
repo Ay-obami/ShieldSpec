@@ -8,6 +8,7 @@ use std::{convert::Infallible, error::Error, fmt};
 
 use serde::{Deserialize, Serialize};
 use shieldspec_core::ProposalSnapshot;
+use shieldspec_fuzz::DifferentialProvenance;
 use shieldspec_zcash::{snapshot_from_proposal, AdapterError};
 use zcash_client_backend::{
     data_api::{
@@ -374,6 +375,10 @@ pub struct Discovery {
     pub rule_id: String,
     pub original: Scenario,
     pub minimized: Scenario,
+    /// Optional, backward-compatible exact executable provenance for
+    /// differential discoveries. Old known-behavior corpus records omit it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<DifferentialProvenance>,
 }
 
 impl Discovery {

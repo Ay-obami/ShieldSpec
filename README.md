@@ -4,7 +4,27 @@ ShieldSpec is privacy differential fuzzing and regression testing for Zcash wall
 
 ShieldSpec is a **Core & Tooling** project. The privacy oracle remains usable as a lightweight Rust library, CLI, and GitHub Action; the fuzzing layer adds a real-wallet proposal harness, deterministic semantic scenario generation, differential runner isolation, shrinking, and a replayable discovery corpus.
 
-## 30-second judge demo
+## Developer product and first steps
+
+ShieldSpec is being built as lasting open-source developer infrastructure, beyond the Zecathon submission. Start with the [developer quickstart](docs/getting-started.md), review the [product roadmap and current implementation boundaries](docs/roadmap.md), or preview the [responsive static website](site/README.md). The website includes a read-only historical-evidence explorer and does not pretend to run live Zcash fuzzing in a browser. GitHub Pages is configured for `https://ay-obami.github.io/ShieldSpec/`, with publishing gated on a verified workflow after the site changes reach `main`.
+
+## Reproduced Zcash wallet privacy history and ShieldSpec's fuzzer demo
+
+**Real historical privacy-policy difference:** The same test-only Rust witness invokes real `zallet-core` privacy-policy code at revisions [`f496c9b`](https://github.com/zcash/zallet/commit/f496c9b6b2c6ebb0065b329c11bda4a5fdf73568) and [`e966780`](https://github.com/zcash/zallet/commit/e966780216b7a86b0a1a6618f2fde5b574da7171), from [zallet#677](https://github.com/zcash/zallet/pull/677). Under `FullPrivacy`, the affected code **accepted Ironwood→Sapling** shielded-pool crossing (which exposes a public value balance), while the fixed code **rejects** it. Pinned sources, control tests, both raw logs and a reproducible CLI are in [the Zallet privacy-history evidence](evidence/historical-zallet-677/README.md). It is a previously documented and fixed upstream wallet-core issue, not a new discovery or an automatically found ShieldSpec fuzzer result.
+
+**Cross-pool snapshot detection:** ShieldSpec now reports `SS006_CROSS_SHIELDED_POOL_VALUE_BALANCE` when normalized Zcash proposals move public net balances between Sapling, Orchard, or Ironwood. Real proposal tests cover both observed crossings and an SDK change-pool preference that does **not** result in an actual crossing. This snapshot-level warning is valuable to a developer's privacy regression policy, but it cannot by itself prove a real wallet's `FullPrivacy` policy verdict. Historical Zallet acceptance/rejection still comes from the independent pinned witness, not automatic discovery by the general fuzzer.
+
+A separate [librustzcash#2614 reproduction](evidence/historical-2614/README.md) demonstrates a genuine SDK **correctness** difference in transparent send-max proposals; it is not itself evidence of a privacy leak. The ShieldSpec CLI privacy-differential demo below injects a labeled fault to validate discovery, minimization and replay without misrepresenting it as upstream behavior.
+
+To reproduce the privacy-policy comparison (Rust 1.95, network access, upstream build dependencies):
+
+```bash
+python3 scripts/reproduce_zallet_677.py --output evidence/historical-zallet-677/results
+```
+
+For a judge-facing sequence, see the [submission summary](docs/submission.md), [captioned 1080p demo video](docs/media/shieldspec-zecathon-captioned-demo.mp4), and [optional narrated filming plan](docs/demo-video-script.md). The captioned video is generated from verified historical logs and executed CLI output; it has **no voiceover**. To regenerate it after building `shieldspec-fuzz`, run `python3 scripts/render_demo_video.py` (requires Pillow and ffmpeg).
+
+## Quick judge demo
 
 The shortest end-to-end demonstration is:
 
@@ -109,6 +129,8 @@ Generated dimensions currently include shielded funding pool, fallback change po
 
 A reported case contains its seed and ordinal. The semantic shrinker removes unnecessary state while repeatedly executing the real proposal path and preserving the target privacy regression.
 
+With `fuzz --save <discovery.json>`, ShieldSpec also saves each executed runner binary's SHA-256, its exact arguments and canonical path, the policy, and optional **declared** SDK revision labels (`--baseline-sdk` and `--candidate-sdk`). `replay --input <discovery.json>` restores those runner identities, checks the hashes and replays the minimized scenario. A changed binary or conflicting policy fails closed. Runner hashes prove **which bytes ran**; SDK revision labels must still be verified against build records. The historical reproducer verifies actual upstream Git revisions.
+
 ## Replay corpus
 
 Replayable minimized cases live under:
@@ -126,7 +148,7 @@ cargo run --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz -- \
   --format human
 ```
 
-The committed TEX case is a **known expected Zcash behavior**, not a claimed upstream vulnerability: it preserves the transparent recipient finding while proving the ZIP 320 ephemeral bridge is not mislabeled as wallet transparent funding or transparent change. A future differential finding saved with `--save` uses the same seed/ordinal/original/minimized replay format.
+The committed TEX case is a **known expected Zcash behavior**, not a claimed upstream vulnerability: it preserves the transparent recipient finding while proving the ZIP 320 ephemeral bridge is not mislabeled as wallet transparent funding or transparent change. A future differential finding saved with `--save` uses the same seed/ordinal/original/minimized replay format, extended with optional runner provenance. Pre-provenance corpus files remain readable.
 
 ## Published motivation
 

@@ -31,6 +31,9 @@ jobs:
       - name: Check canonical fixture copies stay in sync
         run: diff -ru fixtures crates/shieldspec-testkit/fixtures
 
+      - name: Validate historical reproduction harness without network
+        run: python3 -m unittest discover -s scripts/tests -v
+
       - name: Run workspace tests
         run: cargo test --locked --workspace --all-targets
 

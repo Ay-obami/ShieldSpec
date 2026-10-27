@@ -23,6 +23,10 @@ ShieldSpec infers a privacy regression only under the selected policy: a candida
 
 Terms such as “exposure” or “privacy boundary” describe policy interpretations of known proposal structure. They do not establish who controls an address, who a person is, or how observable data will be combined outside the proposal.
 
+**Current cross-pool boundary:** `SS005_PRIVACY_BOUNDARY` distinguishes transparent and shielded routes. The new `SS006_CROSS_SHIELDED_POOL_VALUE_BALANCE` detects net value leaving one of Sapling, Orchard, or Ironwood while entering another shielded pool in the same normalized proposal step. It reports the source/destination pools and aggregate candidate crossing amount. These pool-level value balances can be publicly observable even though the individual shielded notes remain private. It is an **observation and policy-rated warning**, not proof that the wallet violated its privacy policy or that the same parties control both ends. Some policies deliberately permit cross-pool transfers. For multiple sources and destinations, the reported crossing amount is a conservative aggregate indication, not a proven pairwise flow attribution.
+
+Whether a real wallet under `FullPrivacy` wrongly **accepted** that crossing requires a first-class policy verdict from its actual policy engine. Our pinned [Zallet historical witness](../evidence/historical-zallet-677/README.md) independently calls that upstream code and is separate from the general differential fuzzer. Automatic historical policy-verdict discovery and replay remain [active development](roadmap.md); the snapshot rule alone does not claim to reproduce Zallet's affected-versus-corrected acceptance decision.
+
 ## Unknowns
 
 The snapshot does not establish:

@@ -8,7 +8,10 @@ use std::{
 use clap::{Parser, Subcommand, ValueEnum};
 use serde::Serialize;
 use shieldspec_core::{assess, Finding, Policy, ProposalSnapshot};
-use shieldspec_fuzz::{run_differential, DifferentialReport, RunnerCommand, RunnerResponse};
+use shieldspec_fuzz::{
+    run_differential, DifferentialProvenance, DifferentialReport, RunnerCommand, RunnerProvenance,
+    RunnerResponse,
+};
 use shieldspec_zcash_runner::{
     run_scenario, shrink_scenario, Discovery, Scenario, ScenarioGenerator,
 };
@@ -39,6 +42,12 @@ enum Command {
         baseline_args: Vec<String>,
         #[arg(long = "candidate-arg", allow_hyphen_values = true)]
         candidate_args: Vec<String>,
+        /// Exact SDK source version or Git SHA declared by the runner builder.
+        #[arg(long)]
+        baseline_sdk: Option<String>,
+        /// Exact SDK source version or Git SHA declared by the runner builder.
+        #[arg(long)]
+        candidate_sdk: Option<String>,
         #[arg(long, default_value_t = 0x5eed_cafe_u64)]
         seed: u64,
         #[arg(long, default_value_t = 25)]
@@ -71,8 +80,8 @@ enum Command {
         /// Reproduce the built-in judge-demo candidate fault.
         #[arg(long, value_enum)]
         demo_regression: Option<DemoRegression>,
-        #[arg(long, value_enum, default_value_t = PolicyName::Standard)]
-        policy: PolicyName,
+        #[arg(long, value_enum)]
+        policy: Option<PolicyName>,
         #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
         format: OutputFormat,
     },
@@ -89,7 +98,7 @@ enum Command {
     },
 }
 
-#[derive(Clone, Copy, Debug, ValueEnum)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 enum PolicyName {
     Standard,
     Strict,
@@ -107,6 +116,14 @@ impl PolicyName {
         match self {
             Self::Standard => "standard",
             Self::Strict => "strict",
+        }
+    }
+
+    fn from_str(value: &str) -> Result<Self, String> {
+        match value {
+            "standard" => Ok(Self::Standard),
+            "strict" => Ok(Self::Strict),
+            other => Err(format!("unsupported recorded policy: {other}")),
         }
     }
 }
@@ -162,6 +179,8 @@ struct DifferentialReplayOutput {
     report: DifferentialReport,
     recorded_rule_id: Option<String>,
     recorded_rule_reproduced: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    provenance_verified: Option<bool>,
     reproduction: String,
     warning: &'static str,
 }
@@ -175,6 +194,8 @@ fn main() -> ExitCode {
             candidate_runner,
             baseline_args,
             candidate_args,
+            baseline_sdk,
+            candidate_sdk,
             seed,
             cases,
             policy,
@@ -194,6 +215,8 @@ fn main() -> ExitCode {
                     policy,
                     format,
                     save.as_deref(),
+                    baseline_sdk,
+                    candidate_sdk,
                 )
             }
         }
@@ -238,6 +261,7 @@ fn runner_command(program: PathBuf, args: Vec<String>) -> RunnerCommand {
         .fold(RunnerCommand::new(program), |command, arg| command.arg(arg))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_campaign(
     baseline: &RunnerCommand,
     candidate: &RunnerCommand,
@@ -246,8 +270,19 @@ fn run_campaign(
     policy_name: PolicyName,
     format: OutputFormat,
     save: Option<&Path>,
+    baseline_sdk: Option<String>,
+    candidate_sdk: Option<String>,
 ) -> Result<ExitCode, String> {
     let policy = policy_name.policy();
+    let provenance = if save.is_some() {
+        Some(DifferentialProvenance {
+            baseline: RunnerProvenance::capture(baseline, baseline_sdk)?,
+            candidate: RunnerProvenance::capture(candidate, candidate_sdk)?,
+            policy: policy_name.as_str().to_owned(),
+        })
+    } else {
+        None
+    };
     let mut generator = ScenarioGenerator::new(seed);
 
     for case_number in 1..=cases {
@@ -292,6 +327,7 @@ fn run_campaign(
                     rule_id,
                     original: original.clone(),
                     minimized: minimized.clone(),
+                    provenance: provenance.clone(),
                 };
                 write_pretty_json(path, &discovery)?;
             }
@@ -344,12 +380,17 @@ fn replay(
     baseline_args: Vec<String>,
     candidate_args: Vec<String>,
     demo_regression: Option<DemoRegression>,
-    policy_name: PolicyName,
+    policy_name: Option<PolicyName>,
     format: OutputFormat,
 ) -> Result<ExitCode, String> {
-    let (scenario, recorded_rule_id, replay_seed, replay_ordinal, single_reproduction) = match (
-        input, seed, ordinal,
-    ) {
+    let (
+        scenario,
+        recorded_rule_id,
+        replay_seed,
+        replay_ordinal,
+        single_reproduction,
+        saved_provenance,
+    ) = match (input, seed, ordinal) {
         (Some(path), None, None) => {
             let bytes = fs::read(path)
                 .map_err(|error| format!("could not read {}: {error}", path.display()))?;
@@ -364,6 +405,7 @@ fn replay(
                         "cargo run --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz -- replay --input {}",
                         path.display()
                     ),
+                    discovery.provenance,
                 )
         }
         (None, Some(seed), Some(ordinal)) => {
@@ -376,6 +418,7 @@ fn replay(
                     format!(
                         "cargo run --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz -- replay --seed {seed} --ordinal {ordinal}"
                     ),
+                    None,
                 )
         }
         _ => {
@@ -384,6 +427,19 @@ fn replay(
                     .to_owned(),
             )
         }
+    };
+
+    let policy_name = match (policy_name, saved_provenance.as_ref()) {
+        (Some(policy), Some(saved)) if policy.as_str() != saved.policy => {
+            return Err(format!(
+                "replay policy {} differs from recorded policy {}",
+                policy.as_str(),
+                saved.policy
+            ));
+        }
+        (Some(policy), _) => policy,
+        (None, Some(saved)) => PolicyName::from_str(&saved.policy)?,
+        (None, None) => PolicyName::Standard,
     };
 
     let differential_pair = if let Some(regression) = demo_regression {
@@ -427,6 +483,21 @@ fn replay(
         }
     };
 
+    // Prefer the saved identities when a discovery has them, but permit an
+    // explicitly supplied executable in another directory if its bytes match.
+    let differential_pair = differential_pair.or_else(|| {
+        saved_provenance
+            .as_ref()
+            .map(|saved| (saved.baseline.command(), saved.candidate.command()))
+    });
+
+    if let (Some(saved), Some((baseline, candidate))) =
+        (saved_provenance.as_ref(), differential_pair.as_ref())
+    {
+        saved.baseline.verify(baseline)?;
+        saved.candidate.verify(candidate)?;
+    }
+
     if let Some((baseline, candidate)) = differential_pair {
         let scenario_json = serde_json::to_value(&scenario).map_err(|error| error.to_string())?;
         let report = run_differential(&baseline, &candidate, &scenario_json, &policy_name.policy())
@@ -438,13 +509,17 @@ fn replay(
                 .iter()
                 .any(|finding| &finding.rule_id == rule_id)
         });
-        let reproduction = differential_reproduction(
-            replay_seed,
-            replay_ordinal,
-            policy_name,
-            &baseline,
-            &candidate,
-        );
+        let reproduction = if saved_provenance.is_some() {
+            format!("{single_reproduction} --policy {}", policy_name.as_str())
+        } else {
+            differential_reproduction(
+                replay_seed,
+                replay_ordinal,
+                policy_name,
+                &baseline,
+                &candidate,
+            )
+        };
         let output = DifferentialReplayOutput {
             status: if report.regression.passes {
                 "no_regression"
@@ -455,6 +530,7 @@ fn replay(
             report,
             recorded_rule_id,
             recorded_rule_reproduced,
+            provenance_verified: saved_provenance.as_ref().map(|_| true),
             reproduction,
             warning: LIMIT_WARNING,
         };
@@ -566,6 +642,8 @@ fn demo(format: OutputFormat) -> Result<ExitCode, String> {
         1,
         PolicyName::Standard,
         format,
+        None,
+        None,
         None,
     )
 }
