@@ -16,8 +16,8 @@ pub(crate) fn evaluate(snapshot: &ProposalSnapshot, policy: &Policy) -> Vec<Find
         transparent_funding(step, policy, &mut findings);
         transparent_change(step, policy, &mut findings);
         unknown_routes(step, policy, &mut findings);
-        privacy_boundaries(step, policy, &mut findings);
     }
+    privacy_boundaries(snapshot, policy, &mut findings);
     findings
 }
 
@@ -39,7 +39,7 @@ fn transparent_recipients(step: &StepSnapshot, policy: &Policy, findings: &mut V
 
 fn transparent_funding(step: &StepSnapshot, policy: &Policy, findings: &mut Vec<Finding>) {
     for (position, input) in step.inputs.iter().enumerate() {
-        if input.pool == Pool::Transparent {
+        if input.pool == Pool::Transparent && input.origin.is_wallet() {
             let position_text = position.to_string();
             let occurrence_text = input_occurrence(step, position).to_string();
             let evidence = BTreeMap::from([
@@ -117,17 +117,18 @@ fn unknown_routes(step: &StepSnapshot, policy: &Policy, findings: &mut Vec<Findi
     }
 }
 
-fn privacy_boundaries(step: &StepSnapshot, policy: &Policy, findings: &mut Vec<Finding>) {
+fn privacy_boundaries(snapshot: &ProposalSnapshot, policy: &Policy, findings: &mut Vec<Finding>) {
     let totals = FlowTotals {
-        transparent_inputs: pool_input_total(step, PoolKind::Transparent),
-        transparent_outputs: pool_output_total(step, PoolKind::Transparent),
-        shielded_inputs: pool_input_total(step, PoolKind::Shielded),
-        shielded_outputs: pool_output_total(step, PoolKind::Shielded),
+        transparent_inputs: proposal_input_total(snapshot, PoolKind::Transparent),
+        transparent_outputs: proposal_output_total(snapshot, PoolKind::Transparent),
+        shielded_inputs: proposal_input_total(snapshot, PoolKind::Shielded),
+        shielded_outputs: proposal_output_total(snapshot, PoolKind::Shielded),
     };
 
     if totals.transparent_outputs > totals.transparent_inputs {
+        let step_index = boundary_step(snapshot, "shielded_to_transparent");
         boundary_finding(
-            step,
+            step_index,
             policy,
             "shielded_to_transparent",
             totals.transparent_outputs - totals.transparent_inputs,
@@ -136,8 +137,9 @@ fn privacy_boundaries(step: &StepSnapshot, policy: &Policy, findings: &mut Vec<F
         );
     }
     if totals.shielded_outputs > totals.shielded_inputs {
+        let step_index = boundary_step(snapshot, "transparent_to_shielded");
         boundary_finding(
-            step,
+            step_index,
             policy,
             "transparent_to_shielded",
             totals.shielded_outputs - totals.shielded_inputs,
@@ -161,17 +163,23 @@ struct FlowTotals {
     shielded_outputs: u128,
 }
 
-fn pool_input_total(step: &StepSnapshot, kind: PoolKind) -> u128 {
-    step.inputs
+fn proposal_input_total(snapshot: &ProposalSnapshot, kind: PoolKind) -> u128 {
+    snapshot
+        .steps
         .iter()
+        .flat_map(|step| step.inputs.iter())
+        .filter(|input| input.origin.is_wallet())
         .filter(|input| pool_matches(input.pool, kind))
         .map(|input| u128::from(input.value_zat))
         .sum()
 }
 
-fn pool_output_total(step: &StepSnapshot, kind: PoolKind) -> u128 {
-    step.outputs
+fn proposal_output_total(snapshot: &ProposalSnapshot, kind: PoolKind) -> u128 {
+    snapshot
+        .steps
         .iter()
+        .flat_map(|step| step.outputs.iter())
+        .filter(|output| output.role != OutputRole::Ephemeral)
         .filter(|output| pool_matches(output.pool, kind))
         .map(|output| u128::from(output.value_zat))
         .sum()
@@ -184,8 +192,24 @@ const fn pool_matches(pool: Pool, kind: PoolKind) -> bool {
     }
 }
 
+fn boundary_step(snapshot: &ProposalSnapshot, direction: &str) -> usize {
+    snapshot
+        .steps
+        .iter()
+        .find(|step| match direction {
+            "shielded_to_transparent" => step.outputs.iter().any(|output| {
+                output.pool == Pool::Transparent && output.role != OutputRole::Ephemeral
+            }),
+            "transparent_to_shielded" => {
+                step.outputs.iter().any(|output| output.pool.is_shielded())
+            }
+            _ => false,
+        })
+        .map_or(0, |step| step.index)
+}
+
 fn boundary_finding(
-    step: &StepSnapshot,
+    step_index: usize,
     policy: &Policy,
     direction: &str,
     crossing_value_zat: u128,
@@ -195,7 +219,7 @@ fn boundary_finding(
     findings.push(Finding {
         rule_id: PRIVACY_BOUNDARY.to_owned(),
         severity: policy.severity(Severity::Warning),
-        step_index: step.index,
+        step_index,
         message: format!("Value crosses the privacy boundary {direction}"),
         evidence: BTreeMap::from([
             ("direction".to_owned(), direction.to_owned()),
@@ -220,7 +244,7 @@ fn boundary_finding(
                 totals.shielded_outputs.to_string(),
             ),
         ]),
-        fingerprint: fingerprint(PRIVACY_BOUNDARY, step.index, &[direction]),
+        fingerprint: fingerprint(PRIVACY_BOUNDARY, step_index, &[direction]),
     });
 }
 

@@ -33,6 +33,7 @@ impl Pool {
 pub enum OutputRole {
     Recipient,
     Change,
+    Ephemeral,
     Other,
 }
 
@@ -41,8 +42,34 @@ impl OutputRole {
         match self {
             Self::Recipient => "recipient",
             Self::Change => "change",
+            Self::Ephemeral => "ephemeral",
             Self::Other => "other",
         }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case", tag = "kind", content = "index")]
+pub enum PriorStepOutput {
+    Payment(usize),
+    Change(usize),
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case", tag = "kind")]
+pub enum InputOrigin {
+    #[default]
+    Wallet,
+    PriorStep {
+        step_index: usize,
+        output: PriorStepOutput,
+    },
+}
+
+impl InputOrigin {
+    #[must_use]
+    pub const fn is_wallet(&self) -> bool {
+        matches!(self, Self::Wallet)
     }
 }
 
@@ -51,6 +78,8 @@ impl OutputRole {
 pub struct InputFact {
     pub pool: Pool,
     pub value_zat: u64,
+    #[serde(default, skip_serializing_if = "InputOrigin::is_wallet")]
+    pub origin: InputOrigin,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

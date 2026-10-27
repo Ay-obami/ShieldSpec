@@ -1,7 +1,7 @@
 use shieldspec_core::{
     assess, compare, validate_comparison_context, validate_snapshot, ComparisonContextError,
-    InputFact, OutputFact, OutputRole, Policy, Pool, ProposalSnapshot, Severity,
-    SnapshotValidationError, StepSnapshot,
+    InputFact, InputOrigin, OutputFact, OutputRole, Policy, Pool, PriorStepOutput,
+    ProposalSnapshot, Severity, SnapshotValidationError, StepSnapshot,
 };
 
 fn proposal(steps: Vec<StepSnapshot>) -> ProposalSnapshot {
@@ -20,6 +20,7 @@ fn step(inputs: Vec<Pool>, outputs: Vec<(Pool, OutputRole)>) -> StepSnapshot {
             .map(|pool| InputFact {
                 pool,
                 value_zat: 50_000,
+                origin: Default::default(),
             })
             .collect(),
         outputs: outputs
@@ -141,6 +142,59 @@ fn shielded_pool_migration_does_not_cross_a_privacy_boundary() {
 
     assert!(assessment.findings.is_empty());
     assert!(assessment.passes);
+}
+
+#[test]
+fn ephemeral_prior_step_bridge_is_not_treated_as_wallet_transparent_funding_or_boundary() {
+    let snapshot = proposal(vec![
+        StepSnapshot {
+            index: 0,
+            inputs: vec![InputFact {
+                pool: Pool::Orchard,
+                value_zat: 100,
+                origin: InputOrigin::Wallet,
+            }],
+            outputs: vec![OutputFact {
+                pool: Pool::Transparent,
+                role: OutputRole::Ephemeral,
+                value_zat: 90,
+            }],
+            fee_zat: 10,
+        },
+        StepSnapshot {
+            index: 1,
+            inputs: vec![InputFact {
+                pool: Pool::Transparent,
+                value_zat: 90,
+                origin: InputOrigin::PriorStep {
+                    step_index: 0,
+                    output: PriorStepOutput::Change(0),
+                },
+            }],
+            outputs: vec![OutputFact {
+                pool: Pool::Orchard,
+                role: OutputRole::Recipient,
+                value_zat: 80,
+            }],
+            fee_zat: 10,
+        },
+    ]);
+
+    let assessment = assess(&snapshot, &Policy::standard());
+
+    assert!(
+        assessment.passes,
+        "internal ephemeral bridge should be privacy-neutral: {:?}",
+        assessment.findings
+    );
+    assert!(assessment
+        .findings
+        .iter()
+        .all(|finding| finding.rule_id != "SS002_TRANSPARENT_FUNDING"));
+    assert!(assessment
+        .findings
+        .iter()
+        .all(|finding| finding.rule_id != "SS005_PRIVACY_BOUNDARY"));
 }
 
 #[test]
@@ -294,6 +348,7 @@ fn adding_the_same_kind_of_exposure_at_a_new_position_regresses() {
     candidate.steps[0].inputs.push(InputFact {
         pool: Pool::Transparent,
         value_zat: 1,
+        origin: Default::default(),
     });
 
     let report = compare(&baseline, &candidate, &Policy::standard());
@@ -330,10 +385,12 @@ fn ss005_uses_net_directional_value_flow_and_ignores_fee_consumption() {
             InputFact {
                 pool: Pool::Transparent,
                 value_zat: 30,
+                origin: Default::default(),
             },
             InputFact {
                 pool: Pool::Orchard,
                 value_zat: 70,
+                origin: Default::default(),
             },
         ],
         outputs: vec![
@@ -366,6 +423,7 @@ fn ss005_starts_and_stops_with_net_flow_but_amount_changes_keep_its_fingerprint(
             inputs: vec![InputFact {
                 pool: Pool::Transparent,
                 value_zat: 100,
+                origin: Default::default(),
             }],
             outputs: vec![
                 OutputFact {
@@ -403,6 +461,7 @@ fn ss005_distinguishes_flow_directions_structurally() {
         inputs: vec![InputFact {
             pool: Pool::Transparent,
             value_zat: 50,
+            origin: Default::default(),
         }],
         outputs: vec![OutputFact {
             pool: Pool::Sapling,
@@ -416,6 +475,7 @@ fn ss005_distinguishes_flow_directions_structurally() {
         inputs: vec![InputFact {
             pool: Pool::Orchard,
             value_zat: 50,
+            origin: Default::default(),
         }],
         outputs: vec![OutputFact {
             pool: Pool::Transparent,
@@ -448,10 +508,12 @@ fn reordering_inputs_and_outputs_does_not_create_regressions() {
             InputFact {
                 pool: Pool::Transparent,
                 value_zat: 40,
+                origin: Default::default(),
             },
             InputFact {
                 pool: Pool::Orchard,
                 value_zat: 60,
+                origin: Default::default(),
             },
         ],
         outputs: vec![
@@ -483,6 +545,7 @@ fn adding_a_second_structurally_equivalent_exposure_is_still_a_regression() {
         inputs: vec![InputFact {
             pool: Pool::Transparent,
             value_zat: 100,
+            origin: Default::default(),
         }],
         outputs: vec![OutputFact {
             pool: Pool::Orchard,
@@ -496,10 +559,12 @@ fn adding_a_second_structurally_equivalent_exposure_is_still_a_regression() {
         InputFact {
             pool: Pool::Transparent,
             value_zat: 40,
+            origin: Default::default(),
         },
         InputFact {
             pool: Pool::Transparent,
             value_zat: 60,
+            origin: Default::default(),
         },
     ];
 
@@ -522,10 +587,12 @@ fn reordering_duplicate_structural_identities_keeps_fingerprints_stable() {
             InputFact {
                 pool: Pool::Transparent,
                 value_zat: 40,
+                origin: Default::default(),
             },
             InputFact {
                 pool: Pool::Transparent,
                 value_zat: 60,
+                origin: Default::default(),
             },
         ],
         outputs: vec![
@@ -556,6 +623,7 @@ fn adding_a_second_equivalent_output_exposure_is_a_regression() {
         inputs: vec![InputFact {
             pool: Pool::Orchard,
             value_zat: 100,
+            origin: Default::default(),
         }],
         outputs: vec![OutputFact {
             pool: Pool::Transparent,
@@ -602,6 +670,7 @@ fn snapshot_validation_rejects_empty_bad_indexes_missing_facts_and_bad_balance()
             inputs: vec![InputFact {
                 pool: Pool::Orchard,
                 value_zat: 10,
+                origin: Default::default(),
             }],
             outputs: vec![OutputFact {
                 pool: Pool::Orchard,
@@ -615,6 +684,7 @@ fn snapshot_validation_rejects_empty_bad_indexes_missing_facts_and_bad_balance()
             inputs: vec![InputFact {
                 pool: Pool::Orchard,
                 value_zat: 10,
+                origin: Default::default(),
             }],
             outputs: vec![OutputFact {
                 pool: Pool::Orchard,
@@ -658,6 +728,7 @@ fn snapshot_validation_checks_schema_network_and_comparison_context() {
         inputs: vec![InputFact {
             pool: Pool::Orchard,
             value_zat: 10,
+            origin: Default::default(),
         }],
         outputs: vec![OutputFact {
             pool: Pool::Orchard,

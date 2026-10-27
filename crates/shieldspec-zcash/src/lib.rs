@@ -2,7 +2,10 @@
 
 use std::{error::Error, fmt};
 
-use shieldspec_core::{InputFact, OutputFact, OutputRole, Pool, ProposalSnapshot, StepSnapshot};
+use shieldspec_core::{
+    InputFact, InputOrigin, OutputFact, OutputRole, Pool, PriorStepOutput, ProposalSnapshot,
+    StepSnapshot,
+};
 use zcash_client_backend::proposal::{Proposal, StepOutputIndex};
 use zcash_protocol::{PoolType, ShieldedPool};
 
@@ -109,6 +112,7 @@ pub fn snapshot_from_proposal<FeeRule, NoteRef>(
         inputs.extend(step.transparent_inputs().iter().map(|input| InputFact {
             pool: Pool::Transparent,
             value_zat: input.txout().value().into_u64(),
+            origin: InputOrigin::Wallet,
         }));
         inputs.extend(
             step.shielded_inputs()
@@ -117,6 +121,7 @@ pub fn snapshot_from_proposal<FeeRule, NoteRef>(
                 .map(|received| InputFact {
                     pool: snapshot_pool(PoolType::Shielded(received.note().pool())),
                     value_zat: received.note().value().into_u64(),
+                    origin: InputOrigin::Wallet,
                 }),
         );
 
@@ -130,7 +135,7 @@ pub fn snapshot_from_proposal<FeeRule, NoteRef>(
                     step_index,
                     referenced_step,
                 })?;
-            let (pool, value) = match prior_input.output_index() {
+            let (pool, value, output) = match prior_input.output_index() {
                 StepOutputIndex::Payment(payment_index) => {
                     let pool = source.payment_pools().get(&payment_index).copied().ok_or(
                         AdapterError::InvalidPriorPayment {
@@ -149,7 +154,7 @@ pub fn snapshot_from_proposal<FeeRule, NoteRef>(
                             referenced_step,
                             payment_index,
                         })?;
-                    (pool, value)
+                    (pool, value, PriorStepOutput::Payment(payment_index))
                 }
                 StepOutputIndex::Change(change_index) => {
                     let change = source.balance().proposed_change().get(change_index).ok_or(
@@ -159,12 +164,20 @@ pub fn snapshot_from_proposal<FeeRule, NoteRef>(
                             change_index,
                         },
                     )?;
-                    (change.output_pool(), change.value())
+                    (
+                        change.output_pool(),
+                        change.value(),
+                        PriorStepOutput::Change(change_index),
+                    )
                 }
             };
             inputs.push(InputFact {
                 pool: snapshot_pool(pool),
                 value_zat: value.into_u64(),
+                origin: InputOrigin::PriorStep {
+                    step_index: referenced_step,
+                    output,
+                },
             });
         }
 
@@ -195,7 +208,7 @@ pub fn snapshot_from_proposal<FeeRule, NoteRef>(
                 .map(|change| OutputFact {
                     pool: snapshot_pool(change.output_pool()),
                     role: if change.is_ephemeral() {
-                        OutputRole::Other
+                        OutputRole::Ephemeral
                     } else {
                         OutputRole::Change
                     },

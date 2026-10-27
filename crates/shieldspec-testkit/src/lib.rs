@@ -92,7 +92,11 @@ impl StepBuilder {
     /// Appends an input fact.
     #[must_use]
     pub fn input(mut self, pool: Pool, value_zat: u64) -> Self {
-        self.inputs.push(InputFact { pool, value_zat });
+        self.inputs.push(InputFact {
+            pool,
+            value_zat,
+            origin: Default::default(),
+        });
         self
     }
 
