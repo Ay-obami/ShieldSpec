@@ -17,6 +17,7 @@ use shieldspec_zcash_runner::{
 };
 
 const PRIVACY_FAILURE_EXIT: u8 = 2;
+const WALLET_POLICY_DIFFERENCE_RULE_ID: &str = "WALLET_POLICY_DECISION_DIFFERENCE";
 const LIMIT_WARNING: &str =
     "No fuzzing result is a guarantee of privacy or anonymity, and a clean campaign only means no configured differential regression was found in the exercised scenarios.";
 
@@ -297,14 +298,16 @@ fn run_campaign(
                 )
             })?;
 
-        if !report.regression.passes {
+        if report.has_difference() {
             let original = generated.scenario.clone();
+            // Preserve the original wallet verdict change when present; a different
+            // snapshot finding must never substitute for a lost wallet observation.
             let minimized = shrink_scenario(&original, |scenario| {
                 let Ok(value) = serde_json::to_value(scenario) else {
                     return false;
                 };
                 run_differential(baseline, candidate, &value, &policy)
-                    .map(|report| !report.regression.passes)
+                    .map(|next| next.preserves_discovery(&report))
                     .unwrap_or(false)
             });
 
@@ -313,12 +316,16 @@ fn run_campaign(
             let minimized_report = run_differential(baseline, candidate, &minimized_value, &policy)
                 .map_err(|error| format!("minimized case could not replay: {error}"))?;
 
-            let rule_id = minimized_report
-                .regression
-                .findings
-                .first()
-                .map(|finding| finding.rule_id.clone())
-                .unwrap_or_else(|| "UNKNOWN_REGRESSION".to_owned());
+            let rule_id = if minimized_report.wallet_policy_difference.is_some() {
+                WALLET_POLICY_DIFFERENCE_RULE_ID.to_owned()
+            } else {
+                minimized_report
+                    .regression
+                    .findings
+                    .first()
+                    .map(|finding| finding.rule_id.clone())
+                    .unwrap_or_else(|| "UNKNOWN_REGRESSION".to_owned())
+            };
 
             if let Some(path) = save {
                 let discovery = Discovery {
@@ -328,6 +335,7 @@ fn run_campaign(
                     original: original.clone(),
                     minimized: minimized.clone(),
                     provenance: provenance.clone(),
+                    wallet_policy_difference: minimized_report.wallet_policy_difference.clone(),
                 };
                 write_pretty_json(path, &discovery)?;
             }
@@ -339,8 +347,13 @@ fn run_campaign(
                 baseline,
                 candidate,
             );
+            let status = if minimized_report.wallet_policy_difference.is_some() {
+                "wallet_policy_difference"
+            } else {
+                "privacy_regression"
+            };
             let output = CampaignOutput {
-                status: "privacy_regression",
+                status,
                 seed,
                 cases_executed: case_number,
                 ordinal: Some(generated.ordinal),
@@ -390,6 +403,7 @@ fn replay(
         replay_ordinal,
         single_reproduction,
         saved_provenance,
+        saved_wallet_policy_difference,
     ) = match (input, seed, ordinal) {
         (Some(path), None, None) => {
             let bytes = fs::read(path)
@@ -406,6 +420,7 @@ fn replay(
                         path.display()
                     ),
                     discovery.provenance,
+                    discovery.wallet_policy_difference,
                 )
         }
         (None, Some(seed), Some(ordinal)) => {
@@ -418,6 +433,7 @@ fn replay(
                     format!(
                         "cargo run --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz -- replay --seed {seed} --ordinal {ordinal}"
                     ),
+                    None,
                     None,
                 )
         }
@@ -503,11 +519,19 @@ fn replay(
         let report = run_differential(&baseline, &candidate, &scenario_json, &policy_name.policy())
             .map_err(|error| error.to_string())?;
         let recorded_rule_reproduced = recorded_rule_id.as_ref().map(|rule_id| {
-            report
-                .regression
-                .findings
-                .iter()
-                .any(|finding| &finding.rule_id == rule_id)
+            if rule_id == WALLET_POLICY_DIFFERENCE_RULE_ID {
+                saved_wallet_policy_difference
+                    .as_ref()
+                    .is_some_and(|expected| {
+                        report.wallet_policy_difference.as_ref() == Some(expected)
+                    })
+            } else {
+                report
+                    .regression
+                    .findings
+                    .iter()
+                    .any(|finding| &finding.rule_id == rule_id)
+            }
         });
         let reproduction = if saved_provenance.is_some() {
             format!("{single_reproduction} --policy {}", policy_name.as_str())
@@ -521,10 +545,16 @@ fn replay(
             )
         };
         let output = DifferentialReplayOutput {
-            status: if report.regression.passes {
-                "no_regression"
-            } else {
+            status: if report.wallet_policy_difference.is_some() {
+                if recorded_rule_reproduced == Some(false) {
+                    "other_wallet_policy_difference"
+                } else {
+                    "wallet_policy_difference_reproduced"
+                }
+            } else if !report.regression.passes {
                 "privacy_regression_reproduced"
+            } else {
+                "no_regression"
             },
             scenario,
             report,
@@ -534,7 +564,7 @@ fn replay(
             reproduction,
             warning: LIMIT_WARNING,
         };
-        let failed = !output.report.regression.passes;
+        let failed = output.report.has_difference();
         render_differential_replay(&output, format)?;
         return Ok(if failed {
             ExitCode::from(PRIVACY_FAILURE_EXIT)
@@ -738,6 +768,7 @@ fn render_campaign(output: &CampaignOutput, format: OutputFormat) -> Result<(), 
                     "new/worsened privacy regressions",
                     &report.regression.findings,
                 );
+                print_wallet_policy_difference(report);
             }
             if let Some(reproduction) = &output.reproduction {
                 println!("reproduce: {reproduction}");
@@ -767,6 +798,7 @@ fn render_differential_replay(
                 "new/worsened privacy regressions",
                 &output.report.regression.findings,
             );
+            print_wallet_policy_difference(&output.report);
             if let Some(rule_id) = &output.recorded_rule_id {
                 println!("recorded rule: {rule_id}");
                 println!(
@@ -803,6 +835,15 @@ fn render_replay(output: &ReplayOutput, format: OutputFormat) -> Result<(), Stri
             println!("note: {}", output.warning);
             Ok(())
         }
+    }
+}
+
+fn print_wallet_policy_difference(report: &DifferentialReport) {
+    if let Some(difference) = &report.wallet_policy_difference {
+        println!(
+            "observed wallet policy {}: baseline {:?}, candidate {:?}",
+            difference.policy, difference.baseline, difference.candidate
+        );
     }
 }
 

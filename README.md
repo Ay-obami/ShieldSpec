@@ -100,9 +100,11 @@ Baseline and candidate runners are separate processes:
 
 No librustzcash Rust type crosses that process boundary. A baseline runner and candidate runner can therefore be compiled independently against different SDK versions or wallet branches while sharing the same stable scenario and snapshot contracts.
 
-A difference in proposal structure is not automatically a privacy failure. ShieldSpec fails the differential only when the candidate introduces a new policy finding or worsens an existing structural finding.
+A difference in proposal structure is not automatically a privacy failure. ShieldSpec reports a snapshot privacy regression when the candidate introduces a new policy finding or worsens an existing structural finding.
 
-Operational runner errors are reported separately from privacy regressions.
+An instrumented wallet runner can also report an **actual wallet-policy accept/reject decision** alongside its proposal snapshot. The general fuzzer compares explicitly observed decisions under the same named policy and can discover, minimize, save, and replay a decision difference even when the snapshots are identical. Decision changes are reported separately and are **not automatically labeled privacy regressions**. The built-in runner does not claim to evaluate an additional wallet-specific policy. See [wallet-policy runner protocol](docs/wallet-policy-observations.md).
+
+Operational runner errors are reported separately from privacy regressions and normal wallet-policy rejections.
 
 ## Deterministic fuzzing
 

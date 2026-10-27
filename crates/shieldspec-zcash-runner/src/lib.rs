@@ -8,7 +8,7 @@ use std::{convert::Infallible, error::Error, fmt};
 
 use serde::{Deserialize, Serialize};
 use shieldspec_core::ProposalSnapshot;
-use shieldspec_fuzz::DifferentialProvenance;
+use shieldspec_fuzz::{DifferentialProvenance, WalletPolicyDifference};
 use shieldspec_zcash::{snapshot_from_proposal, AdapterError};
 use zcash_client_backend::{
     data_api::{
@@ -379,6 +379,10 @@ pub struct Discovery {
     /// differential discoveries. Old known-behavior corpus records omit it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provenance: Option<DifferentialProvenance>,
+    /// Exact named wallet policy and direction, required to faithfully replay
+    /// a wallet-policy discovery; absent from older snapshot-only records.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wallet_policy_difference: Option<WalletPolicyDifference>,
 }
 
 impl Discovery {

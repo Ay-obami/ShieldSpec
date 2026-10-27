@@ -50,7 +50,12 @@ fn fake_runner(
     permissions.set_mode(0o755);
     fs::set_permissions(&script_path, permissions).expect("make runner executable");
 
-    (RunnerCommand::new(script_path), input_path)
+    // Invoke a stable shell executable: directly exec'ing a freshly written
+    // script can sporadically return ETXTBSY during parallel test execution.
+    (
+        RunnerCommand::new("/bin/sh").arg(script_path.to_string_lossy().into_owned()),
+        input_path,
+    )
 }
 
 fn captured_scenario(path: &Path) -> Value {
@@ -195,4 +200,184 @@ fn candidate_operational_failure_is_not_misreported_as_privacy_regression() {
 
     assert_eq!(error.side(), RunnerSide::Candidate);
     assert!(matches!(error, DifferentialError::Operational { .. }));
+}
+
+#[test]
+fn genuine_wallet_policy_decision_difference_is_reported_without_snapshot_change() {
+    use shieldspec_fuzz::{WalletPolicyDecision, WalletPolicyVerdict};
+
+    let root = temp_path("wallet-decision-difference");
+    let snapshot = fixture("shielded-payment").expect("snapshot");
+    let (baseline, _) = fake_runner(
+        &root,
+        "baseline",
+        &RunnerResponse::Observed {
+            snapshot: snapshot.clone(),
+            wallet_policy: WalletPolicyVerdict {
+                policy: "test_policy".to_owned(),
+                decision: WalletPolicyDecision::Rejected,
+            },
+        },
+        0,
+    );
+    let (candidate, _) = fake_runner(
+        &root,
+        "candidate",
+        &RunnerResponse::Observed {
+            snapshot,
+            wallet_policy: WalletPolicyVerdict {
+                policy: "test_policy".to_owned(),
+                decision: WalletPolicyDecision::Accepted,
+            },
+        },
+        0,
+    );
+
+    let report = run_differential(
+        &baseline,
+        &candidate,
+        &json!({"scenario": 1}),
+        &Policy::standard(),
+    )
+    .expect("both runners made normal wallet-policy decisions");
+
+    assert!(
+        report.regression.passes,
+        "snapshots are structurally identical"
+    );
+    assert!(
+        report.has_difference(),
+        "a changed wallet decision must be discoverable"
+    );
+    let difference = report.wallet_policy_difference.expect("decision evidence");
+    assert_eq!(difference.policy, "test_policy");
+    assert_eq!(difference.baseline, WalletPolicyDecision::Rejected);
+    assert_eq!(difference.candidate, WalletPolicyDecision::Accepted);
+}
+
+#[test]
+fn uninstrumented_runner_does_not_invent_a_wallet_policy_verdict() {
+    use shieldspec_fuzz::{WalletPolicyDecision, WalletPolicyVerdict};
+
+    let root = temp_path("uninstrumented-runner");
+    let snapshot = fixture("shielded-payment").expect("snapshot");
+    let (baseline, _) = fake_runner(
+        &root,
+        "baseline",
+        &RunnerResponse::Ok {
+            snapshot: snapshot.clone(),
+        },
+        0,
+    );
+    let (candidate, _) = fake_runner(
+        &root,
+        "candidate",
+        &RunnerResponse::Observed {
+            snapshot,
+            wallet_policy: WalletPolicyVerdict {
+                policy: "test_policy".to_owned(),
+                decision: WalletPolicyDecision::Accepted,
+            },
+        },
+        0,
+    );
+
+    let report = run_differential(
+        &baseline,
+        &candidate,
+        &json!({"scenario": 1}),
+        &Policy::standard(),
+    )
+    .expect("runner protocol");
+    assert!(!report.has_difference());
+    assert!(report.wallet_policy_difference.is_none());
+    assert!(report.baseline_wallet_policy.is_none());
+    assert_eq!(
+        report.candidate_wallet_policy,
+        Some(WalletPolicyVerdict {
+            policy: "test_policy".to_owned(),
+            decision: WalletPolicyDecision::Accepted,
+        })
+    );
+}
+
+#[test]
+fn differently_named_wallet_policies_cannot_be_compared_as_if_equivalent() {
+    use shieldspec_fuzz::{WalletPolicyDecision, WalletPolicyVerdict};
+
+    let root = temp_path("incomparable-policies");
+    let snapshot = fixture("shielded-payment").expect("fixture");
+    let (baseline, _) = fake_runner(
+        &root,
+        "baseline",
+        &RunnerResponse::Observed {
+            snapshot: snapshot.clone(),
+            wallet_policy: WalletPolicyVerdict {
+                policy: "wallet_standard".to_owned(),
+                decision: WalletPolicyDecision::Accepted,
+            },
+        },
+        0,
+    );
+    let (candidate, _) = fake_runner(
+        &root,
+        "candidate",
+        &RunnerResponse::Observed {
+            snapshot,
+            wallet_policy: WalletPolicyVerdict {
+                policy: "wallet_strict".to_owned(),
+                decision: WalletPolicyDecision::Rejected,
+            },
+        },
+        0,
+    );
+
+    let error = run_differential(
+        &baseline,
+        &candidate,
+        &json!({"scenario": 1}),
+        &Policy::standard(),
+    )
+    .expect_err("different wallet policies cannot be called a clean comparison");
+    assert!(matches!(
+        error,
+        DifferentialError::Protocol {
+            side: RunnerSide::Candidate,
+            ..
+        }
+    ));
+}
+
+#[test]
+fn shrinking_must_preserve_an_observed_wallet_verdict_even_if_snapshot_finding_survives() {
+    use shieldspec_core::{assess, compare};
+    use shieldspec_fuzz::{DifferentialReport, WalletPolicyDecision, WalletPolicyDifference};
+
+    let baseline_snapshot = fixture("shielded-payment").expect("baseline");
+    let candidate_snapshot = fixture("transparent-change").expect("candidate");
+    let policy = Policy::standard();
+    let original = DifferentialReport {
+        baseline: assess(&baseline_snapshot, &policy),
+        candidate: assess(&candidate_snapshot, &policy),
+        regression: compare(&baseline_snapshot, &candidate_snapshot, &policy),
+        wallet_policy_difference: Some(WalletPolicyDifference {
+            policy: "test_policy".to_owned(),
+            baseline: WalletPolicyDecision::Accepted,
+            candidate: WalletPolicyDecision::Rejected,
+        }),
+        baseline_wallet_policy: None,
+        candidate_wallet_policy: None,
+    };
+    assert!(
+        !original.regression.passes,
+        "also has a snapshot regression"
+    );
+
+    let mut changed = original.clone();
+    changed.wallet_policy_difference = None;
+    assert!(
+        !changed.preserves_discovery(&original),
+        "cannot discard wallet decision difference during minimization"
+    );
+    assert!(original.preserves_discovery(&original));
 }

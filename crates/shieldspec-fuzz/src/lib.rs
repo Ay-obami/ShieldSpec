@@ -17,11 +17,36 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use shieldspec_core::{assess, compare, Assessment, Policy, ProposalSnapshot, RegressionReport};
 
+/// A policy outcome reported by the wallet adapter, not inferred from a snapshot.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WalletPolicyDecision {
+    Accepted,
+    Rejected,
+}
+
+/// The runner must invoke the named wallet policy before emitting this observation.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct WalletPolicyVerdict {
+    pub policy: String,
+    pub decision: WalletPolicyDecision,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum RunnerResponse {
-    Ok { snapshot: ProposalSnapshot },
-    Error { message: String },
+    Ok {
+        snapshot: ProposalSnapshot,
+    },
+    /// The wallet made a real policy decision about the proposed transaction.
+    /// A snapshot is required so independent ShieldSpec checks remain possible.
+    Observed {
+        snapshot: ProposalSnapshot,
+        wallet_policy: WalletPolicyVerdict,
+    },
+    Error {
+        message: String,
+    },
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -211,10 +236,55 @@ impl fmt::Display for DifferentialError {
 impl Error for DifferentialError {}
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct WalletPolicyDifference {
+    pub policy: String,
+    pub baseline: WalletPolicyDecision,
+    pub candidate: WalletPolicyDecision,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct DifferentialReport {
     pub baseline: Assessment,
     pub candidate: Assessment,
     pub regression: RegressionReport,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wallet_policy_difference: Option<WalletPolicyDifference>,
+    /// Raw, independently observed outcomes. Their absence is not a passing verdict.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub baseline_wallet_policy: Option<WalletPolicyVerdict>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub candidate_wallet_policy: Option<WalletPolicyVerdict>,
+}
+
+impl DifferentialReport {
+    /// A wallet decision difference is independent of ShieldSpec snapshot regressions.
+    #[must_use]
+    pub fn has_difference(&self) -> bool {
+        !self.regression.passes || self.wallet_policy_difference.is_some()
+    }
+
+    /// The shrinker must retain the primary original discovery, not merely any finding.
+    #[must_use]
+    pub fn preserves_discovery(&self, original: &Self) -> bool {
+        if let Some(expected) = &original.wallet_policy_difference {
+            return self.wallet_policy_difference.as_ref() == Some(expected);
+        }
+        original
+            .regression
+            .findings
+            .first()
+            .is_some_and(|expected| {
+                self.regression
+                    .findings
+                    .iter()
+                    .any(|finding| finding.rule_id == expected.rule_id)
+            })
+    }
+}
+
+struct RunnerObservation {
+    snapshot: ProposalSnapshot,
+    wallet_policy: Option<WalletPolicyVerdict>,
 }
 
 pub fn run_differential(
@@ -223,13 +293,53 @@ pub fn run_differential(
     scenario: &Value,
     policy: &Policy,
 ) -> Result<DifferentialReport, DifferentialError> {
-    let baseline_snapshot = run_runner(RunnerSide::Baseline, baseline, scenario)?;
-    let candidate_snapshot = run_runner(RunnerSide::Candidate, candidate, scenario)?;
+    let baseline_result = run_runner(RunnerSide::Baseline, baseline, scenario)?;
+    let candidate_result = run_runner(RunnerSide::Candidate, candidate, scenario)?;
+
+    if let (Some(before), Some(after)) = (
+        &baseline_result.wallet_policy,
+        &candidate_result.wallet_policy,
+    ) {
+        if before.policy != after.policy {
+            return Err(DifferentialError::Protocol {
+                side: RunnerSide::Candidate,
+                message: format!(
+                    "wallet policy mismatch: baseline {}, candidate {}",
+                    before.policy, after.policy
+                ),
+            });
+        }
+    }
+
+    // Compare only decisions explicitly observed under the same named wallet policy.
+    // A legacy runner that emits only a snapshot does not provide policy evidence.
+    let wallet_policy_difference = match (
+        &baseline_result.wallet_policy,
+        &candidate_result.wallet_policy,
+    ) {
+        (Some(before), Some(after))
+            if before.policy == after.policy && before.decision != after.decision =>
+        {
+            Some(WalletPolicyDifference {
+                policy: before.policy.clone(),
+                baseline: before.decision,
+                candidate: after.decision,
+            })
+        }
+        _ => None,
+    };
 
     Ok(DifferentialReport {
-        baseline: assess(&baseline_snapshot, policy),
-        candidate: assess(&candidate_snapshot, policy),
-        regression: compare(&baseline_snapshot, &candidate_snapshot, policy),
+        baseline: assess(&baseline_result.snapshot, policy),
+        candidate: assess(&candidate_result.snapshot, policy),
+        regression: compare(
+            &baseline_result.snapshot,
+            &candidate_result.snapshot,
+            policy,
+        ),
+        wallet_policy_difference,
+        baseline_wallet_policy: baseline_result.wallet_policy,
+        candidate_wallet_policy: candidate_result.wallet_policy,
     })
 }
 
@@ -245,7 +355,7 @@ fn run_runner(
     side: RunnerSide,
     runner: &RunnerCommand,
     scenario: &Value,
-) -> Result<ProposalSnapshot, DifferentialError> {
+) -> Result<RunnerObservation, DifferentialError> {
     let mut child = Command::new(&runner.program)
         .args(&runner.args)
         .stdin(Stdio::piped())
@@ -291,16 +401,30 @@ fn run_runner(
         })?;
 
     match response {
-        RunnerResponse::Ok { snapshot } if output.status.success() => Ok(snapshot),
-        RunnerResponse::Ok { .. } => Err(DifferentialError::Operational {
-            side,
-            exit_code: output.status.code(),
-            message: if stderr.is_empty() {
-                "runner returned an OK payload with a failing exit status".to_owned()
-            } else {
-                stderr
-            },
+        RunnerResponse::Ok { snapshot } if output.status.success() => Ok(RunnerObservation {
+            snapshot,
+            wallet_policy: None,
         }),
+        RunnerResponse::Observed {
+            snapshot,
+            wallet_policy,
+        } if output.status.success() && !wallet_policy.policy.trim().is_empty() => {
+            Ok(RunnerObservation {
+                snapshot,
+                wallet_policy: Some(wallet_policy),
+            })
+        }
+        RunnerResponse::Ok { .. } | RunnerResponse::Observed { .. } => {
+            Err(DifferentialError::Operational {
+                side,
+                exit_code: output.status.code(),
+                message: if stderr.is_empty() {
+                    "runner supplied an invalid observation or a failing exit status".to_owned()
+                } else {
+                    stderr
+                },
+            })
+        }
         RunnerResponse::Error { message } => Err(DifferentialError::Operational {
             side,
             exit_code: output.status.code(),
