@@ -1,0 +1,42 @@
+name: Research Privacy Probe
+
+on:
+  push:
+    branches:
+      - research/privacy-discovery
+    paths:
+      - "research/current-main-probe/**"
+      - ".github/workflows/research-privacy-probe.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  mixed-pool-probe:
+    name: librustzcash main mixed-pool privacy probe
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out ShieldSpec research branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Install Rust 1.95.0
+        uses: dtolnay/rust-toolchain@035fceb3c12fb0c6a9461b52775e16473133e591
+        with:
+          toolchain: 1.95.0
+
+      - name: Run current-main mixed-pool privacy monotonicity probe
+        shell: bash
+        run: |
+          set +e
+          cargo run --release --manifest-path research/current-main-probe/Cargo.toml 2>&1 | tee /tmp/privacy-probe.log
+          status=${PIPESTATUS[0]}
+          set -e
+          echo "probe_exit=${status}"
+          if [[ "${status}" -ne 0 && "${status}" -ne 2 ]]; then
+            exit "${status}"
+          fi
+          if [[ "${status}" -eq 2 ]]; then
+            echo "ShieldSpec research probe found one or more candidate privacy-route regressions."
+            exit 2
+          fi
