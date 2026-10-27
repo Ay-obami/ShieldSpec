@@ -881,6 +881,8 @@ impl ScenarioGenerator {
                 change_pool: source.change_pool,
                 recipient_pool: ShieldedPoolChoice::Sapling,
             }),
+            // The legacy generator used above never emits opt-in transparent funding.
+            Scenario::TransparentFundedPayment(_) => unreachable!("legacy generator only"),
         }
     }
 
