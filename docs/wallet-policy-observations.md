@@ -70,6 +70,16 @@ fuzzer. Comparing the same runner version with itself is a useful negative
 control, but neither establishes an upstream bug nor exercises Zallet's
 historical FullPrivacy behavior.
 
+With `shieldspec-fuzz fuzz --scenario-family ironwood --cases 4`, generated
+ordinals deterministically cover real NU6.3 activation states (`at`, `before`)
+and both Orchard and Sapling funding. Real SDK proposals may therefore have
+Orchard→Ironwood or Sapling→Ironwood payment crossings; the independent snapshot
+policy may flag `SS006`, regardless of whether two wallet runners report the same
+named Orchard-only spend-policy decision. The campaign's comparable-verdict count
+is the evidence that both wallet-policy runners actually participated. Replay by
+`--scenario-family ironwood --seed ... --ordinal ...` retains that scenario family.
+The original legacy seed/ordinal sequence is unaffected.
+
 ## Generic comparison
 
 For a comparable pair, ShieldSpec emits:

@@ -266,6 +266,45 @@ fn real_sapling_funding_selects_ironwood_after_nu63() {
 }
 
 #[test]
+fn generated_nu63_campaign_covers_both_funding_pools_and_activation_states() {
+    for (ordinal, activation, funding_pool) in [
+        (0, Nu63Activation::At, ShieldedPoolChoice::Orchard),
+        (1, Nu63Activation::Before, ShieldedPoolChoice::Orchard),
+        (2, Nu63Activation::At, ShieldedPoolChoice::Sapling),
+        (3, Nu63Activation::Before, ShieldedPoolChoice::Sapling),
+    ] {
+        let scenario = ScenarioGenerator::nu63_scenario_at(0x5eed_6300, ordinal);
+        let Scenario::Nu63OrchardPayment(payment) = &scenario else {
+            panic!("expected activation-aware proposal");
+        };
+        assert_eq!(payment.activation, activation, "ordinal {ordinal}");
+        assert_eq!(
+            payment.payment.funding_pool, funding_pool,
+            "ordinal {ordinal}"
+        );
+        assert_eq!(
+            payment.payment.change_pool, funding_pool,
+            "ordinal {ordinal}"
+        );
+    }
+
+    let sapling_to_ironwood = ScenarioGenerator::nu63_scenario_at(0x5eed_6300, 2);
+    let snapshot = run_scenario(&sapling_to_ironwood).expect("real generated proposal");
+    assert!(snapshot.steps[0]
+        .inputs
+        .iter()
+        .any(|input| input.pool == Pool::Sapling));
+    assert!(snapshot.steps[0]
+        .outputs
+        .iter()
+        .any(|output| output.pool == Pool::Ironwood));
+    assert!(assess(&snapshot, &Policy::standard())
+        .findings
+        .iter()
+        .any(|finding| finding.rule_id == "SS006_CROSS_SHIELDED_POOL_VALUE_BALANCE"));
+}
+
+#[test]
 fn opt_in_nu63_generation_replays_and_shrinks_without_changing_activation() {
     let scenario = ScenarioGenerator::nu63_scenario_at(0x5eed_6300, 0);
     assert_eq!(

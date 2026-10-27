@@ -558,6 +558,10 @@ pub struct GeneratedCase {
 pub struct Discovery {
     pub seed: u64,
     pub ordinal: u64,
+    /// Optional generator family for deterministic seed/ordinal reproduction.
+    /// Legacy discoveries omit the field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scenario_family: Option<String>,
     pub rule_id: String,
     pub original: Scenario,
     pub minimized: Scenario,
@@ -740,8 +744,15 @@ impl ScenarioGenerator {
                 unreachable!("legacy generator emits only legacy cases")
             }
         };
-        payment.funding_pool = ShieldedPoolChoice::Orchard;
-        payment.change_pool = ShieldedPoolChoice::Orchard;
+        // Cycle across activation boundary and funding pool without changing
+        // the legacy seed/ordinal corpus. Both pools exercise real SDK inputs.
+        let funding_pool = if ordinal % 4 < 2 {
+            ShieldedPoolChoice::Orchard
+        } else {
+            ShieldedPoolChoice::Sapling
+        };
+        payment.funding_pool = funding_pool;
+        payment.change_pool = funding_pool;
         Scenario::Nu63OrchardPayment(Nu63OrchardPaymentScenario {
             payment,
             activation: if ordinal.is_multiple_of(2) {

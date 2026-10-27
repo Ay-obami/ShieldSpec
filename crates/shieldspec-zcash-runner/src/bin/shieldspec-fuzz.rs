@@ -13,7 +13,7 @@ use shieldspec_fuzz::{
     RunnerResponse,
 };
 use shieldspec_zcash_runner::{
-    run_scenario, shrink_scenario, Discovery, Scenario, ScenarioGenerator,
+    run_scenario, shrink_scenario, Discovery, GeneratedCase, Scenario, ScenarioGenerator,
 };
 
 const PRIVACY_FAILURE_EXIT: u8 = 2;
@@ -35,6 +35,9 @@ struct Cli {
 enum Command {
     /// Run deterministic scenarios against independently compiled baseline and candidate runners.
     Fuzz {
+        /// Deterministic legacy or activation-aware Ironwood scenario campaign.
+        #[arg(long, value_enum, default_value_t = ScenarioFamily::Legacy)]
+        scenario_family: ScenarioFamily,
         #[arg(long)]
         baseline_runner: PathBuf,
         #[arg(long)]
@@ -63,6 +66,9 @@ enum Command {
     },
     /// Replay a stored discovery, or reproduce a generated scenario by seed and ordinal.
     Replay {
+        /// Source scenario family when replaying from a seed and ordinal.
+        #[arg(long, value_enum, default_value_t = ScenarioFamily::Legacy)]
+        scenario_family: ScenarioFamily,
         /// Discovery JSON to replay. Mutually exclusive with --seed/--ordinal.
         #[arg(long)]
         input: Option<PathBuf>,
@@ -129,6 +135,39 @@ impl PolicyName {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+enum ScenarioFamily {
+    Legacy,
+    Ironwood,
+}
+
+impl ScenarioFamily {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Legacy => "legacy",
+            Self::Ironwood => "ironwood",
+        }
+    }
+
+    const fn reproduction_arg(self) -> &'static str {
+        match self {
+            Self::Legacy => "",
+            Self::Ironwood => " --scenario-family ironwood",
+        }
+    }
+
+    fn generated_case(self, seed: u64, ordinal: u64) -> GeneratedCase {
+        match self {
+            Self::Legacy => ScenarioGenerator::case_at(seed, ordinal),
+            Self::Ironwood => GeneratedCase {
+                seed,
+                ordinal,
+                scenario: ScenarioGenerator::nu63_scenario_at(seed, ordinal),
+            },
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, ValueEnum)]
 enum OutputFormat {
     Human,
@@ -151,6 +190,7 @@ impl DemoRegression {
 #[derive(Debug, Serialize)]
 struct CampaignOutput {
     status: &'static str,
+    scenario_family: &'static str,
     seed: u64,
     cases_executed: u64,
     baseline_wallet_policy_observations: u64,
@@ -194,6 +234,7 @@ fn main() -> ExitCode {
 
     let result = match cli.command {
         Command::Fuzz {
+            scenario_family,
             baseline_runner,
             candidate_runner,
             baseline_args,
@@ -216,6 +257,7 @@ fn main() -> ExitCode {
                     &candidate,
                     seed,
                     cases,
+                    scenario_family,
                     policy,
                     format,
                     save.as_deref(),
@@ -225,6 +267,7 @@ fn main() -> ExitCode {
             }
         }
         Command::Replay {
+            scenario_family,
             input,
             seed,
             ordinal,
@@ -239,6 +282,7 @@ fn main() -> ExitCode {
             input.as_deref(),
             seed,
             ordinal,
+            scenario_family,
             baseline_runner,
             candidate_runner,
             baseline_args,
@@ -271,6 +315,7 @@ fn run_campaign(
     candidate: &RunnerCommand,
     seed: u64,
     cases: u64,
+    scenario_family: ScenarioFamily,
     policy_name: PolicyName,
     format: OutputFormat,
     save: Option<&Path>,
@@ -287,13 +332,16 @@ fn run_campaign(
     } else {
         None
     };
-    let mut generator = ScenarioGenerator::new(seed);
+    let mut legacy_generator = ScenarioGenerator::new(seed);
     let mut baseline_wallet_policy_observations = 0;
     let mut candidate_wallet_policy_observations = 0;
     let mut comparable_wallet_policy_cases = 0;
 
     for case_number in 1..=cases {
-        let generated = generator.next_case();
+        let generated = match scenario_family {
+            ScenarioFamily::Legacy => legacy_generator.next_case(),
+            ScenarioFamily::Ironwood => scenario_family.generated_case(seed, case_number - 1),
+        };
         let scenario_json =
             serde_json::to_value(&generated.scenario).map_err(|error| error.to_string())?;
         let report =
@@ -360,6 +408,8 @@ fn run_campaign(
                 let discovery = Discovery {
                     seed,
                     ordinal: generated.ordinal,
+                    scenario_family: (scenario_family == ScenarioFamily::Ironwood)
+                        .then(|| scenario_family.as_str().to_owned()),
                     rule_id,
                     original: original.clone(),
                     minimized: minimized.clone(),
@@ -372,6 +422,7 @@ fn run_campaign(
             let reproduction = differential_reproduction(
                 seed,
                 generated.ordinal,
+                scenario_family,
                 policy_name,
                 baseline,
                 candidate,
@@ -383,6 +434,7 @@ fn run_campaign(
             };
             let output = CampaignOutput {
                 status,
+                scenario_family: scenario_family.as_str(),
                 seed,
                 cases_executed: case_number,
                 baseline_wallet_policy_observations,
@@ -402,6 +454,7 @@ fn run_campaign(
 
     let output = CampaignOutput {
         status: "no_regression_found",
+        scenario_family: scenario_family.as_str(),
         seed,
         cases_executed: cases,
         baseline_wallet_policy_observations,
@@ -423,6 +476,7 @@ fn replay(
     input: Option<&Path>,
     seed: Option<u64>,
     ordinal: Option<u64>,
+    scenario_family: ScenarioFamily,
     baseline_runner: Option<PathBuf>,
     candidate_runner: Option<PathBuf>,
     baseline_args: Vec<String>,
@@ -459,14 +513,15 @@ fn replay(
                 )
         }
         (None, Some(seed), Some(ordinal)) => {
-            let generated = ScenarioGenerator::case_at(seed, ordinal);
+            let generated = scenario_family.generated_case(seed, ordinal);
             (
                     generated.scenario,
                     None,
                     seed,
                     ordinal,
                     format!(
-                        "cargo run --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz -- replay --seed {seed} --ordinal {ordinal}"
+                        "cargo run --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz -- replay --seed {seed} --ordinal {ordinal}{}",
+                        scenario_family.reproduction_arg(),
                     ),
                     None,
                     None,
@@ -574,6 +629,7 @@ fn replay(
             differential_reproduction(
                 replay_seed,
                 replay_ordinal,
+                scenario_family,
                 policy_name,
                 &baseline,
                 &candidate,
@@ -652,20 +708,23 @@ fn replay(
 fn differential_reproduction(
     seed: u64,
     ordinal: u64,
+    scenario_family: ScenarioFamily,
     policy_name: PolicyName,
     baseline: &RunnerCommand,
     candidate: &RunnerCommand,
 ) -> String {
     if let Some(regression) = demo_regression_from(candidate) {
         return format!(
-            "cargo run --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz -- replay --seed {seed} --ordinal {ordinal} --policy {} --demo-regression {}",
+            "cargo run --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz -- replay --seed {seed} --ordinal {ordinal}{} --policy {} --demo-regression {}",
+            scenario_family.reproduction_arg(),
             policy_name.as_str(),
             regression.as_str()
         );
     }
 
     let mut command = format!(
-        "cargo run --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz -- replay --seed {seed} --ordinal {ordinal} --policy {} --baseline-runner {} --candidate-runner {}",
+        "cargo run --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz -- replay --seed {seed} --ordinal {ordinal}{} --policy {} --baseline-runner {} --candidate-runner {}",
+        scenario_family.reproduction_arg(),
         policy_name.as_str(),
         shell_arg(&baseline.program.to_string_lossy()),
         shell_arg(&candidate.program.to_string_lossy())
@@ -713,6 +772,7 @@ fn demo(format: OutputFormat) -> Result<ExitCode, String> {
         &candidate,
         148,
         1,
+        ScenarioFamily::Legacy,
         PolicyName::Standard,
         format,
         None,
@@ -794,6 +854,7 @@ fn render_campaign(output: &CampaignOutput, format: OutputFormat) -> Result<(), 
             println!("ShieldSpec Privacy Differential Fuzzer");
             println!("status: {}", output.status);
             println!("seed: {}", output.seed);
+            println!("scenario family: {}", output.scenario_family);
             println!("cases executed: {}", output.cases_executed);
             println!(
                 "wallet policy evidence: baseline {}, candidate {}, comparable {}",

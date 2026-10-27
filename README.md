@@ -102,7 +102,7 @@ No librustzcash Rust type crosses that process boundary. A baseline runner and c
 
 A difference in proposal structure is not automatically a privacy failure. ShieldSpec reports a snapshot privacy regression when the candidate introduces a new policy finding or worsens an existing structural finding.
 
-An instrumented wallet runner can also report an **actual wallet-policy accept/reject decision** alongside its proposal snapshot. The general fuzzer compares explicitly observed decisions under the same named policy and can discover, minimize, save, and replay a decision difference even when the snapshots are identical. Decision changes are reported separately and are **not automatically labeled privacy regressions**. The built-in runner does not claim to evaluate an additional wallet-specific policy. See [wallet-policy runner protocol](docs/wallet-policy-observations.md).
+An instrumented wallet runner can also report an **actual wallet-policy accept/reject decision** alongside its proposal snapshot. The general fuzzer compares explicitly observed decisions under the same named policy and can discover, minimize, save, and replay a decision difference even when the snapshots are identical. Decision changes are reported separately and are **not automatically labeled privacy regressions**. The built-in runner's opt-in `--wallet-spend-policy orchard-only` mode evaluates the **real pinned Zcash SDK spend-source restriction** and reports `zcash_spend_orchard_only_v1`; it does not claim to implement Zallet's separate FullPrivacy policy. See [wallet-policy runner protocol](docs/wallet-policy-observations.md).
 
 Operational runner errors are reported separately from privacy regressions and normal wallet-policy rejections.
 
@@ -127,7 +127,9 @@ target/debug/shieldspec-fuzz fuzz \
 
 For a real differential campaign, point `--baseline-runner` and `--candidate-runner` at independently built compatible runner executables. Both receive the exact same scenario JSON.
 
-Generated dimensions currently include shielded funding pool, fallback change pool, note count, note values, payment value, confirmation depth, extra blocks, recipient identity, ordinary shielded payments, and ZIP 320 TEX payments.
+Generated dimensions include shielded funding pool, fallback change pool, note count, note values, payment value, confirmation depth, extra blocks, recipient identity, ordinary shielded payments, and ZIP 320 TEX payments.
+
+The opt-in `--scenario-family ironwood` selects deterministic **NU6.3 activation-boundary** proposals using the actual SDK: four successive ordinals cover Orchard or Sapling funding both before and at Ironwood activation. This includes real Orchard→Ironwood and Sapling→Ironwood cross-pool proposals. Use `--cases 4 --scenario-family ironwood` to cover all four combinations; `replay --scenario-family ironwood --seed <seed> --ordinal <ordinal>` reproduces one case. For observed wallet spend-policy decisions, pass `--baseline-arg=--wallet-spend-policy --baseline-arg=orchard-only` and matching candidate arguments. The selected scenarios and wallet-policy verdicts are separate from historical FullPrivacy testing.
 
 A reported case contains its seed and ordinal. The semantic shrinker removes unnecessary state while repeatedly executing the real proposal path and preserving the target privacy regression.
 
