@@ -47,12 +47,14 @@ impl OutputRole {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct InputFact {
     pub pool: Pool,
     pub value_zat: u64,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct OutputFact {
     pub pool: Pool,
     pub role: OutputRole,
@@ -60,6 +62,7 @@ pub struct OutputFact {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct StepSnapshot {
     pub index: usize,
     pub inputs: Vec<InputFact>,
@@ -68,6 +71,7 @@ pub struct StepSnapshot {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct ProposalSnapshot {
     pub schema_version: u32,
     pub network: String,

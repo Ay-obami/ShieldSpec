@@ -255,3 +255,77 @@ fn repeated_output_is_byte_for_byte_deterministic() {
         assert_eq!(first.stdout, second.stdout, "format {format}");
     }
 }
+
+fn write_json(label: &str, value: Value) -> PathBuf {
+    let path = temp_file(label);
+    fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
+    path
+}
+
+#[test]
+fn invalid_snapshots_are_operational_errors() {
+    let cases = [
+        (
+            "empty",
+            json!({"schema_version": 1, "network": "testnet", "steps": []}),
+        ),
+        (
+            "unknown-field",
+            json!({
+                "schema_version": 1,
+                "network": "testnet",
+                "steps": [],
+                "surprise": true
+            }),
+        ),
+        (
+            "bad-indexes",
+            json!({
+                "schema_version": 1,
+                "network": "testnet",
+                "steps": [{
+                    "index": 1,
+                    "inputs": [{"pool": "orchard", "value_zat": 10}],
+                    "outputs": [{"pool": "orchard", "role": "other", "value_zat": 9}],
+                    "fee_zat": 1
+                }]
+            }),
+        ),
+        (
+            "unbalanced",
+            json!({
+                "schema_version": 1,
+                "network": "testnet",
+                "steps": [{
+                    "index": 0,
+                    "inputs": [{"pool": "orchard", "value_zat": 10}],
+                    "outputs": [{"pool": "orchard", "role": "other", "value_zat": 8}],
+                    "fee_zat": 1
+                }]
+            }),
+        ),
+    ];
+
+    for (label, value) in cases {
+        let path = write_json(label, value);
+        let output = check(&path, "standard", "json");
+        assert_eq!(code(&output), 1, "{label}: {}", stdout(&output));
+        fs::remove_file(path).unwrap();
+    }
+}
+
+#[test]
+fn cross_network_diff_is_an_operational_error() {
+    let baseline = fixture("shielded-payment");
+    let mut candidate: Value = serde_json::from_slice(&fs::read(&baseline).unwrap()).unwrap();
+    candidate["network"] = json!("mainnet");
+    let candidate = write_json("cross-network.json", candidate);
+
+    let output = diff(&baseline, &candidate, "json");
+    assert_eq!(code(&output), 1, "{}", stdout(&output));
+    assert!(output.stdout.is_empty());
+    assert!(String::from_utf8(output.stderr)
+        .unwrap()
+        .contains("network"));
+    fs::remove_file(candidate).unwrap();
+}
