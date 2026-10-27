@@ -1,6 +1,7 @@
 use shieldspec_core::{assess, Policy, Pool};
 use shieldspec_zcash_runner::{
-    run_scenario, shrink_scenario, Discovery, GeneratedCase, Scenario, ScenarioGenerator,
+    run_scenario, shrink_scenario, Discovery, GeneratedCase, Nu63Activation,
+    Nu63OrchardPaymentScenario, OrchardPaymentScenario, Scenario, ScenarioGenerator,
     ShieldedPoolChoice,
 };
 
@@ -62,22 +63,27 @@ fn representative_generated_cases_execute_through_real_zcash_proposals() {
     assert!(cases.iter().any(|case| match &case.scenario {
         Scenario::OrchardPayment(scenario) => scenario.funding_pool == ShieldedPoolChoice::Sapling,
         Scenario::TexPayment(scenario) => scenario.funding_pool == ShieldedPoolChoice::Sapling,
+        Scenario::Nu63OrchardPayment(_) => unreachable!("legacy generator emits legacy cases"),
     }));
     assert!(cases.iter().any(|case| match &case.scenario {
         Scenario::OrchardPayment(scenario) => scenario.funding_pool != scenario.change_pool,
         Scenario::TexPayment(scenario) => scenario.funding_pool != scenario.change_pool,
+        Scenario::Nu63OrchardPayment(_) => unreachable!("legacy generator emits legacy cases"),
     }));
     assert!(cases.iter().any(|case| match &case.scenario {
         Scenario::OrchardPayment(scenario) => scenario.confirmations > 1,
         Scenario::TexPayment(scenario) => scenario.confirmations > 1,
+        Scenario::Nu63OrchardPayment(_) => unreachable!("legacy generator emits legacy cases"),
     }));
     assert!(cases.iter().any(|case| match &case.scenario {
         Scenario::OrchardPayment(scenario) => scenario.note_count > 1,
         Scenario::TexPayment(scenario) => scenario.note_count > 1,
+        Scenario::Nu63OrchardPayment(_) => unreachable!("legacy generator emits legacy cases"),
     }));
     assert!(cases.iter().any(|case| match &case.scenario {
         Scenario::OrchardPayment(scenario) => scenario.empty_blocks > 0,
         Scenario::TexPayment(scenario) => scenario.empty_blocks > 0,
+        Scenario::Nu63OrchardPayment(_) => unreachable!("legacy generator emits legacy cases"),
     }));
 
     for case in cases {
@@ -134,6 +140,9 @@ fn representative_generated_cases_execute_through_real_zcash_proposals() {
                     .iter()
                     .all(|finding| finding.rule_id != "SS003_TRANSPARENT_CHANGE"));
             }
+            Scenario::Nu63OrchardPayment(_) => {
+                unreachable!("legacy generator emits legacy cases")
+            }
         }
     }
 }
@@ -164,4 +173,134 @@ fn committed_known_tex_finding_replays_from_seed_and_stays_minimal() {
         .findings
         .iter()
         .any(|finding| finding.rule_id == discovery.rule_id));
+}
+
+fn nu63_payment(funding_pool: ShieldedPoolChoice, activation: Nu63Activation) -> Scenario {
+    let mut payment = OrchardPaymentScenario::demo();
+    payment.funding_zat = 200_000;
+    payment.payment_zat = 100_000;
+    payment.confirmations = 2;
+    payment.empty_blocks = 1;
+    payment.funding_pool = funding_pool;
+    payment.change_pool = funding_pool;
+
+    Scenario::Nu63OrchardPayment(Nu63OrchardPaymentScenario {
+        payment,
+        activation,
+    })
+}
+
+#[test]
+fn real_nu63_boundary_routes_orchard_receiver_into_ironwood() {
+    let before = run_scenario(&nu63_payment(
+        ShieldedPoolChoice::Orchard,
+        Nu63Activation::Before,
+    ))
+    .expect("pre-activation real proposal");
+    let after = run_scenario(&nu63_payment(
+        ShieldedPoolChoice::Orchard,
+        Nu63Activation::At,
+    ))
+    .expect("post-activation real proposal");
+
+    for snapshot in [&before, &after] {
+        assert_eq!(snapshot.steps.len(), 1);
+        assert!(snapshot.steps[0]
+            .inputs
+            .iter()
+            .all(|input| input.pool == Pool::Orchard));
+        assert!(snapshot.steps[0].fee_zat > 0);
+    }
+
+    assert!(before.steps[0].outputs.iter().any(|output| {
+        output.pool == Pool::Orchard
+            && output.role == shieldspec_core::OutputRole::Recipient
+            && output.value_zat == 100_000
+    }));
+    assert!(!before.steps[0]
+        .outputs
+        .iter()
+        .any(|output| output.pool == Pool::Ironwood));
+
+    assert!(after.steps[0].outputs.iter().any(|output| {
+        output.pool == Pool::Ironwood
+            && output.role == shieldspec_core::OutputRole::Recipient
+            && output.value_zat == 100_000
+    }));
+    let before_assessment = assess(&before, &Policy::standard());
+    assert!(before_assessment
+        .findings
+        .iter()
+        .all(|finding| finding.rule_id != "SS006_CROSS_SHIELDED_POOL_VALUE_BALANCE"));
+    let after_assessment = assess(&after, &Policy::standard());
+    let crossing = after_assessment
+        .findings
+        .iter()
+        .find(|finding| finding.rule_id == "SS006_CROSS_SHIELDED_POOL_VALUE_BALANCE")
+        .expect("actual proposal crosses Orchard to Ironwood");
+    assert_eq!(crossing.evidence["source_pool"], "orchard");
+    assert_eq!(crossing.evidence["destination_pool"], "ironwood");
+    assert_eq!(crossing.evidence["crossing_value_zat"], "100000");
+}
+
+#[test]
+fn real_sapling_funding_selects_ironwood_after_nu63() {
+    let snapshot = run_scenario(&nu63_payment(
+        ShieldedPoolChoice::Sapling,
+        Nu63Activation::At,
+    ))
+    .expect("Sapling-funded post-activation proposal");
+    assert!(snapshot.steps[0]
+        .inputs
+        .iter()
+        .all(|input| input.pool == Pool::Sapling));
+    assert!(snapshot.steps[0].outputs.iter().any(|output| {
+        output.pool == Pool::Ironwood
+            && output.role == shieldspec_core::OutputRole::Recipient
+            && output.value_zat == 100_000
+    }));
+    assert!(assess(&snapshot, &Policy::standard())
+        .findings
+        .iter()
+        .any(|finding| finding.rule_id == "SS006_CROSS_SHIELDED_POOL_VALUE_BALANCE"));
+}
+
+#[test]
+fn opt_in_nu63_generation_replays_and_shrinks_without_changing_activation() {
+    let scenario = ScenarioGenerator::nu63_scenario_at(0x5eed_6300, 0);
+    assert_eq!(
+        scenario,
+        ScenarioGenerator::nu63_scenario_at(0x5eed_6300, 0)
+    );
+    let serialized = serde_json::to_string(&scenario).expect("serialize");
+    let replay: Scenario = serde_json::from_str(&serialized).expect("decode");
+    assert_eq!(replay, scenario);
+    assert_eq!(
+        run_scenario(&scenario).expect("first"),
+        run_scenario(&replay).expect("second")
+    );
+
+    let crossing = |candidate: &Scenario| {
+        let Ok(snapshot) = run_scenario(candidate) else {
+            return false;
+        };
+        assess(&snapshot, &Policy::standard())
+            .findings
+            .iter()
+            .any(|finding| finding.rule_id == "SS006_CROSS_SHIELDED_POOL_VALUE_BALANCE")
+    };
+    assert!(
+        crossing(&scenario),
+        "ordinal zero chooses post-NU6.3 crossing"
+    );
+    let minimized = shrink_scenario(&scenario, crossing);
+    assert!(crossing(&minimized));
+    assert!(minimized.complexity() <= scenario.complexity());
+    assert!(matches!(
+        minimized,
+        Scenario::Nu63OrchardPayment(Nu63OrchardPaymentScenario {
+            activation: Nu63Activation::At,
+            ..
+        })
+    ));
 }

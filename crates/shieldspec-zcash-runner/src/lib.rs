@@ -19,6 +19,7 @@ use zcash_client_backend::{
             orchard::OrchardPoolTester,
             pool::{dsl::TestDsl, ShieldedPoolTester},
             sapling::SaplingPoolTester,
+            TestBuilder,
         },
         wallet::{
             input_selection::{GreedyInputSelector, SpendPolicy},
@@ -31,7 +32,13 @@ use zcash_client_backend::{
 };
 use zcash_client_sqlite::testing::{db::TestDbFactory, BlockCache};
 use zcash_keys::{address::Address, keys::transparent::gap_limits::GapLimits};
-use zcash_protocol::{value::Zatoshis, ShieldedPool};
+use zcash_primitives::block::BlockHash;
+use zcash_protocol::{
+    consensus::{BlockHeight, NetworkUpgrade, Parameters},
+    local_consensus::LocalNetwork,
+    value::Zatoshis,
+    ShieldedPool,
+};
 
 /// Shielded funding or change pool used by a fuzzing scenario.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -92,6 +99,25 @@ impl OrchardPaymentScenario {
             change_pool: ShieldedPoolChoice::Orchard,
         }
     }
+}
+
+/// The proposal epoch relative to NU6.3 activation on a synthetic local network.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Nu63Activation {
+    Before,
+    At,
+}
+
+/// An opt-in, activation-aware Orchard-receiver proposal.
+///
+/// Ironwood shares Orchard receiver addresses; the real SDK must select the
+/// output pool. This scenario does not pretend to fund an Ironwood note.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Nu63OrchardPaymentScenario {
+    pub payment: OrchardPaymentScenario,
+    pub activation: Nu63Activation,
 }
 
 /// Deterministic ZIP 320 scenario that pays a TEX recipient from Orchard funds.
@@ -211,6 +237,34 @@ fn validate_amounts(
     Ok(())
 }
 
+/// NU6.3 activates near the synthetic wallet birthday so test proposals can
+/// cross the upgrade boundary without building a long chain.
+fn nu63_test_network(
+    note_count: u8,
+    confirmations: u8,
+    empty_blocks: u8,
+    activation: Nu63Activation,
+) -> LocalNetwork {
+    let mut network = TestBuilder::DEFAULT_NETWORK;
+    let sapling_height = u32::from(
+        network
+            .activation_height(NetworkUpgrade::Sapling)
+            .expect("test Sapling activation"),
+    );
+    let target_height =
+        sapling_height + u32::from(note_count) + u32::from(confirmations) + u32::from(empty_blocks)
+            - 1;
+    let prior_upgrade = Some(BlockHeight::from_u32(sapling_height));
+    network.nu6 = prior_upgrade;
+    network.nu6_1 = prior_upgrade;
+    network.nu6_2 = prior_upgrade;
+    network.nu6_3 = Some(BlockHeight::from_u32(match activation {
+        Nu63Activation::Before => target_height + 1,
+        Nu63Activation::At => target_height,
+    }));
+    network
+}
+
 struct PaymentExecution<'a> {
     funding_zat: u64,
     payment_zat: u64,
@@ -219,6 +273,7 @@ struct PaymentExecution<'a> {
     empty_blocks: u8,
     recipient: &'a Address,
     change_pool: ShieldedPoolChoice,
+    activation: Option<Nu63Activation>,
     observe_orchard_only: bool,
 }
 
@@ -233,15 +288,24 @@ fn run_payment_with_funding<T: ShieldedPoolTester>(
         empty_blocks,
         recipient,
         change_pool,
+        activation,
         observe_orchard_only,
     } = execution;
     validate_amounts(funding_zat, payment_zat, note_count, confirmations)?;
 
     let gap_limits = GapLimits::new(10, 5, 3);
-    let mut wallet =
-        TestDsl::with_sapling_birthday_account(TestDbFactory::default(), BlockCache::new())
-            .map(|builder| builder.with_gap_limits(gap_limits))
-            .build::<T>();
+    let network = activation.map_or(TestBuilder::DEFAULT_NETWORK, |phase| {
+        nu63_test_network(note_count, confirmations, empty_blocks, phase)
+    });
+    let mut wallet = TestDsl::from(
+        TestBuilder::new()
+            .with_network(network)
+            .with_data_store_factory(TestDbFactory::default())
+            .with_block_cache(BlockCache::new())
+            .with_account_from_sapling_activation(BlockHash([0; 32]))
+            .with_gap_limits(gap_limits),
+    )
+    .build::<T>();
 
     let note_count_u64 = u64::from(note_count);
     let base_note_value = funding_zat / note_count_u64;
@@ -326,6 +390,7 @@ fn run_payment_with_funding<T: ShieldedPoolTester>(
 fn run_orchard_payment_internal(
     scenario: &OrchardPaymentScenario,
     observe_orchard_only: bool,
+    activation: Option<Nu63Activation>,
 ) -> Result<(ProposalSnapshot, Option<WalletPolicyDecision>), RunnerError> {
     let recipient_sk = OrchardPoolTester::sk(&[scenario.recipient_seed; 32]);
     let recipient = OrchardPoolTester::sk_default_address(&recipient_sk);
@@ -340,6 +405,7 @@ fn run_orchard_payment_internal(
                 empty_blocks: scenario.empty_blocks,
                 recipient: &recipient,
                 change_pool: scenario.change_pool,
+                activation,
                 observe_orchard_only,
             })
         }
@@ -352,6 +418,7 @@ fn run_orchard_payment_internal(
                 empty_blocks: scenario.empty_blocks,
                 recipient: &recipient,
                 change_pool: scenario.change_pool,
+                activation,
                 observe_orchard_only,
             })
         }
@@ -362,12 +429,21 @@ fn run_orchard_payment_internal(
 pub fn run_orchard_payment(
     scenario: &OrchardPaymentScenario,
 ) -> Result<ProposalSnapshot, RunnerError> {
-    run_orchard_payment_internal(scenario, false).map(|(snapshot, _)| snapshot)
+    run_orchard_payment_internal(scenario, false, None).map(|(snapshot, _)| snapshot)
+}
+
+/// Run the same real wallet proposal across a specified NU6.3 activation boundary.
+fn run_orchard_payment_with_activation(
+    scenario: &OrchardPaymentScenario,
+    activation: Option<Nu63Activation>,
+) -> Result<ProposalSnapshot, RunnerError> {
+    run_orchard_payment_internal(scenario, false, activation).map(|(snapshot, _)| snapshot)
 }
 
 fn run_tex_payment_internal(
     scenario: &TexPaymentScenario,
     observe_orchard_only: bool,
+    activation: Option<Nu63Activation>,
 ) -> Result<(ProposalSnapshot, Option<WalletPolicyDecision>), RunnerError> {
     let recipient = Address::Tex([scenario.recipient_tag; 20]);
 
@@ -381,6 +457,7 @@ fn run_tex_payment_internal(
                 empty_blocks: scenario.empty_blocks,
                 recipient: &recipient,
                 change_pool: scenario.change_pool,
+                activation,
                 observe_orchard_only,
             })
         }
@@ -393,6 +470,7 @@ fn run_tex_payment_internal(
                 empty_blocks: scenario.empty_blocks,
                 recipient: &recipient,
                 change_pool: scenario.change_pool,
+                activation,
                 observe_orchard_only,
             })
         }
@@ -401,7 +479,7 @@ fn run_tex_payment_internal(
 
 /// Runs a real ZIP 320 shielded-to-TEX proposal.
 pub fn run_tex_payment(scenario: &TexPaymentScenario) -> Result<ProposalSnapshot, RunnerError> {
-    run_tex_payment_internal(scenario, false).map(|(snapshot, _)| snapshot)
+    run_tex_payment_internal(scenario, false, None).map(|(snapshot, _)| snapshot)
 }
 
 /// Stable, SDK-independent fuzzing scenario envelope.
@@ -410,6 +488,7 @@ pub fn run_tex_payment(scenario: &TexPaymentScenario) -> Result<ProposalSnapshot
 pub enum Scenario {
     OrchardPayment(OrchardPaymentScenario),
     TexPayment(TexPaymentScenario),
+    Nu63OrchardPayment(Nu63OrchardPaymentScenario),
 }
 
 impl Scenario {
@@ -418,6 +497,9 @@ impl Scenario {
         match self {
             Self::OrchardPayment(scenario) => 20_000 + (scenario.note_count as u64) * 10_000,
             Self::TexPayment(scenario) => 35_000 + (scenario.note_count as u64) * 10_000,
+            Self::Nu63OrchardPayment(scenario) => {
+                20_000 + (scenario.payment.note_count as u64) * 10_000
+            }
         }
     }
 
@@ -433,6 +515,18 @@ impl Scenario {
                     + scenario.empty_blocks as u128
                     + scenario.funding_pool.complexity_weight()
                     + scenario.change_pool.complexity_weight()
+            }
+            Self::Nu63OrchardPayment(scenario) => {
+                let payment = &scenario.payment;
+                payment.funding_zat as u128
+                    + payment.payment_zat as u128
+                    + payment.recipient_seed as u128
+                    + payment.note_count as u128
+                    + payment.confirmations as u128
+                    + payment.empty_blocks as u128
+                    + payment.funding_pool.complexity_weight()
+                    + payment.change_pool.complexity_weight()
+                    + 1
             }
             Self::TexPayment(scenario) => {
                 scenario.funding_zat as u128
@@ -488,6 +582,9 @@ pub fn run_scenario(scenario: &Scenario) -> Result<ProposalSnapshot, RunnerError
     match scenario {
         Scenario::OrchardPayment(scenario) => run_orchard_payment(scenario),
         Scenario::TexPayment(scenario) => run_tex_payment(scenario),
+        Scenario::Nu63OrchardPayment(scenario) => {
+            run_orchard_payment_with_activation(&scenario.payment, Some(scenario.activation))
+        }
     }
 }
 
@@ -500,8 +597,11 @@ pub fn run_scenario_with_orchard_only_spend_policy(
     scenario: &Scenario,
 ) -> Result<(ProposalSnapshot, WalletPolicyVerdict), RunnerError> {
     let (snapshot, decision) = match scenario {
-        Scenario::OrchardPayment(scenario) => run_orchard_payment_internal(scenario, true),
-        Scenario::TexPayment(scenario) => run_tex_payment_internal(scenario, true),
+        Scenario::OrchardPayment(scenario) => run_orchard_payment_internal(scenario, true, None),
+        Scenario::TexPayment(scenario) => run_tex_payment_internal(scenario, true, None),
+        Scenario::Nu63OrchardPayment(scenario) => {
+            run_orchard_payment_internal(&scenario.payment, true, Some(scenario.activation))
+        }
     }?;
     let decision = decision.ok_or_else(|| {
         RunnerError::Proposal("Orchard-only wallet spend policy was not evaluated".to_owned())
@@ -618,6 +718,39 @@ impl ScenarioGenerator {
         }
         generator.next_case()
     }
+
+    /// Deterministic, opt-in NU6.3 proposal generation. It deliberately does
+    /// not alter the legacy `case_at` seed/ordinal replay contract.
+    #[must_use]
+    pub fn nu63_scenario_at(seed: u64, ordinal: u64) -> Scenario {
+        let generated = Self::case_at(seed, ordinal);
+        let mut payment = match generated.scenario {
+            Scenario::OrchardPayment(payment) => payment,
+            Scenario::TexPayment(tex) => OrchardPaymentScenario {
+                funding_zat: tex.funding_zat,
+                payment_zat: tex.payment_zat,
+                recipient_seed: tex.recipient_tag,
+                note_count: tex.note_count,
+                confirmations: tex.confirmations,
+                empty_blocks: tex.empty_blocks,
+                funding_pool: tex.funding_pool,
+                change_pool: tex.change_pool,
+            },
+            Scenario::Nu63OrchardPayment(_) => {
+                unreachable!("legacy generator emits only legacy cases")
+            }
+        };
+        payment.funding_pool = ShieldedPoolChoice::Orchard;
+        payment.change_pool = ShieldedPoolChoice::Orchard;
+        Scenario::Nu63OrchardPayment(Nu63OrchardPaymentScenario {
+            payment,
+            activation: if ordinal.is_multiple_of(2) {
+                Nu63Activation::At
+            } else {
+                Nu63Activation::Before
+            },
+        })
+    }
 }
 
 fn shrink_candidates(scenario: &Scenario) -> Vec<Scenario> {
@@ -679,6 +812,16 @@ fn shrink_candidates(scenario: &Scenario) -> Vec<Scenario> {
                     let mut candidate = current.clone();
                     candidate.funding_zat = funding_zat;
                     candidates.push(Scenario::OrchardPayment(candidate));
+                }
+            }
+        }
+        Scenario::Nu63OrchardPayment(current) => {
+            for candidate in shrink_candidates(&Scenario::OrchardPayment(current.payment.clone())) {
+                if let Scenario::OrchardPayment(payment) = candidate {
+                    candidates.push(Scenario::Nu63OrchardPayment(Nu63OrchardPaymentScenario {
+                        payment,
+                        activation: current.activation,
+                    }));
                 }
             }
         }
