@@ -1,0 +1,416 @@
+
+running 1 test
+test wallet::sapling::tests::send_max_spendable_to_transparent ... FAILED
+
+failures:
+
+failures:
+    wallet::sapling::tests::send_max_spendable_to_transparent
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 201 filtered out; finished in 0.38s
+
+
+    Updating crates.io index
+ Downloading crates ...
+  Downloaded aead v0.5.2
+  Downloaded crypto-common v0.1.6
+  Downloaded anyhow v1.0.100
+  Downloaded chacha20 v0.9.1
+  Downloaded blake2b_simd v1.0.2
+  Downloaded crossbeam-epoch v0.9.18
+  Downloaded deranged v0.5.8
+  Downloaded aes v0.8.4
+  Downloaded cpufeatures v0.2.12
+  Downloaded cfg-if v1.0.0
+  Downloaded cc v1.2.17
+  Downloaded bitflags v2.9.0
+  Downloaded thiserror v2.0.12
+  Downloaded arrayref v0.3.7
+  Downloaded sha1 v0.10.5
+  Downloaded ripemd v0.2.0-pre.4
+  Downloaded crunchy v0.2.2
+  Downloaded bip32 v0.6.0-pre.1
+  Downloaded crypto-common v0.2.0-rc.1
+  Downloaded crossbeam-deque v0.8.5
+  Downloaded cbc v0.1.2
+  Downloaded constant_time_eq v0.3.0
+  Downloaded serde_derive v1.0.228
+  Downloaded arrayvec v0.7.4
+  Downloaded daggy v0.8.0
+  Downloaded crossbeam-utils v0.8.20
+  Downloaded tinyvec_macros v0.1.1
+  Downloaded tempfile v3.10.1
+  Downloaded lazy_static v1.5.0
+  Downloaded sha2 v0.11.0-pre.4
+  Downloaded lock_api v0.4.12
+  Downloaded proc-macro-error2 v2.0.1
+  Downloaded smallvec v1.13.2
+  Downloaded serde_core v1.0.228
+  Downloaded halo2_poseidon v0.1.0
+  Downloaded ff v0.13.0
+  Downloaded incrementalmerkletree v0.8.2
+  Downloaded thiserror-impl v2.0.12
+  Downloaded spin v0.9.8
+  Downloaded thiserror v1.0.63
+  Downloaded sha2 v0.10.8
+  Downloaded prost-derive v0.14.1
+  Downloaded sinsemilla v0.1.0
+  Downloaded tinyvec v1.8.0
+  Downloaded group v0.13.0
+  Downloaded powerfmt v0.2.0
+  Downloaded pin-project-lite v0.2.14
+  Downloaded typenum v1.17.0
+  Downloaded zeroize_derive v1.4.2
+  Downloaded time-macros v0.2.31
+  Downloaded uuid v1.8.0
+  Downloaded which v8.0.0
+  Downloaded wait-timeout v0.2.0
+  Downloaded tonic-prost-build v0.14.2
+  Downloaded zeroize v1.7.0
+  Downloaded zip32 v0.2.0
+  Downloaded zcash_note_encryption v0.4.1
+  Downloaded tracing-core v0.1.34
+  Downloaded unicode-ident v1.0.12
+  Downloaded version_check v0.9.4
+  Downloaded tracing-attributes v0.1.30
+  Downloaded futures-sink v0.3.31
+  Downloaded universal-hash v0.5.1
+  Downloaded tonic-build v0.14.2
+  Downloaded thiserror-impl v1.0.63
+  Downloaded proc-macro-error-attr2 v2.0.0
+  Downloaded bls12_381 v0.8.0
+  Downloaded secp256k1 v0.29.1
+  Downloaded rustix v0.38.34
+  Downloaded opaque-debug v0.3.1
+  Downloaded hashbrown v0.16.0
+  Downloaded inout v0.1.3
+  Downloaded sapling-crypto v0.7.0
+  Downloaded serde v1.0.228
+  Downloaded pairing v0.23.0
+  Downloaded once_cell v1.19.0
+  Downloaded prost v0.14.1
+  Downloaded poly1305 v0.8.0
+  Downloaded log v0.4.21
+  Downloaded pkg-config v0.3.30
+  Downloaded litrs v0.4.1
+  Downloaded ppv-lite86 v0.2.17
+  Downloaded rand_distr v0.4.3
+  Downloaded quote v1.0.45
+  Downloaded percent-encoding v2.3.1
+  Downloaded getrandom v0.2.15
+  Downloaded fpe v0.6.1
+  Downloaded jubjub v0.10.0
+  Downloaded env_home v0.1.0
+  Downloaded equivalent v1.0.1
+  Downloaded crossbeam-channel v0.5.15
+  Downloaded chacha20poly1305 v0.10.1
+  Downloaded bytes v1.10.1
+  Downloaded bitvec v1.0.1
+  Downloaded rustix v1.1.2
+  Downloaded bellman v0.14.0
+  Downloaded time v0.3.53
+  Downloaded shardtree v0.7.0
+  Downloaded pasta_curves v0.5.1
+  Downloaded rayon-core v1.12.1
+  Downloaded linux-raw-sys v0.4.13
+  Downloaded libm v0.2.8
+  Downloaded hashbrown v0.15.2
+  Downloaded regex-automata v0.4.9
+  Downloaded halo2_gadgets v0.5.0
+  Downloaded indexmap v2.12.0
+  Downloaded regex-syntax v0.8.5
+  Downloaded redjubjub v0.8.0
+  Downloaded reddsa v0.5.1
+  Downloaded prost-types v0.14.1
+  Downloaded zcash_script v0.4.3
+  Downloaded tracing v0.1.41
+  Downloaded syn v2.0.118
+  Downloaded prettyplease v0.2.20
+  Downloaded regex v1.11.1
+  Downloaded prost-build v0.14.1
+  Downloaded proptest v1.4.0
+  Downloaded proc-macro2 v1.0.106
+  Downloaded bech32 v0.11.0
+  Downloaded linux-raw-sys v0.11.0
+  Downloaded rayon v1.10.0
+  Downloaded memchr v2.7.4
+  Downloaded halo2_proofs v0.3.2
+  Downloaded aho-corasick v1.1.3
+  Downloaded incrementalmerkletree-testing v0.3.0
+  Downloaded hybrid-array v0.2.3
+  Downloaded hmac v0.13.0-pre.4
+  Downloaded fixedbitset v0.4.2
+  Downloaded fastrand v2.1.0
+  Downloaded num-integer v0.1.46
+  Downloaded libc v0.2.177
+  Downloaded num-bigint v0.4.5
+  Downloaded either v1.13.0
+  Downloaded digest v0.11.0-pre.9
+  Downloaded getset v0.1.6
+  Downloaded num_cpus v1.16.0
+  Downloaded multimap v0.8.3
+  Downloaded futures-core v0.3.31
+  Downloaded document-features v0.2.8
+  Downloaded blake2s_simd v1.0.2
+  Downloaded rand v0.8.5
+  Downloaded orchard v0.15.0
+  Downloaded shlex v1.3.0
+  Downloaded rusty-fork v0.3.0
+  Downloaded ambassador v0.4.1
+  Downloaded cipher v0.4.4
+  Downloaded block-buffer v0.11.0-rc.3
+  Downloaded autocfg v1.3.0
+  Downloaded secp256k1-sys v0.10.1
+  Downloaded petgraph v0.6.5
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.12
+   Compiling quote v1.0.45
+   Compiling cfg-if v1.0.0
+   Compiling libc v0.2.177
+   Compiling autocfg v1.3.0
+   Compiling typenum v1.17.0
+   Compiling version_check v0.9.4
+   Compiling subtle v2.6.1
+   Compiling ppv-lite86 v0.2.17
+   Compiling scopeguard v1.2.0
+   Compiling rustix v0.38.34
+   Compiling memuse v0.2.2
+   Compiling generic-array v0.14.7
+   Compiling lock_api v0.4.12
+   Compiling constant_time_eq v0.3.0
+   Compiling arrayvec v0.7.4
+   Compiling arrayref v0.3.7
+   Compiling radium v0.7.0
+   Compiling libm v0.2.8
+   Compiling tap v1.0.1
+   Compiling wyz v0.5.1
+   Compiling num-traits v0.2.19
+   Compiling blake2b_simd v1.0.2
+   Compiling spin v0.9.8
+   Compiling bitflags v2.9.0
+   Compiling cpufeatures v0.2.12
+   Compiling funty v2.0.0
+   Compiling lazy_static v1.5.0
+   Compiling syn v2.0.118
+   Compiling either v1.13.0
+   Compiling shlex v1.3.0
+   Compiling linux-raw-sys v0.4.13
+   Compiling getrandom v0.2.15
+   Compiling bitvec v1.0.1
+   Compiling rand_core v0.6.4
+   Compiling rand_chacha v0.3.1
+   Compiling crypto-common v0.1.6
+   Compiling rand v0.8.5
+   Compiling crossbeam-utils v0.8.20
+   Compiling cc v1.2.17
+   Compiling regex-syntax v0.8.5
+   Compiling hex v0.4.3
+   Compiling fastrand v2.1.0
+   Compiling wait-timeout v0.2.0
+   Compiling quick-error v1.2.3
+   Compiling tempfile v3.10.1
+   Compiling fnv v1.0.7
+   Compiling bit-vec v0.6.3
+   Compiling block-buffer v0.10.4
+   Compiling bit-set v0.5.3
+   Compiling rusty-fork v0.3.0
+   Compiling ff v0.13.0
+   Compiling rand_xorshift v0.3.0
+   Compiling static_assertions v1.1.0
+   Compiling unarray v0.1.4
+   Compiling group v0.13.0
+   Compiling digest v0.10.7
+   Compiling crossbeam-epoch v0.9.18
+   Compiling inout v0.1.3
+   Compiling hybrid-array v0.2.3
+   Compiling rayon-core v1.12.1
+   Compiling proptest v1.4.0
+   Compiling crossbeam-deque v0.8.5
+   Compiling pasta_curves v0.5.1
+   Compiling corez v0.1.1
+   Compiling thiserror v1.0.63
+   Compiling crypto-common v0.2.0-rc.1
+   Compiling zeroize_derive v1.4.2
+   Compiling thiserror-impl v1.0.63
+   Compiling block-buffer v0.11.0-rc.3
+   Compiling pairing v0.23.0
+   Compiling anyhow v1.0.100
+   Compiling zeroize v1.7.0
+   Compiling once_cell v1.19.0
+   Compiling cipher v0.4.4
+   Compiling byteorder v1.5.0
+   Compiling serde_core v1.0.228
+   Compiling tracing-core v0.1.34
+   Compiling digest v0.11.0-pre.9
+   Compiling rayon v1.10.0
+   Compiling tracing-attributes v0.1.30
+   Compiling incrementalmerkletree v0.8.2
+   Compiling sha2 v0.10.8
+   Compiling secp256k1-sys v0.10.1
+   Compiling indexmap v1.9.3
+   Compiling nonempty v0.11.0
+   Compiling litrs v0.4.1
+   Compiling pin-project-lite v0.2.14
+   Compiling serde v1.0.228
+   Compiling tracing v0.1.41
+   Compiling document-features v0.2.8
+   Compiling bs58 v0.5.1
+   Compiling incrementalmerkletree-testing v0.3.0
+   Compiling bls12_381 v0.8.0
+   Compiling serde_derive v1.0.228
+   Compiling itertools v0.14.0
+   Compiling universal-hash v0.5.1
+   Compiling proc-macro-error-attr2 v2.0.0
+   Compiling hashbrown v0.12.3
+   Compiling opaque-debug v0.3.1
+   Compiling thiserror v2.0.12
+   Compiling poly1305 v0.8.0
+   Compiling proc-macro-error2 v2.0.1
+   Compiling prost-derive v0.14.1
+   Compiling jubjub v0.10.0
+   Compiling zcash_encoding v0.4.0 (/tmp/shieldspec-sdk-2614-lm_xog3s/before/components/zcash_encoding)
+   Compiling chacha20 v0.9.1
+   Compiling thiserror-impl v2.0.12
+   Compiling num-integer v0.1.46
+   Compiling aead v0.5.2
+   Compiling zcash_spec v0.2.1
+   Compiling crunchy v0.2.2
+   Compiling prettyplease v0.2.20
+   Compiling log v0.4.21
+   Compiling zip32 v0.2.0
+   Compiling chacha20poly1305 v0.10.1
+   Compiling num-bigint v0.4.5
+   Compiling reddsa v0.5.1
+   Compiling zcash_protocol v0.10.0 (/tmp/shieldspec-sdk-2614-lm_xog3s/before/components/zcash_protocol)
+   Compiling getset v0.1.6
+   Compiling ripemd v0.2.0-pre.4
+   Compiling hmac v0.13.0-pre.4
+   Compiling sha2 v0.11.0-pre.4
+   Compiling secp256k1 v0.29.1
+   Compiling cbc v0.1.2
+   Compiling f4jumble v0.1.1 (/tmp/shieldspec-sdk-2614-lm_xog3s/before/components/f4jumble)
+   Compiling hashbrown v0.16.0
+   Compiling bech32 v0.11.0
+   Compiling bytes v1.10.1
+   Compiling equivalent v1.0.1
+   Compiling indexmap v2.12.0
+   Compiling zcash_address v0.13.0 (/tmp/shieldspec-sdk-2614-lm_xog3s/before/components/zcash_address)
+   Compiling bip32 v0.6.0-pre.1
+   Compiling prost v0.14.1
+   Compiling fpe v0.6.1
+   Compiling bounded-vec v0.9.0
+   Compiling zcash_note_encryption v0.4.1
+   Compiling maybe-rayon v0.1.1
+   Compiling regex-automata v0.4.9
+   Compiling aes v0.8.4
+   Compiling ripemd v0.1.3
+   Compiling sha1 v0.10.5
+   Compiling crossbeam-channel v0.5.15
+   Compiling num_cpus v1.16.0
+   Compiling blake2s_simd v1.0.2
+   Compiling rustix v1.1.2
+   Compiling fixedbitset v0.4.2
+   Compiling halo2_legacy_pdqsort v0.1.0
+   Compiling petgraph v0.6.5
+   Compiling halo2_proofs v0.3.2
+   Compiling bellman v0.14.0
+   Compiling regex v1.11.1
+   Compiling zcash_script v0.4.3
+   Compiling uint v0.9.5
+   Compiling prost-types v0.14.1
+   Compiling redjubjub v0.8.0
+   Compiling sinsemilla v0.1.0
+   Compiling halo2_poseidon v0.1.0
+   Compiling heck v0.5.0
+   Compiling num-conv v0.2.2
+   Compiling time-core v0.1.9
+   Compiling equihash v0.3.0 (/tmp/shieldspec-sdk-2614-lm_xog3s/before/components/equihash)
+   Compiling pkg-config v0.3.30
+   Compiling vcpkg v0.2.15
+   Compiling multimap v0.8.3
+   Compiling linux-raw-sys v0.11.0
+   Compiling prost-build v0.14.1
+   Compiling libsqlite3-sys v0.35.0
+   Compiling sapling-crypto v0.7.0
+   Compiling time-macros v0.2.31
+   Compiling zcash_transparent v0.9.0 (/tmp/shieldspec-sdk-2614-lm_xog3s/before/zcash_transparent)
+   Compiling tonic-build v0.14.2
+   Compiling visibility v0.1.1
+   Compiling deranged v0.5.8
+   Compiling halo2_gadgets v0.5.0
+   Compiling foldhash v0.1.5
+   Compiling powerfmt v0.2.0
+   Compiling env_home v0.1.0
+   Compiling syn v1.0.109
+   Compiling which v8.0.0
+   Compiling hashbrown v0.15.2
+   Compiling time v0.3.53
+   Compiling tonic-prost-build v0.14.2
+   Compiling uuid v1.8.0
+   Compiling minimal-lexical v0.2.1
+   Compiling wagyu-zcash-parameters-5 v0.2.0
+   Compiling wagyu-zcash-parameters-1 v0.2.0
+   Compiling wagyu-zcash-parameters-2 v0.2.0
+   Compiling wagyu-zcash-parameters-4 v0.2.0
+   Compiling wagyu-zcash-parameters-3 v0.2.0
+   Compiling memchr v2.7.4
+   Compiling wagyu-zcash-parameters-6 v0.2.0
+   Compiling wagyu-zcash-parameters v0.2.0
+   Compiling daggy v0.8.0
+   Compiling zcash_client_backend v0.24.0-rc.1 (/tmp/shieldspec-sdk-2614-lm_xog3s/before/zcash_client_backend)
+   Compiling nom v7.1.3
+   Compiling hashlink v0.10.0
+   Compiling orchard v0.15.0
+   Compiling secrecy v0.8.0
+   Compiling itertools v0.10.5
+   Compiling nanorand v0.7.0
+   Compiling base64 v0.22.1
+   Compiling fallible-streaming-iterator v0.1.9
+   Compiling futures-core v0.3.31
+   Compiling smallvec v1.13.2
+   Compiling assert_matches v1.5.0
+   Compiling futures-sink v0.3.31
+   Compiling percent-encoding v2.3.1
+   Compiling fallible-iterator v0.3.0
+   Compiling zip321 v0.9.0-rc.1 (/tmp/shieldspec-sdk-2614-lm_xog3s/before/components/zip321)
+   Compiling flume v0.11.1
+   Compiling shardtree v0.7.0
+   Compiling zcash_keys v0.15.0 (/tmp/shieldspec-sdk-2614-lm_xog3s/before/zcash_keys)
+   Compiling schemerz v0.2.0
+   Compiling rand_distr v0.4.3
+   Compiling ambassador v0.4.1
+   Compiling zcash_primitives v0.29.0 (/tmp/shieldspec-sdk-2614-lm_xog3s/before/zcash_primitives)
+   Compiling zcash_proofs v0.29.0 (/tmp/shieldspec-sdk-2614-lm_xog3s/before/zcash_proofs)
+   Compiling rusqlite v0.37.0
+   Compiling schemerz-rusqlite v0.370.0
+   Compiling zcash_client_sqlite v0.22.0-rc.1 (/tmp/shieldspec-sdk-2614-lm_xog3s/before/zcash_client_sqlite)
+    Finished `test` profile [optimized + debuginfo] target(s) in 1m 50s
+warning: the following packages contain code that will be rejected by a future version of Rust: document-features v0.2.8
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running unittests src/lib.rs (target/debug/deps/zcash_client_sqlite-e3be6c27795ae98a)
+
+thread 'wallet::sapling::tests::send_max_spendable_to_transparent' (15171) panicked at zcash_client_backend/src/data_api/testing/pool.rs:7685:10:
+called `Result::unwrap()` on an `Err` value: Proposal(PaymentPoolsMismatch)
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/59807616e1fa2540724bfbac14d7976d7e4a3860/library/std/src/panicking.rs:689:5
+   1: core::panicking::panic_fmt
+             at /rustc/59807616e1fa2540724bfbac14d7976d7e4a3860/library/core/src/panicking.rs:80:14
+   2: core::result::unwrap_failed
+             at /rustc/59807616e1fa2540724bfbac14d7976d7e4a3860/library/core/src/result.rs:1867:5
+   3: core::result::Result<T,E>::unwrap
+             at /rustc/59807616e1fa2540724bfbac14d7976d7e4a3860/library/core/src/result.rs:1233:23
+   4: zcash_client_backend::data_api::testing::pool::send_max_spendable_to_transparent
+             at /tmp/shieldspec-sdk-2614-lm_xog3s/before/zcash_client_backend/src/data_api/testing/pool.rs:7685:10
+   5: zcash_client_sqlite::testing::pool::send_max_spendable_to_transparent
+             at ./src/testing/pool.rs:862:5
+   6: zcash_client_sqlite::wallet::sapling::tests::send_max_spendable_to_transparent
+             at ./src/wallet/sapling.rs:455:9
+   7: zcash_client_sqlite::wallet::sapling::tests::send_max_spendable_to_transparent::{{closure}}
+             at ./src/wallet/sapling.rs:454:43
+   8: core::ops::function::FnOnce::call_once
+             at /rustc/59807616e1fa2540724bfbac14d7976d7e4a3860/library/core/src/ops/function.rs:250:5
+   9: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/59807616e1fa2540724bfbac14d7976d7e4a3860/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+error: test failed, to rerun pass `-p zcash_client_sqlite --lib`

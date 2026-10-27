@@ -4,7 +4,22 @@ ShieldSpec is privacy differential fuzzing and regression testing for Zcash wall
 
 ShieldSpec is a **Core & Tooling** project. The privacy oracle remains usable as a lightweight Rust library, CLI, and GitHub Action; the fuzzing layer adds a real-wallet proposal harness, deterministic semantic scenario generation, differential runner isolation, shrinking, and a replayable discovery corpus.
 
-## 30-second judge demo
+## Verified Zcash SDK history and privacy-fuzzer demo
+
+ShieldSpec now executes the **same real Zcash wallet test** against SDK revisions before and after the fix for [librustzcash#2614](https://github.com/zcash/librustzcash/issues/2614). The affected revision returns `Proposal(PaymentPoolsMismatch)` for a transparent send-max recipient; the corrected revision passes. Both exact commits, test hash, commands and raw logs are preserved in the [historical evidence](evidence/historical-2614/README.md).
+
+**This is a documented correctness difference, not a newly discovered privacy bug.** The privacy demo below is a separate, explicitly injected regression used to exercise ShieldSpec's detection, shrinking, replay and CI pipeline.
+
+Reproduce the upstream finding (Rust 1.95 and network access required):
+
+```bash
+python3 scripts/reproduce_librustzcash_2614.py \
+  --output evidence/historical-2614/results
+```
+
+For a judge-facing sequence, see the [submission summary](docs/submission.md), [captioned 1080p demo video](docs/media/shieldspec-zecathon-captioned-demo.mp4), and [optional narrated filming plan](docs/demo-video-script.md). The captioned video is generated from verified historical logs and executed CLI output; it has **no voiceover**. To regenerate it after building `shieldspec-fuzz`, run `python3 scripts/render_demo_video.py` (requires Pillow and ffmpeg).
+
+## Quick judge demo
 
 The shortest end-to-end demonstration is:
 
@@ -109,6 +124,8 @@ Generated dimensions currently include shielded funding pool, fallback change po
 
 A reported case contains its seed and ordinal. The semantic shrinker removes unnecessary state while repeatedly executing the real proposal path and preserving the target privacy regression.
 
+With `fuzz --save <discovery.json>`, ShieldSpec also saves each executed runner binary's SHA-256, its exact arguments and canonical path, the policy, and optional **declared** SDK revision labels (`--baseline-sdk` and `--candidate-sdk`). `replay --input <discovery.json>` restores those runner identities, checks the hashes and replays the minimized scenario. A changed binary or conflicting policy fails closed. Runner hashes prove **which bytes ran**; SDK revision labels must still be verified against build records. The historical reproducer verifies actual upstream Git revisions.
+
 ## Replay corpus
 
 Replayable minimized cases live under:
@@ -126,7 +143,7 @@ cargo run --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz -- \
   --format human
 ```
 
-The committed TEX case is a **known expected Zcash behavior**, not a claimed upstream vulnerability: it preserves the transparent recipient finding while proving the ZIP 320 ephemeral bridge is not mislabeled as wallet transparent funding or transparent change. A future differential finding saved with `--save` uses the same seed/ordinal/original/minimized replay format.
+The committed TEX case is a **known expected Zcash behavior**, not a claimed upstream vulnerability: it preserves the transparent recipient finding while proving the ZIP 320 ephemeral bridge is not mislabeled as wallet transparent funding or transparent change. A future differential finding saved with `--save` uses the same seed/ordinal/original/minimized replay format, extended with optional runner provenance. Pre-provenance corpus files remain readable.
 
 ## Published motivation
 
