@@ -1,15 +1,18 @@
 {
-  "seed": 1592642302,
+  "seed": 168939093,
   "ordinal": 0,
   "rule_id": "SS001_TRANSPARENT_RECIPIENT",
   "original": {
     "kind": "tex_payment",
     "params": {
-      "funding_zat": 316000,
+      "funding_zat": 300000,
       "payment_zat": 250000,
-      "recipient_tag": 126,
-      "note_count": 3,
-      "empty_blocks": 0
+      "recipient_tag": 250,
+      "note_count": 1,
+      "confirmations": 2,
+      "empty_blocks": 5,
+      "funding_pool": "orchard",
+      "change_pool": "sapling"
     }
   },
   "minimized": {
@@ -19,7 +22,10 @@
       "payment_zat": 1,
       "recipient_tag": 0,
       "note_count": 1,
-      "empty_blocks": 0
+      "confirmations": 1,
+      "empty_blocks": 0,
+      "funding_pool": "orchard",
+      "change_pool": "orchard"
     }
   }
 }
