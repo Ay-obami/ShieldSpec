@@ -336,11 +336,19 @@ fn run_campaign(
                     generated.ordinal
                 ));
             }
+            let original_rerun = run_differential(baseline, candidate, &scenario_json, &policy)
+                .map_err(|error| format!("original scenario could not replay: {error}"))?;
+            if !original_rerun.preserves_discovery(&report) {
+                return Err(format!(
+                    "original scenario no longer reproduces its initial finding at seed {seed}, ordinal {} (runner behavior may be nondeterministic)",
+                    generated.ordinal
+                ));
+            }
 
-            let rule_id = if minimized_report.wallet_policy_difference.is_some() {
+            let rule_id = if report.wallet_policy_difference.is_some() {
                 WALLET_POLICY_DIFFERENCE_RULE_ID.to_owned()
             } else {
-                minimized_report
+                report
                     .regression
                     .findings
                     .first()
@@ -580,6 +588,10 @@ fn replay(
                 } else {
                     "recorded_finding_not_reproduced"
                 }
+            } else if recorded_rule_id.as_deref() == Some(WALLET_POLICY_DIFFERENCE_RULE_ID) {
+                "wallet_policy_difference_reproduced"
+            } else if recorded_rule_id.is_some() {
+                "privacy_regression_reproduced"
             } else if report.wallet_policy_difference.is_some() {
                 "wallet_policy_difference_reproduced"
             } else if !report.regression.passes {

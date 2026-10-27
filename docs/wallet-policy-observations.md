@@ -63,6 +63,13 @@ It is classified as `WALLET_POLICY_DECISION_DIFFERENCE`, independently of the
 a changed rejection might be a safety improvement, a policy configuration change, or a
 correctness change. Human reviewers must interpret the policy contract.
 
+Every campaign result, including `no_regression_found`, reports
+`baseline_wallet_policy_observations`,
+`candidate_wallet_policy_observations`, and
+`comparable_wallet_policy_cases`. A zero comparable count means the campaign
+did **not** compare two instrumented wallet policies, even if snapshot checks passed.
+The counts refer to generated cases, not extra runner invocations during shrinking.
+
 The `shieldspec-fuzz fuzz` command detects the difference through its normal two-runner
 loop, shrinks the generated case while preserving the observed difference, saves a seed,
 ordinal, original and minimized scenario, policy, and executable provenance, and exits 2.
@@ -70,6 +77,9 @@ ordinal, original and minimized scenario, policy, and executable provenance, and
 reports whether the **same named policy and decision direction** persist. If the runner
 instead produces a different decision change, replay reports
 `recorded_rule_reproduced: false` and `status: other_wallet_policy_difference`.
+If the original finding disappears entirely, replay reports
+`status: recorded_finding_not_reproduced`. A discovery is not saved when
+its final minimized execution fails to preserve the original observation.
 The discovery rule is not a hardcoded historical bug detector.
 
 ## Evidence boundaries

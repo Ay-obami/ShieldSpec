@@ -5,10 +5,36 @@ use std::{
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
     process::{self, Command},
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use serde_json::Value;
 use shieldspec_fuzz::{RunnerResponse, WalletPolicyDecision, WalletPolicyVerdict};
+
+struct TestDirectory(PathBuf);
+
+impl TestDirectory {
+    fn new(purpose: &str) -> Self {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("wall clock")
+            .as_nanos();
+        let path =
+            std::env::temp_dir().join(format!("shieldspec-{purpose}-{}-{nonce}", process::id()));
+        fs::create_dir(&path).expect("create unique test directory");
+        Self(path)
+    }
+
+    fn path(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl Drop for TestDirectory {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
 
 fn observed_runner(root: &Path, name: &str, decision: WalletPolicyDecision) -> PathBuf {
     let payload = root.join(format!("{name}.json"));
@@ -49,8 +75,8 @@ fn run_binary(args: &[&str]) -> (u8, Value) {
 
 #[test]
 fn general_fuzzer_minimizes_and_replays_a_wallet_policy_decision_difference() {
-    let root = std::env::temp_dir().join(format!("shieldspec-verdict-cli-{}", process::id()));
-    fs::create_dir_all(&root).expect("temporary directory");
+    let directory = TestDirectory::new("verdict-cli");
+    let root = directory.path();
     let baseline = observed_runner(&root, "baseline", WalletPolicyDecision::Accepted);
     let candidate = observed_runner(&root, "candidate", WalletPolicyDecision::Rejected);
     let discovery = root.join("finding.json");
@@ -177,8 +203,8 @@ fn general_fuzzer_minimizes_and_replays_a_wallet_policy_decision_difference() {
 
 #[test]
 fn clean_campaign_reports_real_wallet_policy_coverage_even_without_a_finding() {
-    let root = std::env::temp_dir().join(format!("shieldspec-coverage-cli-{}", process::id()));
-    fs::create_dir_all(&root).expect("temporary directory");
+    let directory = TestDirectory::new("coverage-cli");
+    let root = directory.path();
     let baseline = observed_runner(&root, "coverage-baseline", WalletPolicyDecision::Accepted);
     let candidate = observed_runner(&root, "coverage-candidate", WalletPolicyDecision::Accepted);
 
@@ -225,8 +251,8 @@ fn clean_campaign_reports_real_wallet_policy_coverage_even_without_a_finding() {
 
 #[test]
 fn transient_policy_difference_is_not_saved_as_a_stable_discovery() {
-    let root = std::env::temp_dir().join(format!("shieldspec-unstable-cli-{}", process::id()));
-    fs::create_dir_all(&root).expect("temporary directory");
+    let directory = TestDirectory::new("unstable-cli");
+    let root = directory.path();
     let baseline = observed_runner(&root, "stable-baseline", WalletPolicyDecision::Accepted);
     let _accepted = observed_runner(&root, "later-accepted", WalletPolicyDecision::Accepted);
     let _rejected = observed_runner(&root, "first-rejected", WalletPolicyDecision::Rejected);
@@ -275,5 +301,141 @@ fn transient_policy_difference_is_not_saved_as_a_stable_discovery() {
     assert!(
         !discovery.exists(),
         "a transient finding must never be saved as reproducible evidence"
+    );
+}
+
+#[test]
+fn stale_original_observation_cannot_be_saved_after_successful_shrinking() {
+    let directory = TestDirectory::new("stale-original");
+    let root = directory.path();
+    let baseline = observed_runner(&root, "original-baseline", WalletPolicyDecision::Accepted);
+    let _accepted = observed_runner(
+        &root,
+        "original-later-accepted",
+        WalletPolicyDecision::Accepted,
+    );
+    let _rejected = observed_runner(
+        &root,
+        "original-first-rejected",
+        WalletPolicyDecision::Rejected,
+    );
+    let original = shieldspec_zcash_runner::ScenarioGenerator::case_at(77, 0).scenario;
+    let original_json = serde_json::to_value(original).expect("original JSON");
+    let mut original_bytes = serde_json::to_vec(&original_json).expect("canonical original");
+    original_bytes.push(b'\n');
+    fs::write(root.join("original.json"), original_bytes).expect("original input");
+    let seen = root.join("original-seen");
+    let candidate = root.join("changing-original.sh");
+    fs::write(
+        &candidate,
+        format!(
+            "#!/bin/sh\ncat > '{}'\nif cmp -s '{}' '{}'; then\n if [ -f '{}' ]; then cat '{}'; else touch '{}'; cat '{}'; fi\nelse cat '{}'; fi\n",
+            root.join("received.json").display(),
+            root.join("received.json").display(),
+            root.join("original.json").display(),
+            seen.display(),
+            root.join("original-later-accepted.json").display(),
+            seen.display(),
+            root.join("original-first-rejected.json").display(),
+            root.join("original-first-rejected.json").display(),
+        ),
+    )
+    .expect("changing runner script");
+    let mut permissions = fs::metadata(&candidate).expect("metadata").permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&candidate, permissions).expect("executable");
+    let discovery = root.join("must-not-save.json");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_shieldspec-fuzz"))
+        .args([
+            "fuzz",
+            "--baseline-runner",
+            baseline.to_str().expect("path"),
+            "--candidate-runner",
+            candidate.to_str().expect("path"),
+            "--seed",
+            "77",
+            "--cases",
+            "1",
+            "--save",
+            discovery.to_str().expect("path"),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("launch campaign");
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("original scenario no longer reproduces"),
+        "unexpected stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(!discovery.exists(), "stale original must not be saved");
+}
+
+#[test]
+fn replay_labels_the_recorded_snapshot_rule_even_if_a_wallet_policy_also_changes() {
+    let directory = TestDirectory::new("mixed-replay");
+    let root = directory.path();
+    let baseline = observed_runner(&root, "mixed-baseline", WalletPolicyDecision::Accepted);
+    let candidate = observed_runner(&root, "mixed-candidate", WalletPolicyDecision::Rejected);
+
+    let mut snapshot: Value =
+        serde_json::from_str(include_str!("../../../fixtures/shielded-payment.json"))
+            .expect("fixture");
+    snapshot["steps"][0]["outputs"][0]["value_zat"] = Value::from(99_900);
+    snapshot["steps"][0]["outputs"]
+        .as_array_mut()
+        .expect("outputs")
+        .push(serde_json::json!({
+            "pool": "transparent",
+            "role": "change",
+            "value_zat": 100
+        }));
+    let candidate_response = RunnerResponse::Observed {
+        snapshot: serde_json::from_value(snapshot).expect("candidate snapshot"),
+        wallet_policy: WalletPolicyVerdict {
+            policy: "test_policy".to_owned(),
+            decision: WalletPolicyDecision::Rejected,
+        },
+    };
+    fs::write(
+        root.join("mixed-candidate.json"),
+        serde_json::to_vec(&candidate_response).expect("runner JSON"),
+    )
+    .expect("write mixed candidate");
+    let generated = shieldspec_zcash_runner::ScenarioGenerator::case_at(77, 0);
+    let scenario = generated.scenario;
+    let discovery = root.join("recorded-snapshot-discovery.json");
+    fs::write(
+        &discovery,
+        serde_json::to_vec(&serde_json::json!({
+            "seed": 77,
+            "ordinal": 0,
+            "rule_id": "SS003_TRANSPARENT_CHANGE",
+            "original": scenario,
+            "minimized": scenario
+        }))
+        .expect("discovery"),
+    )
+    .expect("write discovery");
+
+    let (exit, replay) = run_binary(&[
+        "replay",
+        "--input",
+        discovery.to_str().expect("path"),
+        "--baseline-runner",
+        baseline.to_str().expect("path"),
+        "--candidate-runner",
+        candidate.to_str().expect("path"),
+        "--format",
+        "json",
+    ]);
+    assert_eq!(exit, 2, "{replay}");
+    assert_eq!(replay["recorded_rule_reproduced"], true, "{replay}");
+    assert_eq!(replay["status"], "privacy_regression_reproduced");
+    assert_eq!(
+        replay["report"]["wallet_policy_difference"]["policy"],
+        "test_policy"
     );
 }
