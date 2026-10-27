@@ -1,6 +1,7 @@
-use std::collections::BTreeMap;
+use std::collections::BTreeSet;
+use std::env;
 use std::fmt::Write as _;
-use std::path::Path;
+use std::path::{Component, Path, PathBuf};
 
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -27,7 +28,7 @@ pub(crate) fn render(
     match format {
         ReportFormat::Human => Ok(human(passes, findings)),
         ReportFormat::Json => pretty_json(&JsonReport { passes, findings }),
-        ReportFormat::Sarif => pretty_json(&sarif(findings, source)),
+        ReportFormat::Sarif => pretty_json(&sarif(findings, source)?),
     }
 }
 
@@ -65,23 +66,24 @@ fn human(passes: bool, findings: &[Finding]) -> String {
     output
 }
 
-fn sarif(findings: &[Finding], source: &Path) -> Value {
-    let rules: BTreeMap<&str, &Finding> = findings
+fn sarif(findings: &[Finding], source: &Path) -> Result<Value, String> {
+    let rule_ids: BTreeSet<&str> = findings
         .iter()
-        .map(|finding| (finding.rule_id.as_str(), finding))
+        .map(|finding| finding.rule_id.as_str())
         .collect();
-    let rules: Vec<_> = rules
+    let rules: Vec<_> = rule_ids
         .into_iter()
-        .map(|(rule_id, finding)| {
+        .map(|rule_id| {
+            let metadata = rule_metadata(rule_id);
             json!({
                 "id": rule_id,
                 "name": rule_id,
-                "shortDescription": { "text": finding.message },
-                "defaultConfiguration": { "level": sarif_level(finding.severity) }
+                "shortDescription": { "text": metadata.description },
+                "defaultConfiguration": { "level": sarif_level(metadata.default_severity) }
             })
         })
         .collect();
-    let source = source.to_string_lossy();
+    let source = artifact_uri(source)?;
     let results: Vec<_> = findings
         .iter()
         .map(|finding| {
@@ -107,7 +109,7 @@ fn sarif(findings: &[Finding], source: &Path) -> Value {
         })
         .collect();
 
-    json!({
+    Ok(json!({
         "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
         "version": "2.1.0",
         "runs": [{
@@ -121,7 +123,102 @@ fn sarif(findings: &[Finding], source: &Path) -> Value {
             },
             "results": results
         }]
-    })
+    }))
+}
+
+#[derive(Clone, Copy)]
+struct RuleMetadata {
+    description: &'static str,
+    default_severity: Severity,
+}
+
+fn rule_metadata(rule_id: &str) -> RuleMetadata {
+    match rule_id {
+        "SS001_TRANSPARENT_RECIPIENT" => RuleMetadata {
+            description: "Recipient output uses the transparent pool",
+            default_severity: Severity::Warning,
+        },
+        "SS002_TRANSPARENT_FUNDING" => RuleMetadata {
+            description: "Proposal spends transparent funds",
+            default_severity: Severity::Warning,
+        },
+        "SS003_TRANSPARENT_CHANGE" => RuleMetadata {
+            description: "Change output uses the transparent pool",
+            default_severity: Severity::Error,
+        },
+        "SS004_UNKNOWN_ROUTE" => RuleMetadata {
+            description: "Proposal route has an unknown pool",
+            default_severity: Severity::Warning,
+        },
+        "SS005_PRIVACY_BOUNDARY" => RuleMetadata {
+            description: "Value crosses the transparent/shielded privacy boundary",
+            default_severity: Severity::Warning,
+        },
+        _ => RuleMetadata {
+            description: "ShieldSpec policy finding",
+            default_severity: Severity::Warning,
+        },
+    }
+}
+
+fn artifact_uri(source: &Path) -> Result<String, String> {
+    let current_dir = env::current_dir()
+        .map_err(|error| format!("could not determine current directory: {error}"))?;
+    let current_dir = normalize_path(&current_dir);
+    let absolute_source = if source.is_absolute() {
+        normalize_path(source)
+    } else {
+        normalize_path(&current_dir.join(source))
+    };
+
+    if let Ok(relative) = absolute_source.strip_prefix(&current_dir) {
+        let relative = encode_uri_path(relative);
+        return Ok(if relative.is_empty() {
+            ".".to_owned()
+        } else {
+            relative
+        });
+    }
+
+    let encoded = encode_uri_path(&absolute_source);
+    if encoded.starts_with("//") {
+        Ok(format!("file:{encoded}"))
+    } else if encoded.starts_with('/') {
+        Ok(format!("file://{encoded}"))
+    } else {
+        Ok(format!("file:///{encoded}"))
+    }
+}
+
+fn normalize_path(path: &Path) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                normalized.pop();
+            }
+            Component::Prefix(_) | Component::RootDir | Component::Normal(_) => {
+                normalized.push(component.as_os_str());
+            }
+        }
+    }
+    normalized
+}
+
+fn encode_uri_path(path: &Path) -> String {
+    let path = path
+        .to_string_lossy()
+        .replace(std::path::MAIN_SEPARATOR, "/");
+    let mut encoded = String::with_capacity(path.len());
+    for byte in path.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~' | b'/' | b':') {
+            encoded.push(char::from(byte));
+        } else {
+            write!(encoded, "%{byte:02X}").expect("writing to String cannot fail");
+        }
+    }
+    encoded
 }
 
 fn pretty_json(value: &impl Serialize) -> Result<String, String> {

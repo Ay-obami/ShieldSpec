@@ -142,19 +142,19 @@ pub const fn fixture_names() -> &'static [&'static str] {
 #[must_use]
 pub fn fixture(name: &str) -> Option<ProposalSnapshot> {
     let json = match name {
-        "shielded-payment" => include_str!("../../../fixtures/shielded-payment.json"),
-        "transparent-recipient" => include_str!("../../../fixtures/transparent-recipient.json"),
-        "transparent-funding" => include_str!("../../../fixtures/transparent-funding.json"),
-        "transparent-change" => include_str!("../../../fixtures/transparent-change.json"),
+        "shielded-payment" => include_str!("../fixtures/shielded-payment.json"),
+        "transparent-recipient" => include_str!("../fixtures/transparent-recipient.json"),
+        "transparent-funding" => include_str!("../fixtures/transparent-funding.json"),
+        "transparent-change" => include_str!("../fixtures/transparent-change.json"),
         "unified-selected-transparent" => {
-            include_str!("../../../fixtures/unified-selected-transparent.json")
+            include_str!("../fixtures/unified-selected-transparent.json")
         }
-        "multi-step-late-leak" => include_str!("../../../fixtures/multi-step-late-leak.json"),
+        "multi-step-late-leak" => include_str!("../fixtures/multi-step-late-leak.json"),
         "privacy-preserving-migration" => {
-            include_str!("../../../fixtures/privacy-preserving-migration.json")
+            include_str!("../fixtures/privacy-preserving-migration.json")
         }
         "full-balance-migration" => {
-            include_str!("../../../fixtures/full-balance-migration.json")
+            include_str!("../fixtures/full-balance-migration.json")
         }
         _ => return None,
     };

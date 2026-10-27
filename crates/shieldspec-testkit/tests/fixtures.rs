@@ -1,4 +1,5 @@
 use std::collections::BTreeSet;
+use std::path::Path;
 
 use shieldspec_core::{assess, OutputRole, Policy, Pool, ProposalSnapshot};
 use shieldspec_testkit::{fixture, fixture_names, write_fixture, FixtureWriteError};
@@ -38,6 +39,22 @@ fn every_fixture_roundtrips_with_the_canonical_envelope() {
         let decoded: ProposalSnapshot =
             serde_json::from_str(&encoded).expect("fixture deserializes");
         assert_eq!(decoded, snapshot, "{name}");
+    }
+}
+
+#[test]
+fn embedded_fixtures_semantically_match_repository_fixtures() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures");
+
+    for &name in fixture_names() {
+        let path = root.join(format!("{name}.json"));
+        let repository_fixture: ProposalSnapshot = serde_json::from_slice(
+            &std::fs::read(&path)
+                .unwrap_or_else(|error| panic!("could not read {}: {error}", path.display())),
+        )
+        .unwrap_or_else(|error| panic!("could not parse {}: {error}", path.display()));
+
+        assert_eq!(fixture(name).unwrap(), repository_fixture, "{name}");
     }
 }
 

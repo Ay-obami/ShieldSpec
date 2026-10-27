@@ -7,7 +7,7 @@ rust-version.workspace = true
 
 [dependencies]
 serde_json.workspace = true
-shieldspec-core = { path = "../shieldspec-core" }
+shieldspec-core = { version = "0.1.0", path = "../shieldspec-core" }
 
 [dev-dependencies]
 proptest = { version = "=1.5.0", default-features = false, features = ["std"] }
