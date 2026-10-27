@@ -1,6 +1,4 @@
-use shieldspec_core::{
-    assess, InputOrigin, OutputRole, Policy, Pool, PriorStepOutput,
-};
+use shieldspec_core::{assess, InputOrigin, OutputRole, Policy, Pool, PriorStepOutput};
 use shieldspec_zcash_runner::{
     run_orchard_payment, run_tex_payment, OrchardPaymentScenario, TexPaymentScenario,
 };
@@ -50,9 +48,7 @@ fn tex_scenario_uses_real_ephemeral_two_step_proposal() {
     let ephemeral_index = first
         .outputs
         .iter()
-        .position(|output| {
-            output.pool == Pool::Transparent && output.role == OutputRole::Ephemeral
-        })
+        .position(|output| output.pool == Pool::Transparent && output.role == OutputRole::Ephemeral)
         .expect("first step has ephemeral transparent output");
 
     assert!(second.inputs.iter().any(|input| {
