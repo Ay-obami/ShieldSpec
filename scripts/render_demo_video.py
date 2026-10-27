@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Build a captioned MP4 from *executed* ShieldSpec demo output.
 
-No simulated bug discovery: the SDK history is an actual upstream correctness
-reproduction; the privacy CLI demo has a clearly labeled injected fault.
+No simulated upstream discovery: the Zallet history reproduces a previously
+fixed real privacy-policy difference; the separate CLI demo has a labeled fault.
 Requires Pillow and ffmpeg on the local machine. Video contains no voiceover.
 """
 from __future__ import annotations
@@ -66,11 +66,15 @@ def slide(number: int, total: int, title: str, subtitle: str, cards: list[tuple]
     im.save(path)
 
 def build(outdir: Path) -> Path:
-    verdict = json.loads((ROOT / "evidence/historical-2614/results/verdict.json").read_text())
-    before = (ROOT / "evidence/historical-2614/results/before.log").read_text()
-    after = (ROOT / "evidence/historical-2614/results/after.log").read_text()
-    if verdict["status"] != "historical_difference_reproduced" or "PaymentPoolsMismatch" not in before or "1 passed; 0 failed" not in after:
-        raise RuntimeError("Historical SDK proof is absent or inconclusive")
+    verdict = json.loads((ROOT / "evidence/historical-zallet-677/results/verdict.json").read_text())
+    before = (ROOT / "evidence/historical-zallet-677/results/before.log").read_text()
+    after = (ROOT / "evidence/historical-zallet-677/results/after.log").read_text()
+    if (verdict["status"] != "historical_privacy_policy_difference_reproduced"
+            or "SHIELDSPEC_IRONWOOD_TO_SAPLING_FULL_PRIVACY accepted=true" not in before
+            or "test result: FAILED. 2 passed; 1 failed" not in before
+            or "SHIELDSPEC_IRONWOOD_TO_SAPLING_FULL_PRIVACY accepted=false" not in after
+            or "test result: ok. 3 passed; 0 failed" not in after):
+        raise RuntimeError("Historical Zallet privacy-policy proof is absent or inconclusive")
     binary = ROOT / "target/debug/shieldspec-fuzz"
     if not binary.is_file():
         raise RuntimeError("First build the real CLI: cargo build --locked -p shieldspec-zcash-runner --bins")
@@ -88,8 +92,9 @@ def build(outdir: Path) -> Path:
         "type": "captioned_technical_demo_from_real_cli_outputs",
         "voiceover": "not_recorded",
         "historical_classification": verdict["classification"],
-        "before_sdk_git_commit": verdict["sdk"]["before"]["sdk_git_commit"],
-        "after_sdk_git_commit": verdict["sdk"]["after"]["sdk_git_commit"],
+        "historical_implementation": "zcash/zallet zallet-core privacy-policy implementation",
+        "before_zallet_git_commit": verdict["sdk"]["before"]["sdk_git_commit"],
+        "after_zallet_git_commit": verdict["sdk"]["after"]["sdk_git_commit"],
         "historical_test_sha256": verdict["test_source_sha256"],
         "demo_command": [str(binary), *demo_args],
         "replay_command": [str(binary), *replay_args],
@@ -105,11 +110,11 @@ def build(outdir: Path) -> Path:
          "A developer tool for wallet proposal regressions",
          [("REAL SDK EXECUTION", ["Generated wallet states", "Real librustzcash proposal machinery", "Separate baseline and candidate processes", "Privacy invariants → shrink → replay"])],
          "Every example is reproducible; no keys or mainnet transactions.", 11),
-        ("A genuine historical SDK difference",
-         "zcash/librustzcash #2614 → merged fix #2615",
-         [("BEFORE · 54ff673169ec", ["Wallet: one 60,000-zat Sapling note", "Mode: send-max to transparent P2PKH", "Observed: Proposal(PaymentPoolsMismatch)", "Result: FAILED (exit 101)"], RED),
-          ("AFTER · 25766a4c754a", ["Same upstream regression test", "Same wallet and recipient state", "Observed: valid proposal and transaction", "Result: 1 passed; 0 failed"], GREEN)],
-         "A documented SDK correctness difference — NOT a privacy bug.", 21),
+        ("A real historical privacy-policy bug",
+         "zcash/zallet #677 · FullPrivacy missed Ironwood→Sapling value crossing",
+         [("BEFORE · f496c9b6", ["Real Proposal: 20,000-zat Ironwood note", "Sapling change: 10,000 zat", "Policy: FullPrivacy", "Observed: accepted=true (wrong)", "Result: 2 pass; 1 expected test fail"], RED),
+          ("AFTER · e9667802", ["Same Rust fixture and real Proposal", "Same Ironwood→Sapling crossing", "Observed: accepted=false (correct)", "Result: all 3 tests pass", "Two controls agree across versions"], GREEN)],
+         "Previously documented and fixed; NOT a new bug or auto-discovery.", 21),
         ("ShieldSpec executes real proposals",
          "Transparent change is caught by a policy-aware differential",
          [("ACTUAL COMMAND OUTPUT", [
@@ -160,16 +165,16 @@ def build(outdir: Path) -> Path:
              "Minimized scenarios with SHA-256 provenance",
              "CI smoke + historical SDK verification",
          ])],
-         "Zcash-only evidence: zallet #693, librustzcash #2614 and #2775.", 16),
+         "Zcash-only evidence: zallet #677/#693, librustzcash #2614/#2775.", 16),
         ("ShieldSpec",
          "Privacy regressions should become repeatable tests before release",
          [("REPOSITORY & EVIDENCE", [
              "github.com/Ay-obami/ShieldSpec",
-             "evidence/historical-2614/results/",
+             "evidence/historical-zallet-677/results/",
              "docs/submission.md",
              "docs/demo-video-script.md",
          ])],
-         "No claimed novel upstream privacy vulnerability. No anonymity guarantees.", 12),
+         "Historical fixed Zallet bug; CLI finding is explicitly injected. No new vuln.", 12),
     ]
     with tempfile.TemporaryDirectory(prefix="shieldspec-video-") as tmp:
         root = Path(tmp)

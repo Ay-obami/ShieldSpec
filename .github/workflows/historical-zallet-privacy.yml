@@ -1,0 +1,35 @@
+name: Historical Zallet #677 privacy-policy comparison
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  historical-privacy-policy:
+    name: Real before/after zallet-core FullPrivacy regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out ShieldSpec
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Install Rust 1.95.0
+        uses: dtolnay/rust-toolchain@035fceb3c12fb0c6a9461b52775e16473133e591
+
+      - name: Test the classification and source-isolation harness
+        run: python3 -m unittest discover -s scripts/tests -p test_historical_zallet_reproduction.py -v
+
+      - name: Exercise the actual historical Zallet wallet-core privacy policy
+        run: >-
+          python3 scripts/reproduce_zallet_677.py
+          --output evidence/historical-zallet-677/results
+
+      - name: Upload before and after raw logs with SHA-256 verdict
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: historical-zallet-677-fullprivacy
+          path: evidence/historical-zallet-677/results/
+          if-no-files-found: warn

@@ -12,6 +12,7 @@ ShieldSpec generates realistic Zcash wallet states, exercises actual SDK transac
 
 ShieldSpec addresses testing gaps documented in Zcash's own engineering work:
 
+- [zallet#677](https://github.com/zcash/zallet/pull/677): a documented `FullPrivacy` bug allowed cross-pool value-balance exposure for newer shielded pools such as Ironwood; ShieldSpec independently replays the original behavior and its fix against actual wallet policy code.
 - [zallet#693](https://github.com/zcash/zallet/issues/693): realistic proposal state was cumbersome to construct for privacy-policy unit tests (some ad hoc tests have since landed).
 - [librustzcash#2614](https://github.com/zcash/librustzcash/issues/2614): proposal edge cases evaded existing tests, including a transparent send-max failure.
 - [librustzcash#2775](https://github.com/zcash/librustzcash/issues/2775): developers requested explicit metadata leak-regression assertions where correctness tests did not cover the privacy property.
@@ -26,16 +27,20 @@ These issues provide context, not the centerpiece. ShieldSpec does not claim to 
 4. **ZIP-320 correctness:** recognize legitimate ephemeral transparent bridge outputs in real shielded-to-TEX proposals.
 5. **Developer integration:** Rust libraries, CLI, SARIF/JSON/human reporters, composite GitHub Action and CI tests.
 
-## Genuine historical Zcash SDK difference
+## Genuine historical Zcash privacy-policy difference
 
-We executed the same upstream test `send_max_spendable_to_transparent` against two real Git commits:
+An identical test-only witness creates a real Zcash wallet proposal and calls Zallet's actual `enforce_privacy_policy` with `FullPrivacy` on two pinned `zcash/zallet` revisions around [upstream hardening PR #677](https://github.com/zcash/zallet/pull/677):
 
-| Affected SDK | Corrected SDK |
-| --- | --- |
-| `54ff673169ec8be5a4b023a7ae69bcf5caead2a3` | `25766a4c754a847b0a9e3a63801d8f46a270c01b` |
-| `Proposal(PaymentPoolsMismatch)` | Same wallet case passes, 1 test, 0 failures |
+| Scenario | Before fix `f496c9b6` | After fix `e9667802` |
+| --- | --- | --- |
+| **Ironwood note → Sapling change** | `accepted=true` — public cross-pool value balance incorrectly allowed | `accepted=false` — policy guard works |
+| Orchard note → Sapling change (control) | Rejected | Rejected |
+| Ironwood note → Ironwood change (control) | Accepted | Accepted |
+| Actual `cargo test` | Exit 101: 2 pass, 1 deliberately failing privacy assertion | Exit 0: all 3 pass |
 
-The affected checkout received **only the exact newly added upstream regression test and its trivial test registrations**; the production fix was not copied. See [test SHA-256, raw logs and verdict](../evidence/historical-2614/README.md). **This is SDK correctness evidence, not a privacy finding.**
+The [pinned source, exact full revisions, test SHA-256, reproducibility command, raw logs and verdict](../evidence/historical-zallet-677/README.md) are supplied. **This is an independently reproduced, previously disclosed and fixed Zcash wallet-core bug**, not a newly discovered flaw and not a claim that the general ShieldSpec fuzzer automatically found it. No production code was patched in either checkout.
+
+Separately, the [librustzcash#2614 historical SDK test](../evidence/historical-2614/README.md) reproduces a transparent send-max **correctness**, rather than privacy, difference (`PaymentPoolsMismatch` before fix; passing afterward). We retain it as additional engineering context, not the privacy proof.
 
 ## ShieldSpec's privacy-differential demo
 
@@ -58,10 +63,11 @@ cargo fmt --check
 cargo test --locked --workspace --all-targets
 cargo clippy --locked --workspace --all-targets -- -D warnings
 python3 -m unittest discover -s scripts/tests -v
+python3 scripts/reproduce_zallet_677.py --output evidence/historical-zallet-677/results
 python3 scripts/reproduce_librustzcash_2614.py --output evidence/historical-2614/results
 ```
 
-The last command compiles two old upstream SDK checkouts and therefore takes longer. A manual GitHub Actions workflow runs it and uploads complete logs.
+The last two commands compile pinned upstream wallet/SDK checkouts and therefore take longer. Separate manual GitHub Actions workflows can rerun each one and upload complete logs.
 
 ## Evidence limits
 
@@ -73,4 +79,4 @@ The last command compiles two old upstream SDK checkouts and therefore takes lon
 
 ## Final delivery
 
-A [captioned 1920×1080 demo video](media/shieldspec-zecathon-captioned-demo.mp4) has been generated from checked historical logs and executed CLI output. It is approximately 2:20 long, **without voiceover**, and it explicitly separates the real historical correctness difference from the deliberate privacy fault. Regenerate using `python3 scripts/render_demo_video.py` after `cargo build --locked -p shieldspec-zcash-runner --bins` (requires Pillow and ffmpeg). Captured output and a SHA-256 manifest are written to ignored `demo-artifacts/`. For a narrated screen recording, use the [voiceover and shot list](demo-video-script.md). Before external submission, confirm a public video URL, check that CI is green and submit on the hackathon website; repository publication alone is not an accepted entry.
+A [captioned 1920×1080 demo video](media/shieldspec-zecathon-captioned-demo.mp4) is generated from checked before/after Zallet privacy-policy logs and executed ShieldSpec CLI output. It is approximately 2:20 long, **without voiceover**, and it explicitly separates the genuine historical wallet-policy privacy difference from the deliberately injected ShieldSpec CLI fault. Regenerate using `python3 scripts/render_demo_video.py` after `cargo build --locked -p shieldspec-zcash-runner --bins` (requires Pillow and ffmpeg). Captured output and a SHA-256 manifest are written to ignored `demo-artifacts/`. For a narrated screen recording, use the [voiceover and shot list](demo-video-script.md). Before external submission, confirm a public video URL, check that CI is green and submit on the hackathon website; repository publication alone is not an accepted entry.

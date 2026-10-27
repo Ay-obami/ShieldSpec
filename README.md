@@ -4,17 +4,16 @@ ShieldSpec is privacy differential fuzzing and regression testing for Zcash wall
 
 ShieldSpec is a **Core & Tooling** project. The privacy oracle remains usable as a lightweight Rust library, CLI, and GitHub Action; the fuzzing layer adds a real-wallet proposal harness, deterministic semantic scenario generation, differential runner isolation, shrinking, and a replayable discovery corpus.
 
-## Verified Zcash SDK history and privacy-fuzzer demo
+## Reproduced Zcash wallet privacy history and ShieldSpec's fuzzer demo
 
-ShieldSpec now executes the **same real Zcash wallet test** against SDK revisions before and after the fix for [librustzcash#2614](https://github.com/zcash/librustzcash/issues/2614). The affected revision returns `Proposal(PaymentPoolsMismatch)` for a transparent send-max recipient; the corrected revision passes. Both exact commits, test hash, commands and raw logs are preserved in the [historical evidence](evidence/historical-2614/README.md).
+**Real historical privacy-policy difference:** The same test-only Rust witness invokes real `zallet-core` privacy-policy code at revisions [`f496c9b`](https://github.com/zcash/zallet/commit/f496c9b6b2c6ebb0065b329c11bda4a5fdf73568) and [`e966780`](https://github.com/zcash/zallet/commit/e966780216b7a86b0a1a6618f2fde5b574da7171), from [zallet#677](https://github.com/zcash/zallet/pull/677). Under `FullPrivacy`, the affected code **accepted Ironwood→Sapling** shielded-pool crossing (which exposes a public value balance), while the fixed code **rejects** it. Pinned sources, control tests, both raw logs and a reproducible CLI are in [the Zallet privacy-history evidence](evidence/historical-zallet-677/README.md). It is a previously documented and fixed upstream wallet-core issue, not a new discovery or an automatically found ShieldSpec fuzzer result.
 
-**This is a documented correctness difference, not a newly discovered privacy bug.** The privacy demo below is a separate, explicitly injected regression used to exercise ShieldSpec's detection, shrinking, replay and CI pipeline.
+A separate [librustzcash#2614 reproduction](evidence/historical-2614/README.md) demonstrates a genuine SDK **correctness** difference in transparent send-max proposals; it is not itself evidence of a privacy leak. The ShieldSpec CLI privacy-differential demo below injects a labeled fault to validate discovery, minimization and replay without misrepresenting it as upstream behavior.
 
-Reproduce the upstream finding (Rust 1.95 and network access required):
+To reproduce the privacy-policy comparison (Rust 1.95, network access, upstream build dependencies):
 
 ```bash
-python3 scripts/reproduce_librustzcash_2614.py \
-  --output evidence/historical-2614/results
+python3 scripts/reproduce_zallet_677.py --output evidence/historical-zallet-677/results
 ```
 
 For a judge-facing sequence, see the [submission summary](docs/submission.md), [captioned 1080p demo video](docs/media/shieldspec-zecathon-captioned-demo.mp4), and [optional narrated filming plan](docs/demo-video-script.md). The captioned video is generated from verified historical logs and executed CLI output; it has **no voiceover**. To regenerate it after building `shieldspec-fuzz`, run `python3 scripts/render_demo_video.py` (requires Pillow and ffmpeg).
