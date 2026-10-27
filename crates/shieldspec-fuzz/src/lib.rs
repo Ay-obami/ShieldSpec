@@ -13,7 +13,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use shieldspec_core::{compare, Policy, ProposalSnapshot, RegressionReport};
+use shieldspec_core::{assess, compare, Assessment, Policy, ProposalSnapshot, RegressionReport};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
@@ -116,16 +116,27 @@ impl fmt::Display for DifferentialError {
 
 impl Error for DifferentialError {}
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct DifferentialReport {
+    pub baseline: Assessment,
+    pub candidate: Assessment,
+    pub regression: RegressionReport,
+}
+
 pub fn run_differential(
     baseline: &RunnerCommand,
     candidate: &RunnerCommand,
     scenario: &Value,
     policy: &Policy,
-) -> Result<RegressionReport, DifferentialError> {
+) -> Result<DifferentialReport, DifferentialError> {
     let baseline_snapshot = run_runner(RunnerSide::Baseline, baseline, scenario)?;
     let candidate_snapshot = run_runner(RunnerSide::Candidate, candidate, scenario)?;
 
-    Ok(compare(&baseline_snapshot, &candidate_snapshot, policy))
+    Ok(DifferentialReport {
+        baseline: assess(&baseline_snapshot, policy),
+        candidate: assess(&candidate_snapshot, policy),
+        regression: compare(&baseline_snapshot, &candidate_snapshot, policy),
+    })
 }
 
 pub fn compare_snapshots(

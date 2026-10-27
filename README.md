@@ -1,15 +1,145 @@
 # ShieldSpec
 
-ShieldSpec is privacy regression testing for Zcash wallet transaction proposals. It lets developers turn privacy expectations into tests and CI failures before wallet changes ship.
+ShieldSpec is privacy differential fuzzing and regression testing for Zcash wallet transaction proposals. It generates realistic wallet states, exercises real Zcash proposal construction, compares privacy behavior across baseline and candidate implementations, and turns regressions into deterministic replay cases.
 
-ShieldSpec is a **Core & Tooling** project: a reusable Rust policy engine and testkit sit beneath a CLI, Zcash proposal adapter, and GitHub Action. It inspects proposal facts available before signing; it does not handle wallet secrets or claim that a clean result guarantees anonymity.
+ShieldSpec is a **Core & Tooling** project. The privacy oracle remains usable as a lightweight Rust library, CLI, and GitHub Action; the fuzzing layer adds a real-wallet proposal harness, deterministic semantic scenario generation, differential runner isolation, shrinking, and a replayable discovery corpus.
 
-## Five-minute demo
+## 30-second judge demo
 
-You need Rust 1.95 or newer; this repository pins Rust 1.95.0 for reproducible verification. From its root, compare the canonical shielded baseline with a candidate that adds transparent change:
+The shortest end-to-end demonstration is:
 
 ```bash
-cargo run -p shieldspec-cli -- \
+cargo run --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz -- demo --format human
+```
+
+The command intentionally exits with status `2` after showing:
+
+- a baseline produced from real Zcash wallet state and the real proposal engine;
+- zero baseline privacy findings;
+- a candidate with a **deliberately injected demo-only transparent-change fault**;
+- `SS003_TRANSPARENT_CHANGE` and `SS005_PRIVACY_BOUNDARY`;
+- a semantically minimized failing scenario; and
+- an exact `replay` command.
+
+The demo fault is controlled evidence that the differential pipeline works. **It is not presented as a discovered librustzcash vulnerability.**
+
+The current deterministic demo reproduces with:
+
+```bash
+cargo run --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz -- \
+  replay \
+  --seed 148 \
+  --ordinal 0 \
+  --policy standard \
+  --demo-regression transparent-change \
+  --format human
+```
+
+That replay also exits `2` and reproduces the same differential findings.
+
+## What is real in the fuzzer
+
+ShieldSpec does not fuzz serialized proposal JSON and call that wallet testing.
+
+For each generated scenario, the Zcash runner:
+
+1. creates an isolated in-memory Zcash wallet;
+2. creates synthetic compact blocks containing wallet-owned shielded funds;
+3. scans those blocks through librustzcash wallet code;
+4. applies the generated confirmation depth and wallet-state parameters;
+5. invokes the real `propose_standard_transfer` proposal path;
+6. converts the resulting real `Proposal` through `shieldspec-zcash`; and
+7. sends only the normalized `ProposalSnapshot` across the differential boundary.
+
+The chain fixture is synthetic and deterministic. Input selection, fees, change, selected pools, multi-step construction, and proposal structure come from the pinned Zcash wallet machinery.
+
+The runner includes a real ZIP 320 shielded-to-TEX case. librustzcash constructs the expected two-step flow: an ephemeral transparent bridge output in step 0 is referenced as a prior-step input in step 1. ShieldSpec preserves that provenance so the internal bridge is not confused with ordinary wallet transparent funding or change.
+
+## Differential architecture
+
+Baseline and candidate runners are separate processes:
+
+```text
+                  same Scenario JSON
+                       /      \
+                      /        \
+              baseline runner  candidate runner
+                    |               |
+              real Proposal    real Proposal
+                    |               |
+             ProposalSnapshot ProposalSnapshot
+                      \       /
+                       \     /
+                    ShieldSpec
+                  privacy oracle
+                       |
+              regression / pass
+                       |
+                 shrink + replay
+```
+
+No librustzcash Rust type crosses that process boundary. A baseline runner and candidate runner can therefore be compiled independently against different SDK versions or wallet branches while sharing the same stable scenario and snapshot contracts.
+
+A difference in proposal structure is not automatically a privacy failure. ShieldSpec fails the differential only when the candidate introduces a new policy finding or worsens an existing structural finding.
+
+Operational runner errors are reported separately from privacy regressions.
+
+## Deterministic fuzzing
+
+Build the runner binaries:
+
+```bash
+cargo build --locked -p shieldspec-zcash-runner --bins
+```
+
+A self-comparison smoke campaign should produce no regression:
+
+```bash
+target/debug/shieldspec-fuzz fuzz \
+  --baseline-runner target/debug/shieldspec-zcash-runner \
+  --candidate-runner target/debug/shieldspec-zcash-runner \
+  --seed 148 \
+  --cases 2 \
+  --format human
+```
+
+For a real differential campaign, point `--baseline-runner` and `--candidate-runner` at independently built compatible runner executables. Both receive the exact same scenario JSON.
+
+Generated dimensions currently include shielded funding pool, fallback change pool, note count, note values, payment value, confirmation depth, extra blocks, recipient identity, ordinary shielded payments, and ZIP 320 TEX payments.
+
+A reported case contains its seed and ordinal. The semantic shrinker removes unnecessary state while repeatedly executing the real proposal path and preserving the target privacy regression.
+
+## Discovery corpus
+
+Committed discoveries live under:
+
+```text
+crates/shieldspec-zcash-runner/fixtures/discoveries/
+```
+
+For example:
+
+```bash
+cargo run --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz -- \
+  replay \
+  --input crates/shieldspec-zcash-runner/fixtures/discoveries/tex-transparent-recipient.json \
+  --format human
+```
+
+A stored discovery records its generator seed, ordinal, rule ID, original scenario, and minimized scenario.
+
+## Published motivation
+
+ShieldSpec was motivated in part by a concrete Zcash developer-testing problem documented in [zcash/zallet#693](https://github.com/zcash/zallet/issues/693): realistic `Step` and `Proposal` values were cumbersome enough to make direct privacy-policy unit testing difficult.
+
+ShieldSpec does **not** claim to close that Zallet issue. It attacks the underlying testability problem from outside the wallet: generate realistic wallet conditions, let the actual Zcash proposal machinery construct the proposal, evaluate privacy invariants, and minimize failures into replayable regression cases.
+
+## Original ShieldSpec regression gate
+
+The original deterministic snapshot workflow remains available:
+
+```bash
+cargo run --locked -p shieldspec-cli -- \
   diff \
   --baseline fixtures/shielded-payment.json \
   --candidate fixtures/transparent-change.json \
@@ -17,20 +147,9 @@ cargo run -p shieldspec-cli -- \
   --format human
 ```
 
-The command reports `SS003_TRANSPARENT_CHANGE` and exits with status `2`. The recipient remains shielded in both snapshots; inspecting only the destination would miss the regression.
+It reports `SS003_TRANSPARENT_CHANGE` and exits `2`.
 
-For a downstream-library version of the same moment:
-
-```bash
-cargo test --manifest-path examples/mock-wallet/Cargo.toml
-cargo run --manifest-path examples/mock-wallet/Cargo.toml
-```
-
-The test first proves the baseline passes structurally, then proves `compare()` fails and includes `SS003_TRANSPARENT_CHANGE`. The executable also exits `2`, making the result directly usable as a CI gate.
-
-## GitHub Action
-
-Commit or generate proposal snapshots without keys, then add a workflow step:
+The GitHub Action can run the same policy gate:
 
 ```yaml
 - name: Check proposal privacy regression
@@ -42,43 +161,52 @@ Commit or generate proposal snapshots without keys, then add a workflow step:
     format: sarif
 ```
 
-Omit `baseline` to check one candidate against the selected policy. The action's `status` output is the CLI exit status: `0` for a pass, `1` for an operational error, or `2` for a privacy failure. Pin a specific release tag (for example, `v0.1.0`) rather than a mutable branch. The action requires no wallet seed, spending key, signing access, or network credentials. It does require outbound network access to install the pinned Rust toolchain and download Cargo dependencies unless those assets are already available in the runner's caches.
+The Action's `status` output is `0` for pass, `1` for operational/input error, and `2` for privacy failure.
 
 ## Architecture
 
-- `shieldspec-core` defines normalized proposal snapshots, policy findings, assessment, and structural regression comparison.
-- `shieldspec-testkit` supplies ergonomic builders and canonical privacy fixtures.
-- `shieldspec-zcash` converts supported Zcash SDK proposal structures into normalized snapshots.
-- `shieldspec-cli` exposes `check`, `diff`, and fixture commands with human, JSON, and SARIF output.
-- `action.yml` runs the CLI as a reusable composite GitHub Action.
-- `examples/mock-wallet` is an independent Rust package using core and testkit through path dependencies, as a wallet integration would.
+- `shieldspec-core`: normalized proposal model, privacy rules, assessment, validation, and structural regression comparison.
+- `shieldspec-testkit`: builders and canonical privacy fixtures.
+- `shieldspec-zcash`: adapter from supported real Zcash SDK `Proposal` structures to stable snapshots.
+- `shieldspec-fuzz`: SDK-independent process orchestration and differential oracle.
+- `shieldspec-zcash-runner`: non-published real-wallet test harness, deterministic scenario generator, shrinker, replay corpus, and `shieldspec-fuzz` binary.
+- `shieldspec-cli`: lightweight snapshot `check`, `diff`, and fixture commands.
+- `action.yml`: reusable GitHub Action for the lightweight regression gate.
+- `examples/mock-wallet`: independent downstream consumer example.
 
-The normalized snapshot is the boundary between wallet-specific proposal construction and deterministic policy rules. This keeps the engine reusable and makes the same finding IDs available to tests, local CLI output, and CI reporting.
+## Privacy model and limits
 
-## What ShieldSpec does—and does not do
+ShieldSpec evaluates proposal facts and configured invariants. It can report transparent funding, recipients or change; unknown routing; transparent/shielded boundary transitions; and regressions between two proposal outcomes.
 
-ShieldSpec reports confirmed structural facts in the supplied proposal, such as transparent funding, recipients, or change; unknown routes; and transparent/shielded boundary transitions. Comparison identifies newly introduced or worsened policy findings using deterministic structural fingerprints.
+It does not sign or broadcast transactions, deanonymize users, inspect peer-to-peer or IP metadata, calculate an anonymity score, or prove that a transaction is private.
 
-It does not sign or broadcast transactions, access keys or wallet databases, inspect network metadata, deanonymize users, or calculate an anonymity score. A passing assessment means only that no configured rule found a failure in the supplied facts. It is not a guarantee of privacy or anonymity.
+A clean fuzz campaign means only:
 
-ShieldSpec builds on established Zcash privacy concepts and tooling patterns. Its contribution is proposal-aware regression testing and developer ergonomics—not a claim to have invented privacy analysis or to be the first privacy tool. See [the privacy model](docs/privacy-model.md) for the evidence boundary and [the demo storyboard](docs/demo.md) for the judge flow.
+> no configured differential privacy regression was found in the scenarios that were exercised.
+
+It does **not** guarantee privacy or anonymity, and fuzzing does not guarantee that every possible regression will be discovered.
+
+The real-proposal harness uses isolated testing wallet state; it is not a mainnet wallet and does not require user seed phrases or custody.
+
+See [docs/privacy-model.md](docs/privacy-model.md) for the evidence boundary and [docs/demo.md](docs/demo.md) for the judge-facing flow.
 
 ## Development
 
-Run the repository checks from the root:
+The repository pins Rust 1.95.0.
+
+Run the complete workspace verification:
 
 ```bash
 cargo fmt --check
-cargo test --workspace --all-targets
-cargo clippy --workspace --all-targets -- -D warnings
+cargo test --locked --workspace --all-targets
+cargo clippy --locked --workspace --all-targets -- -D warnings
 ```
 
-Run only the independent consumer package with:
+Run only the fuzzing/real-proposal layer:
 
 ```bash
-cargo fmt --manifest-path examples/mock-wallet/Cargo.toml --check
-cargo test --manifest-path examples/mock-wallet/Cargo.toml
-cargo clippy --manifest-path examples/mock-wallet/Cargo.toml --all-targets -- -D warnings
+cargo test --locked -p shieldspec-fuzz -p shieldspec-zcash-runner --all-targets
+cargo clippy --locked -p shieldspec-fuzz -p shieldspec-zcash-runner --all-targets -- -D warnings
 ```
 
-CLI exit codes are `0` for a pass/no regression, `2` for a privacy failure/regression, and `1` for an operational or input error.
+The CI suite also runs a deterministic clean differential campaign, the judge demo, exact demo differential replay, and committed discovery replay.

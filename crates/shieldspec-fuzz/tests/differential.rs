@@ -88,8 +88,9 @@ fn candidate_only_privacy_regression_is_reported_through_process_boundary() {
     let report = run_differential(&baseline, &candidate, &scenario, &Policy::standard())
         .expect("differential execution");
 
-    assert!(!report.passes);
+    assert!(!report.regression.passes);
     assert!(report
+        .regression
         .findings
         .iter()
         .any(|finding| finding.rule_id == "SS003_TRANSPARENT_CHANGE"));
@@ -120,7 +121,7 @@ fn two_independent_runner_commands_receive_identical_scenario_json() {
     let report = run_differential(&baseline, &candidate, &scenario, &Policy::standard())
         .expect("differential execution");
 
-    assert!(report.passes);
+    assert!(report.regression.passes);
     assert_eq!(captured_scenario(&baseline_input), scenario);
     assert_eq!(captured_scenario(&candidate_input), scenario);
 }
@@ -158,10 +159,10 @@ fn benign_structural_reordering_does_not_fail_the_differential_oracle() {
     .expect("differential execution");
 
     assert!(
-        report.passes,
+        report.regression.passes,
         "reordering existing facts is not a new privacy regression"
     );
-    assert!(report.findings.is_empty());
+    assert!(report.regression.findings.is_empty());
 }
 
 #[test]

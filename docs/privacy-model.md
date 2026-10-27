@@ -9,6 +9,8 @@ When present in the normalized snapshot, ShieldSpec can directly evaluate:
 - the declared pool of each input and output;
 - whether an output is a recipient, change, or another role;
 - step boundaries and step indexes in a multi-step proposal;
+- whether transparent value is a real recipient/change output or an internal ephemeral bridge;
+- whether an input came from wallet funds or a typed prior-step payment/change output;
 - input values, output values, and the proposed fee;
 - unknown pool or routing data explicitly preserved by the adapter;
 - structural differences between baseline and candidate findings.
@@ -39,3 +41,5 @@ Unknown pools or routes fail closed under the configured rules; other absent con
 ShieldSpec never needs or handles seed phrases, spending keys, signing authority, or custody. It does not sign or broadcast transactions, connect proposal facts to network deanonymization, or perform public-chain deanonymization. It produces no numeric anonymity score.
 
 A passing assessment means only: **no configured policy failure was found in the supplied proposal facts**. It is not an anonymity guarantee, a security proof, or a statement that the eventual transaction is safe against every observer.
+
+The differential fuzzer inherits the same boundary. A clean campaign means only that no configured baseline-to-candidate regression was found in the generated scenarios that actually ran. Scenario generation is deliberately semantic and biased toward known privacy-sensitive boundaries, but it cannot exhaust all wallet histories, SDK states, policies, or future protocol behavior.
