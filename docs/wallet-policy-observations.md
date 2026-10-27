@@ -6,8 +6,11 @@ ShieldSpec compares two independent kinds of evidence:
 2. **Wallet-policy decisions** explicitly reported by an instrumented wallet runner.
 
 A ShieldSpec snapshot assessment is **not** a wallet's FullPrivacy, or other wallet-specific,
-accept/reject verdict. The standard `shieldspec-zcash-runner` currently reports only proposal
-snapshots; it does not claim to have executed an additional wallet policy.
+accept/reject verdict. The standard `shieldspec-zcash-runner` reports proposal snapshots by
+default. Its opt-in `--wallet-spend-policy orchard-only` mode additionally executes the
+pinned Zcash SDK's **actual Orchard-only spend-source policy** and emits a verdict. This
+policy is distinct from Zallet's FullPrivacy policy and is not a test of any historical
+FullPrivacy bypass.
 
 ## Runner JSON protocol
 
@@ -44,6 +47,28 @@ only `status: ok`, ShieldSpec performs snapshot checks but makes **no claim** ab
 wallet-policy verdict. The differential JSON includes `baseline_wallet_policy` and
 `candidate_wallet_policy` when supplied, even when both verdicts agree, so downstream
 consumers can distinguish an observed agreement from missing instrumentation.
+
+## Real SDK spend-policy adapter
+
+The opt-in runner flag `--wallet-spend-policy orchard-only` selects a named
+`zcash_spend_orchard_only_v1` observation. It calls the pinned
+`zcash_client_backend` wallet's real `SpendPolicy::shielded_pools([Orchard])`
+proposal path. An adequately funded Orchard wallet is accepted; an otherwise
+fundable Sapling-only wallet cannot satisfy the Orchard-only spend restriction
+and reports `rejected` from the SDK's typed insufficient-permitted-funds result.
+
+The `snapshot` in an `observed` response remains a complete, genuinely
+SDK-generated **unrestricted diagnostic proposal**. In a rejection case, there
+is no constrained approved proposal to snapshot. The reported acceptance or
+rejection is derived separately from the restricted SDK policy call, never
+inferred from that diagnostic snapshot. Invalid scenarios, underfunded
+unrestricted proposals and unexpected SDK errors remain operational errors
+with nonzero process exit codes.
+
+This mode demonstrates genuine SDK behavior and integration with the general
+fuzzer. Comparing the same runner version with itself is a useful negative
+control, but neither establishes an upstream bug nor exercises Zallet's
+historical FullPrivacy behavior.
 
 ## Generic comparison
 

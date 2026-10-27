@@ -158,3 +158,37 @@ fn invalid_scenario_remains_operational_error_under_observation_mode() {
     };
     assert!(message.contains("leave room for transaction fees"));
 }
+
+#[test]
+fn policy_observation_keeps_the_exact_unrestricted_diagnostic_snapshot() {
+    use shieldspec_zcash_runner::ShieldedPoolChoice;
+
+    for funding_pool in [ShieldedPoolChoice::Orchard, ShieldedPoolChoice::Sapling] {
+        let scenario = Scenario::OrchardPayment(OrchardPaymentScenario {
+            funding_pool,
+            ..OrchardPaymentScenario::demo()
+        });
+        let legacy_output = execute(&[], &scenario);
+        let observed_output = execute(&["--wallet-spend-policy", "orchard-only"], &scenario);
+        assert!(legacy_output.status.success(), "{legacy_output:?}");
+        assert!(observed_output.status.success(), "{observed_output:?}");
+
+        let RunnerResponse::Ok {
+            snapshot: unrestricted,
+        } = response(&legacy_output)
+        else {
+            panic!("default execution must return a snapshot");
+        };
+        let RunnerResponse::Observed {
+            snapshot: diagnostic,
+            ..
+        } = response(&observed_output)
+        else {
+            panic!("opt-in execution must return a real wallet decision");
+        };
+        assert_eq!(
+            diagnostic, unrestricted,
+            "observing a policy must not rewrite the SDK-generated reference snapshot"
+        );
+    }
+}
