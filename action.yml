@@ -40,6 +40,7 @@ runs:
         SHIELDSPEC_CANDIDATE: ${{ inputs.candidate }}
         SHIELDSPEC_FORMAT: ${{ inputs.format }}
         SHIELDSPEC_POLICY: ${{ inputs.policy }}
+        SHIELDSPEC_SOURCE_ROOT: ${{ github.workspace }}
       run: |
         set -euo pipefail
 

@@ -164,29 +164,53 @@ fn rule_metadata(rule_id: &str) -> RuleMetadata {
 fn artifact_uri(source: &Path) -> Result<String, String> {
     let current_dir = env::current_dir()
         .map_err(|error| format!("could not determine current directory: {error}"))?;
-    let current_dir = normalize_path(&current_dir);
+    let source_root = env::var_os("SHIELDSPEC_SOURCE_ROOT");
+    Ok(artifact_uri_with_context(
+        source,
+        &current_dir,
+        source_root.as_deref().map(Path::new),
+    ))
+}
+
+fn artifact_uri_with_context(
+    source: &Path,
+    current_dir: &Path,
+    source_root: Option<&Path>,
+) -> String {
+    let current_dir = normalize_path(current_dir);
     let absolute_source = if source.is_absolute() {
         normalize_path(source)
     } else {
         normalize_path(&current_dir.join(source))
     };
 
+    if let Some(source_root) = source_root.filter(|root| root.is_absolute()) {
+        if let Ok(relative) = absolute_source.strip_prefix(normalize_path(source_root)) {
+            let relative = encode_uri_path(relative);
+            return if relative.is_empty() {
+                ".".to_owned()
+            } else {
+                relative
+            };
+        }
+    }
+
     if let Ok(relative) = absolute_source.strip_prefix(&current_dir) {
         let relative = encode_uri_path(relative);
-        return Ok(if relative.is_empty() {
+        return if relative.is_empty() {
             ".".to_owned()
         } else {
             relative
-        });
+        };
     }
 
     let encoded = encode_uri_path(&absolute_source);
     if encoded.starts_with("//") {
-        Ok(format!("file:{encoded}"))
+        format!("file:{encoded}")
     } else if encoded.starts_with('/') {
-        Ok(format!("file://{encoded}"))
+        format!("file://{encoded}")
     } else {
-        Ok(format!("file:///{encoded}"))
+        format!("file:///{encoded}")
     }
 }
 
@@ -241,5 +265,35 @@ const fn sarif_level(severity: Severity) -> &'static str {
         Severity::Info => "note",
         Severity::Warning => "warning",
         Severity::Error => "error",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::artifact_uri_with_context;
+    use std::path::Path;
+
+    #[test]
+    fn artifact_uri_is_repository_relative_under_source_root() {
+        assert_eq!(
+            artifact_uri_with_context(
+                Path::new("/workspace/repo/fixtures/a #%.json"),
+                Path::new("/opt/shieldspec"),
+                Some(Path::new("/workspace/repo")),
+            ),
+            "fixtures/a%20%23%25.json"
+        );
+    }
+
+    #[test]
+    fn artifact_uri_outside_source_root_keeps_file_uri_fallback() {
+        assert_eq!(
+            artifact_uri_with_context(
+                Path::new("/workspace/external/a #%.json"),
+                Path::new("/opt/shieldspec"),
+                Some(Path::new("/workspace/repo")),
+            ),
+            "file:///workspace/external/a%20%23%25.json"
+        );
     }
 }
