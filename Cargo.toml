@@ -4,6 +4,7 @@ members = [
     "crates/shieldspec-core",
     "crates/shieldspec-testkit",
     "crates/shieldspec-zcash",
+    "crates/shieldspec-zcash-runner",
 ]
 resolver = "2"
 
