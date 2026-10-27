@@ -28,6 +28,9 @@ jobs:
       - name: Check formatting
         run: cargo fmt --check
 
+      - name: Check canonical fixture copies stay in sync
+        run: diff -ru fixtures crates/shieldspec-testkit/fixtures
+
       - name: Run workspace tests
         run: cargo test --locked --workspace --all-targets
 
