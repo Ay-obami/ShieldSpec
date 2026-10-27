@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  quality:
+    name: Format, test, and lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy,rustfmt
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Run workspace tests
+        run: cargo test --workspace --all-targets
+
+      - name: Run Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+  cli-smoke:
+    name: CLI privacy gates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Smoke passing privacy check
+        run: >-
+          cargo run --locked -p shieldspec-cli -- check
+          --input fixtures/shielded-payment.json
+          --policy standard
+          --format human
+
+      - name: Assert privacy regression exits with code 2
+        shell: bash
+        run: |
+          set +e
+          cargo run --locked -p shieldspec-cli -- diff \
+            --baseline fixtures/shielded-payment.json \
+            --candidate fixtures/transparent-change.json \
+            --policy standard \
+            --format human
+          status=$?
+          set -e
+
+          if [[ $status -ne 2 ]]; then
+            echo "Expected privacy regression exit code 2, got $status" >&2
+            exit 1
+          fi
+
+  action-smoke:
+    name: Composite action smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Check a repository fixture with the action
+        uses: ./
+        with:
+          candidate: fixtures/shielded-payment.json
+          policy: standard
+          format: human
