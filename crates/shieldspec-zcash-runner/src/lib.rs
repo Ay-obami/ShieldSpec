@@ -615,6 +615,7 @@ pub enum Scenario {
     OrchardPayment(OrchardPaymentScenario),
     TexPayment(TexPaymentScenario),
     UnifiedPayment(UnifiedPaymentScenario),
+    TransparentFundedPayment(TransparentFundedPaymentScenario),
 }
 
 impl Scenario {
@@ -624,6 +625,9 @@ impl Scenario {
             Self::OrchardPayment(scenario) => 20_000 + (scenario.note_count as u64) * 10_000,
             Self::TexPayment(scenario) => 35_000 + (scenario.note_count as u64) * 10_000,
             Self::UnifiedPayment(scenario) => 20_000 + (scenario.note_count as u64) * 10_000,
+            Self::TransparentFundedPayment(scenario) => {
+                30_000 + (scenario.utxo_count as u64) * 10_000
+            }
         }
     }
 
@@ -648,6 +652,14 @@ impl Scenario {
                     + scenario.confirmations as u128
                     + scenario.empty_blocks as u128
                     + scenario.funding_pool.complexity_weight()
+                    + scenario.change_pool.complexity_weight()
+            }
+            Self::TransparentFundedPayment(scenario) => {
+                scenario.funding_zat as u128
+                    + scenario.payment_zat as u128
+                    + scenario.utxo_count as u128
+                    + scenario.confirmations as u128
+                    + scenario.recipient_pool.complexity_weight()
                     + scenario.change_pool.complexity_weight()
             }
             Self::UnifiedPayment(scenario) => {
@@ -697,6 +709,7 @@ pub fn run_scenario(scenario: &Scenario) -> Result<ProposalSnapshot, RunnerError
         Scenario::OrchardPayment(scenario) => run_orchard_payment(scenario),
         Scenario::TexPayment(scenario) => run_tex_payment(scenario),
         Scenario::UnifiedPayment(scenario) => run_unified_payment(scenario),
+        Scenario::TransparentFundedPayment(scenario) => run_transparent_funded_payment(scenario),
     }
 }
 
@@ -707,6 +720,7 @@ pub struct ScenarioGenerator {
     seed: u64,
     state: u64,
     ordinal: u64,
+    transparent_funding: bool,
 }
 
 impl ScenarioGenerator {
@@ -721,6 +735,15 @@ impl ScenarioGenerator {
             seed,
             state,
             ordinal: 0,
+            transparent_funding: false,
+        }
+    }
+
+    #[must_use]
+    pub fn new_with_transparent_funding(seed: u64) -> Self {
+        Self {
+            transparent_funding: true,
+            ..Self::new(seed)
         }
     }
 
@@ -759,7 +782,18 @@ impl ScenarioGenerator {
             funding_pool.alternate()
         };
 
-        let scenario = if matches!(shape & 0x7, 6 | 7) {
+        let scenario = if self.transparent_funding && (shape & 0x7) == 5 {
+            let margin =
+                30_000 + u64::from(note_count) * 10_000 + self.pick(&[0_u64, 1_000, 5_000, 10_000]);
+            Scenario::TransparentFundedPayment(TransparentFundedPaymentScenario {
+                funding_zat: payment_zat + margin,
+                payment_zat,
+                utxo_count: note_count,
+                confirmations,
+                recipient_pool: funding_pool,
+                change_pool,
+            })
+        } else if matches!(shape & 0x7, 6 | 7) {
             let margin =
                 20_000 + u64::from(note_count) * 10_000 + self.pick(&[0_u64, 1_000, 5_000, 10_000]);
             let receivers = self.pick(&[
@@ -860,6 +894,15 @@ impl ScenarioGenerator {
     }
 
     #[must_use]
+    pub fn case_at_with_transparent_funding(seed: u64, ordinal: u64) -> GeneratedCase {
+        let mut generator = Self::new_with_transparent_funding(seed);
+        for _ in 0..ordinal {
+            let _ = generator.next_case();
+        }
+        generator.next_case()
+    }
+
+    #[must_use]
     pub fn case_at(seed: u64, ordinal: u64) -> GeneratedCase {
         let mut generator = Self::new(seed);
         for _ in 0..ordinal {
@@ -873,6 +916,43 @@ fn shrink_candidates(scenario: &Scenario) -> Vec<Scenario> {
     let mut candidates = Vec::new();
 
     match scenario {
+        Scenario::TransparentFundedPayment(current) => {
+            if current.confirmations > 1 {
+                let mut candidate = current.clone();
+                candidate.confirmations = 1;
+                candidates.push(Scenario::TransparentFundedPayment(candidate));
+            }
+            if current.utxo_count > 1 {
+                let mut candidate = current.clone();
+                candidate.utxo_count = 1;
+                candidates.push(Scenario::TransparentFundedPayment(candidate));
+            }
+            if current.recipient_pool != ShieldedPoolChoice::Orchard {
+                let mut candidate = current.clone();
+                candidate.recipient_pool = ShieldedPoolChoice::Orchard;
+                candidates.push(Scenario::TransparentFundedPayment(candidate));
+            }
+            if current.change_pool != ShieldedPoolChoice::Orchard {
+                let mut candidate = current.clone();
+                candidate.change_pool = ShieldedPoolChoice::Orchard;
+                candidates.push(Scenario::TransparentFundedPayment(candidate));
+            }
+            for payment_zat in [1, current.payment_zat / 2] {
+                if payment_zat > 0 && payment_zat < current.payment_zat {
+                    let mut candidate = current.clone();
+                    candidate.payment_zat = payment_zat;
+                    candidates.push(Scenario::TransparentFundedPayment(candidate));
+                }
+            }
+            let minimum_funding = current
+                .payment_zat
+                .saturating_add(30_000 + u64::from(current.utxo_count) * 10_000);
+            if minimum_funding < current.funding_zat {
+                let mut candidate = current.clone();
+                candidate.funding_zat = minimum_funding;
+                candidates.push(Scenario::TransparentFundedPayment(candidate));
+            }
+        }
         Scenario::OrchardPayment(current) => {
             if current.confirmations != 1 {
                 let mut candidate = current.clone();

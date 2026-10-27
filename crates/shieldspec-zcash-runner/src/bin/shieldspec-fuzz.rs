@@ -43,6 +43,9 @@ enum Command {
         seed: u64,
         #[arg(long, default_value_t = 25)]
         cases: u64,
+        /// Opt into real transparent-UTXO funding cases (legacy seeds remain unchanged by default).
+        #[arg(long)]
+        transparent_funding: bool,
         #[arg(long, value_enum, default_value_t = PolicyName::Standard)]
         policy: PolicyName,
         #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
@@ -60,6 +63,9 @@ enum Command {
         seed: Option<u64>,
         #[arg(long)]
         ordinal: Option<u64>,
+        /// Replay an extended-generator seed containing transparent funding.
+        #[arg(long)]
+        transparent_funding: bool,
         #[arg(long)]
         baseline_runner: Option<PathBuf>,
         #[arg(long)]
@@ -177,6 +183,7 @@ fn main() -> ExitCode {
             candidate_args,
             seed,
             cases,
+            transparent_funding,
             policy,
             format,
             save,
@@ -191,6 +198,7 @@ fn main() -> ExitCode {
                     &candidate,
                     seed,
                     cases,
+                    transparent_funding,
                     policy,
                     format,
                     save.as_deref(),
@@ -201,6 +209,7 @@ fn main() -> ExitCode {
             input,
             seed,
             ordinal,
+            transparent_funding,
             baseline_runner,
             candidate_runner,
             baseline_args,
@@ -212,6 +221,7 @@ fn main() -> ExitCode {
             input.as_deref(),
             seed,
             ordinal,
+            transparent_funding,
             baseline_runner,
             candidate_runner,
             baseline_args,
@@ -243,12 +253,17 @@ fn run_campaign(
     candidate: &RunnerCommand,
     seed: u64,
     cases: u64,
+    transparent_funding: bool,
     policy_name: PolicyName,
     format: OutputFormat,
     save: Option<&Path>,
 ) -> Result<ExitCode, String> {
     let policy = policy_name.policy();
-    let mut generator = ScenarioGenerator::new(seed);
+    let mut generator = if transparent_funding {
+        ScenarioGenerator::new_with_transparent_funding(seed)
+    } else {
+        ScenarioGenerator::new(seed)
+    };
 
     for case_number in 1..=cases {
         let generated = generator.next_case();
@@ -299,6 +314,7 @@ fn run_campaign(
             let reproduction = differential_reproduction(
                 seed,
                 generated.ordinal,
+                transparent_funding,
                 policy_name,
                 baseline,
                 candidate,
@@ -339,6 +355,7 @@ fn replay(
     input: Option<&Path>,
     seed: Option<u64>,
     ordinal: Option<u64>,
+    transparent_funding: bool,
     baseline_runner: Option<PathBuf>,
     candidate_runner: Option<PathBuf>,
     baseline_args: Vec<String>,
@@ -367,14 +384,19 @@ fn replay(
                 )
         }
         (None, Some(seed), Some(ordinal)) => {
-            let generated = ScenarioGenerator::case_at(seed, ordinal);
+            let generated = if transparent_funding {
+                ScenarioGenerator::case_at_with_transparent_funding(seed, ordinal)
+            } else {
+                ScenarioGenerator::case_at(seed, ordinal)
+            };
             (
                     generated.scenario,
                     None,
                     seed,
                     ordinal,
                     format!(
-                        "cargo run --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz -- replay --seed {seed} --ordinal {ordinal}"
+                        "cargo run --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz -- replay --seed {seed} --ordinal {ordinal}{}",
+                        if transparent_funding { " --transparent-funding" } else { "" }
                     ),
                 )
         }
@@ -441,6 +463,7 @@ fn replay(
         let reproduction = differential_reproduction(
             replay_seed,
             replay_ordinal,
+            transparent_funding,
             policy_name,
             &baseline,
             &candidate,
@@ -503,20 +526,23 @@ fn replay(
 fn differential_reproduction(
     seed: u64,
     ordinal: u64,
+    transparent_funding: bool,
     policy_name: PolicyName,
     baseline: &RunnerCommand,
     candidate: &RunnerCommand,
 ) -> String {
     if let Some(regression) = demo_regression_from(candidate) {
         return format!(
-            "cargo run --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz -- replay --seed {seed} --ordinal {ordinal} --policy {} --demo-regression {}",
+            "cargo run --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz -- replay --seed {seed} --ordinal {ordinal}{} --policy {} --demo-regression {}",
+            if transparent_funding { " --transparent-funding" } else { "" },
             policy_name.as_str(),
             regression.as_str()
         );
     }
 
     let mut command = format!(
-        "cargo run --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz -- replay --seed {seed} --ordinal {ordinal} --policy {} --baseline-runner {} --candidate-runner {}",
+        "cargo run --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz -- replay --seed {seed} --ordinal {ordinal}{} --policy {} --baseline-runner {} --candidate-runner {}",
+        if transparent_funding { " --transparent-funding" } else { "" },
         policy_name.as_str(),
         shell_arg(&baseline.program.to_string_lossy()),
         shell_arg(&candidate.program.to_string_lossy())
@@ -564,6 +590,7 @@ fn demo(format: OutputFormat) -> Result<ExitCode, String> {
         &candidate,
         148,
         1,
+        false,
         PolicyName::Standard,
         format,
         None,
