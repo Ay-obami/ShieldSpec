@@ -4,7 +4,7 @@
 Keep existing snapshot mode as default. Add opt-in differential CI with two levels: a built-in Zcash SDK self-comparison negative control for easy onboarding, and custom caller-supplied compatible runners for genuine wallet comparisons. Defer managed external wallet builds to later.
 
 ## Chosen architecture
-A composite Action dispatches a small bash entrypoint. It compiles the source-pinned ShieldSpec fuzzer; for the built-in preset it also compiles ShieldSpec's own Zcash SDK runner, using the same binary on both sides. Custom mode runs caller-provided executables using caller-workspace-relative or absolute paths. No arbitrary wallet checkout/build commands.
+A composite Action dispatches a small Python entrypoint for safely preserving argument boundaries and handling JSON evidence. It compiles the source-pinned ShieldSpec fuzzer; for the built-in preset it also compiles ShieldSpec's own Zcash SDK runner, using the same binary on both sides. Custom mode runs caller-provided executables using caller-workspace-relative or absolute paths. No arbitrary wallet checkout/build commands.
 
 ## Inputs
 mode=snapshot|differential (snapshot default); candidate remains required at runtime for snapshot. Differential: preset=zcash-sdk|custom (default zcash-sdk), baseline-runner and candidate-runner required only for custom, seed/cases/scenario-family/policy and optional newline-delimited runner arguments. Validate bounds and allowed values and preserve argument boundaries.

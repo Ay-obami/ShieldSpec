@@ -1,11 +1,20 @@
 name: ShieldSpec Privacy Check
-description: Check a Zcash proposal snapshot or compare it with a privacy baseline.
+description: Check Zcash privacy snapshots or compare compatible wallet runners with the differential fuzzer.
 author: ShieldSpec
 
 inputs:
+  mode:
+    description: "snapshot (default) or differential."
+    required: false
+    default: snapshot
+  preset:
+    description: "Differential runner mode: zcash-sdk negative control (default) or custom."
+    required: false
+    default: zcash-sdk
   candidate:
     description: Path to the candidate proposal snapshot.
-    required: true
+    required: false
+    default: ""
   baseline:
     description: Optional path to a baseline proposal snapshot. When set, ShieldSpec runs a diff.
     required: false
@@ -15,14 +24,52 @@ inputs:
     required: false
     default: standard
   format:
-    description: Output format (human, json, or sarif).
+    description: Snapshot output format (human, json, or sarif); differential reports are always JSON.
     required: false
     default: human
+  baseline-runner:
+    description: "Executable path for the baseline runner, relative to caller workspace (custom preset)."
+    required: false
+    default: ""
+  candidate-runner:
+    description: "Executable path for the candidate runner, relative to caller workspace (custom preset)."
+    required: false
+    default: ""
+  baseline-args:
+    description: "Additional baseline runner arguments, one complete argument per line."
+    required: false
+    default: ""
+  candidate-args:
+    description: "Additional candidate runner arguments, one complete argument per line."
+    required: false
+    default: ""
+  seed:
+    description: "Nonnegative decimal seed for differential scenarios."
+    required: false
+    default: "148"
+  cases:
+    description: "Differential scenario count, from 1 to 10000."
+    required: false
+    default: "2"
+  scenario-family:
+    description: "legacy, ironwood, transparent, or zallet-privacy."
+    required: false
+    default: legacy
+  artifact-name:
+    description: "Unique name for this differential campaign's evidence artifact."
+    required: false
+    default: shieldspec-differential
 
 outputs:
   status:
-    description: ShieldSpec CLI exit status (0 pass, 1 operational error, or 2 privacy failure).
+    description: ShieldSpec status (0 pass, 1 operational error, or 2 configured difference/failure).
     value: ${{ steps.shieldspec.outputs.status }}
+  report-path:
+    description: Absolute path of the saved differential report, if present.
+    value: ${{ steps.shieldspec.outputs.report_path }}
+  discovery-path:
+    description: Absolute path of the minimized differential discovery, if present.
+    value: ${{ steps.shieldspec.outputs.discovery_path }}
 
 runs:
   using: composite
@@ -31,49 +78,62 @@ runs:
       # dtolnay/rust-toolchain 1.95.0
       uses: dtolnay/rust-toolchain@035fceb3c12fb0c6a9461b52775e16473133e591
 
+    - name: Build differential fuzzer
+      if: ${{ inputs.mode == 'differential' }}
+      shell: bash
+      env:
+        SHIELDSPEC_ACTION_PATH: ${{ github.action_path }}
+        SHIELDSPEC_PRESET: ${{ inputs.preset }}
+      run: |
+        set -euo pipefail
+        cd "$SHIELDSPEC_ACTION_PATH"
+        cargo build --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz
+        if [[ "$SHIELDSPEC_PRESET" == "zcash-sdk" ]]; then
+          cargo build --locked -p shieldspec-zcash-runner --bin shieldspec-zcash-runner
+        fi
+
     - name: Run ShieldSpec
       id: shieldspec
       shell: bash
       env:
         SHIELDSPEC_ACTION_PATH: ${{ github.action_path }}
+        SHIELDSPEC_MODE: ${{ inputs.mode }}
+        SHIELDSPEC_PRESET: ${{ inputs.preset }}
         SHIELDSPEC_BASELINE: ${{ inputs.baseline }}
         SHIELDSPEC_CANDIDATE: ${{ inputs.candidate }}
         SHIELDSPEC_FORMAT: ${{ inputs.format }}
         SHIELDSPEC_POLICY: ${{ inputs.policy }}
-        SHIELDSPEC_SOURCE_ROOT: ${{ github.workspace }}
+        SHIELDSPEC_BASELINE_RUNNER: ${{ inputs.baseline-runner }}
+        SHIELDSPEC_CANDIDATE_RUNNER: ${{ inputs.candidate-runner }}
+        SHIELDSPEC_BASELINE_ARGS: ${{ inputs.baseline-args }}
+        SHIELDSPEC_CANDIDATE_ARGS: ${{ inputs.candidate-args }}
+        SHIELDSPEC_SEED: ${{ inputs.seed }}
+        SHIELDSPEC_CASES: ${{ inputs.cases }}
+        SHIELDSPEC_SCENARIO_FAMILY: ${{ inputs.scenario-family }}
       run: |
         set -euo pipefail
+        python3 "$SHIELDSPEC_ACTION_PATH/scripts/action_entrypoint.py"
 
-        resolve_snapshot_path() {
-          if [[ "$1" = /* ]]; then
-            printf '%s\n' "$1"
-          else
-            printf '%s/%s\n' "$GITHUB_WORKSPACE" "$1"
-          fi
-        }
+    - name: Preserve differential evidence
+      if: ${{ inputs.mode == 'differential' && steps.shieldspec.outputs.report_path != '' }}
+      # actions/upload-artifact v4.6.2
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: |
+          ${{ steps.shieldspec.outputs.report_path }}
+          ${{ steps.shieldspec.outputs.discovery_path }}
+        if-no-files-found: error
 
-        candidate_path="$(resolve_snapshot_path "$SHIELDSPEC_CANDIDATE")"
-        cd "$SHIELDSPEC_ACTION_PATH"
-
-        set +e
-        if [[ -n "$SHIELDSPEC_BASELINE" ]]; then
-          baseline_path="$(resolve_snapshot_path "$SHIELDSPEC_BASELINE")"
-          cargo run --locked -p shieldspec-cli -- diff \
-            --baseline "$baseline_path" \
-            --candidate "$candidate_path" \
-            --policy "$SHIELDSPEC_POLICY" \
-            --format "$SHIELDSPEC_FORMAT"
-        else
-          cargo run --locked -p shieldspec-cli -- check \
-            --input "$candidate_path" \
-            --policy "$SHIELDSPEC_POLICY" \
-            --format "$SHIELDSPEC_FORMAT"
-        fi
-        status=$?
-        set -e
-
-        printf 'status=%s\n' "$status" >> "$GITHUB_OUTPUT"
-        exit "$status"
+    - name: Enforce ShieldSpec result
+      shell: bash
+      env:
+        SHIELDSPEC_STATUS: ${{ steps.shieldspec.outputs.status }}
+      run: |
+        case "$SHIELDSPEC_STATUS" in
+          0|1|2) exit "$SHIELDSPEC_STATUS" ;;
+          *) echo 'ShieldSpec did not report a valid status' >&2; exit 1 ;;
+        esac
 
 branding:
   icon: shield

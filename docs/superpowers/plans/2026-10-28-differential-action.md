@@ -4,9 +4,9 @@
 
 **Goal:** Add backwards-compatible, opt-in differential GitHub Action with built-in Zcash SDK preset and custom runner mode.
 
-**Architecture:** Composite Action delegates input validation and fuzzer invocation to a shell script; runner paths are resolved in caller workspace, and report/discovery artifacts are uploaded before the final status is enforced. The built-in preset uses a negative-control self-comparison.
+**Architecture:** Composite Action delegates input validation and argument-safe fuzzer invocation to a Python entrypoint; runner paths are resolved in caller workspace, and report/discovery artifacts are uploaded before the final status is enforced. The built-in preset uses a negative-control self-comparison.
 
-**Tech stack:** Bash, Rust 1.95.0, Python unittest, GitHub Actions YAML.
+**Tech stack:** Python 3, Rust 1.95.0, Python unittest, GitHub Actions YAML.
 
 **Spec:** docs/superpowers/specs/2026-10-28-differential-action-design.md
 
@@ -25,10 +25,10 @@
 - Artifact upload on exit 2 cannot hide the actual failing CI status.
 
 ### Task 1: Test-first entrypoint
-**Files:** Create scripts/action-entrypoint.sh, scripts/tests/action_entrypoint_test.py.
+**Files:** Create scripts/action_entrypoint.py, scripts/tests/test_action_entrypoint.py.
 **Interface:** Environment-configured mode, preset, snapshot paths, runner paths, args, seed/cases/policy/format; GITHUB_OUTPUT status and report paths.
 - [ ] Write unittest cases for validation, path resolution, argument boundaries and exit 0/1/2 with an executable test fuzzer; watch them fail against absent entrypoint.
-- [ ] Implement minimal safe bash dispatch and evidence paths, with no eval.
+- [ ] Implement minimal safe Python subprocess dispatch and evidence paths, with no shell evaluation.
 - [ ] Rerun unittest to pass, and run all scripts/tests.
 - [ ] Commit tested entrypoint and tests.
 
