@@ -1,10 +1,12 @@
-# ShieldSpec — narrated walkthrough and technical demo scripts
+# ShieldSpec — archived walkthrough and technical demo scripts
 
-## Current recording plan — browser-first, updated website
+These are the 2026 Zecathon recording storyboards, retained for historical reference. The final video was uploaded and the submission completed; this document is **not an outstanding recording checklist**. For current installation and reproducible evidence, use [getting started](getting-started.md) and [Zallet auto-discovery](zallet-auto-discovery.md). No MP4 is tracked in the repository.
+
+## Archived recording plan — browser-first website walkthrough
 
 Record **actual continuous website interaction**, not a slideshow, from the [live website](https://ay-obami.github.io/ShieldSpec/) and [new developer guide](https://ay-obami.github.io/ShieldSpec/docs.html), at 1600×900 or higher. Use a natural **female** English narration, captions, legible code and deliberate scrolling/clicking. The approved narration is approximately 96 seconds; aim for a 1:45–2:00 finished video, with a hard ceiling of **2:30**. Keep the no-gradients charcoal, off-white and ZEC-gold website visible; no full-screen static title cards that conceal the product.
 
-This recording supersedes the older 109.7-second female-voiced browser walkthrough at `/home/ayobami/Videos/ShieldSpec-Zecathon-2026-Voiced-Demo-20261028.mp4`, which predates expanded coverage and the website redesign. An older 117.7-second captioned technical recording may also remain on the laptop. Both are **historical assets**, not verification that the new recording was produced or published.
+Earlier browser-first and captioned technical recordings predated expanded coverage and the website redesign. The timing and narration below describe the historical production plan rather than a currently requested recording.
 
 The website is a static evidence viewer and documentation site, **not** an in-browser fuzzer. The strongest real demonstration now exists: ShieldSpec's general engine **automatically rediscovered the previously documented, already-fixed Zallet #677 privacy-policy difference** using two independently compiled, pinned upstream policy runners, then minimized and replayed it. That claim is different from the labeled fault-injection demo and SDK same-runner negative control. Do not claim a new upstream vulnerability.
 
@@ -33,9 +35,9 @@ The website is a static evidence viewer and documentation site, **not** an in-br
 
 Keep narration synchronized to **visible live interaction**. If the generated voice is slower than the time grid, adjust capture timing or trim pauses without cutting substantive evidence; never exceed 2:30. Verify final captions against domain spellings: ShieldSpec, Zcash, Zallet, Ironwood, Sapling, Orchard, FullPrivacy, ZIP-317, and librustzcash.
 
-## Optional second recording — 2:30 terminal-first technical walkthrough
+## Alternative archived recording plan — 2:30 terminal-first walkthrough
 
-**Presentation:** 1920×1080, terminal-first, readable fonts and voiceover. Show actual command output and historical logs, with no simulated upstream discovery. An older [automatically generated captioned video](media/shieldspec-zecathon-captioned-demo.mp4) exists (about 2:20, without voiceover). The table below is an **alternative technical storyboard**, not the sequence of the completed browser-first film.
+**Presentation:** 1920×1080, terminal-first, readable fonts and voiceover. Show actual command output and historical logs, with no simulated upstream discovery. A captioned technical recording was previously generated but is no longer tracked. The table below is an **alternative technical storyboard**, not the sequence of the completed browser-first film.
 
 | Time | Screen | Spoken narration |
 | --- | --- | --- |
@@ -79,4 +81,4 @@ The demo and differential replay **intentionally exit with code 2** as the expec
 - Real output, including the exact Git SHAs, seed, minimized input and two rule IDs.
 - State the difference between the real **historical and fixed Zallet privacy-policy** proof, the independent `librustzcash#2614` correctness proof, and the **injected** ShieldSpec CLI privacy-fuzzer demonstration.
 - Show one actual passing GitHub Actions run and the repository URL.
-- Review audio for accuracy; upload the video to a public link and attach it to Zecathon. A repository alone does not mean a hackathon submission was sent.
+- For any future recording, review audio for accuracy and preserve the distinction between real historical evidence and injected test faults.

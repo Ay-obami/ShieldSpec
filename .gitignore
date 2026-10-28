@@ -5,5 +5,8 @@ target/
 __pycache__/
 *.pyc
 demo-artifacts/
+*.mp4
+*.mov
+*.webm
 
 .zallet-verified-artifacts/

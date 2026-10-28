@@ -1,4 +1,6 @@
-# ShieldSpec — Zecathon Core & Tooling submission
+# ShieldSpec — archived 2026 Zecathon submission notes
+
+This is a historical record of ShieldSpec's Core & Tooling hackathon submission, **not the current product homepage or installation guide**. The submission and final video upload were completed. For maintained commands and limitations, start with the [README](../README.md) and [getting-started guide](getting-started.md); for independently repeatable source-level proof, see [Zallet auto-discovery](zallet-auto-discovery.md).
 
 ## Project title
 
@@ -81,10 +83,8 @@ The last two commands compile pinned upstream wallet/SDK checkouts and therefore
 - No novel upstream privacy finding claimed.
 - User-declared SDK revision labels require external verification; binary hashes and the pinned historical Git checkouts have verifiable identities.
 
-## Final delivery
+## Historical delivery
 
-An earlier [captioned 1920×1080 silent demo](media/shieldspec-zecathon-captioned-demo.mp4) remains committed as reproducible evidence of the historical Zallet comparison and deliberately injected ShieldSpec CLI fault. Regenerate it using `python3 scripts/render_demo_video.py` after `cargo build --locked -p shieldspec-zcash-runner --bins` (requires Pillow and ffmpeg); captured output and a SHA-256 manifest go to ignored `demo-artifacts/`.
+The final walkthrough was uploaded to YouTube and the hackathon submission was completed on October 28, 2026. The video is not stored in Git; no public URL is recorded in these notes. The [recording storyboard](demo-video-script.md) is retained as historical production context, not an outstanding delivery task.
 
-A **new female-voiced walkthrough** was produced locally from genuine browser interaction—not a stitched screenshot slideshow—and independently muxed into `/home/ayobami/Videos/ShieldSpec-Zecathon-2026-Voiced-Demo-20261028.mp4` (H.264/AAC, about 109.7 seconds). It starts on the public landing page, interacts with historical evidence tabs and developer sections, shows real GitHub PR/code context, and opens upstream Zcash issues #677, #693, #2614 and #2775. This MP4 is **local only** as of this update: no public video URL or hackathon upload is confirmed. Before external submission, verify the final audio/video playback, publish an accessible video link, check CI, and submit via the hackathon form; publishing source alone is not an accepted entry.
-
-**Recording refresh (planned):** the previously exported video predates the clarified website and dedicated developer guide. The new [browser-first, narrated, captioned walkthrough specification](demo-video-script.md) emphasizes the successfully merged *automatic* Zallet #677 rediscovery through independent upstream policy binaries, the hands-on commands, and a clear separation between historical proof, injected regression and SDK negative controls. Keep the new recording at 2:30 maximum; replace this note only after its actual capture, media validation and accessible deliverable are verified.
+Reproducibility does **not** depend on a video. Use the executable commands above, the committed [historical evidence](../evidence/historical-zallet-677/README.md), or the [independent-runner discovery recipe](zallet-auto-discovery.md) to audit the results. To regenerate a local demonstration video, `scripts/render_demo_video.py` requires a built `shieldspec-zcash-runner`, Pillow and ffmpeg; it writes ignored artifacts under `demo-artifacts/`.

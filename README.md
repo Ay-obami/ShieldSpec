@@ -1,6 +1,6 @@
 # ShieldSpec
 
-**Privacy regression testing for Zcash wallet transaction proposals.** ShieldSpec checks normalized proposal facts against explicit invariants, compares independently built baseline and candidate runners, and drives real Zcash SDK proposal construction through deterministic differential fuzzing. The generic wallet-policy work ([PR #42](https://github.com/Ay-obami/ShieldSpec/pull/42)) and expanded real-wallet corpus ([PR #43](https://github.com/Ay-obami/ShieldSpec/pull/43)) are merged into `main`.
+**Privacy regression testing for Zcash wallet transaction proposals.** ShieldSpec helps wallet and SDK developers catch proposal-level privacy changes before signing or broadcast. It checks explicit privacy invariants, runs deterministic scenarios through real Zcash SDK proposal construction, and compares independently built baseline and candidate runners. Differences can be minimized and saved for verified replay.
 
 ShieldSpec is developer tooling, not a wallet, anonymity score, signer, or transaction broadcaster. A passing check means only that the configured properties held for the inputs exercised.
 
@@ -10,9 +10,20 @@ ShieldSpec is developer tooling, not a wallet, anonymity score, signer, or trans
 - [Wallet-policy observations](docs/wallet-policy-observations.md): runner protocol, real SDK Orchard-only mode, and NU6.3 campaign
 - [Historical Zallet automatic rediscovery](docs/zallet-auto-discovery.md): build pinned independent FullPrivacy runners, run a real three-case differential campaign, and replay its minimized discovery
 - [Roadmap](docs/roadmap.md): shipped features versus integration and future work
-- [Live developer website](https://ay-obami.github.io/ShieldSpec/) · [site source and local preview](site/README.md) · [video walkthrough plan](docs/demo-video-script.md)
+- [Live developer website](https://ay-obami.github.io/ShieldSpec/) · [site source and local preview](site/README.md)
 
 The [developer website](https://ay-obami.github.io/ShieldSpec/) explains the privacy problem, checked properties, comparison workflow, reproducible result artifacts, and historical evidence. Its [step-by-step guide](https://ay-obami.github.io/ShieldSpec/docs.html) provides actual CLI commands and expected outcomes. The browser is a **read-only explainer and evidence explorer**; it does not run a wallet or a live fuzzing campaign. The website source (`site/`) and historical evidence (`evidence/historical-zallet-677/`) are included in `main`.
+
+Choose the workflow that fits your integration:
+
+| Need | Entry point | What it tests |
+| --- | --- | --- |
+| Check a proposal snapshot or CI fixture | `shieldspec-cli check` / `diff` or the GitHub Action | Explicit invariants on normalized proposal facts |
+| Exercise real SDK proposals locally | `shieldspec-fuzz fuzz` with `shieldspec-zcash-runner` | Deterministic synthetic wallet states and proposal construction |
+| Compare wallet/SDK revisions | `shieldspec-fuzz fuzz` with **two independently built** compatible runners | New/worsened findings and comparable named wallet-policy decisions |
+| Audit a recorded difference | `shieldspec-fuzz replay --input <discovery.json>` | Saved scenario, runner hashes, arguments, and observed result |
+
+Start with the lightweight snapshot gate below, then follow the [getting-started guide](docs/getting-started.md) for real-runner setup and integration details.
 
 ## Quickstart: the snapshot privacy gate
 
@@ -172,3 +183,7 @@ The Action runs the snapshot CLI only; it does **not** build or fuzz a wallet. I
 The repository pins Rust 1.95.0. Maintainers can verify the complete workspace with `cargo fmt --check`, `cargo test --locked --workspace --all-targets`, and `cargo clippy --locked --workspace --all-targets -- -D warnings`. For a narrower check of the real-wallet tooling, run `cargo test --locked -p shieldspec-fuzz -p shieldspec-zcash-runner --all-targets`. Historical upstream compilation remains opt-in for local development; a separate [automatic Zallet discovery workflow](.github/workflows/zallet-auto-discovery.yml) tests both pinned revisions in CI.
 
 **Scope:** no real signing, broadcast, user seed phrases, custody, anonymity score, or universal privacy guarantee. See [privacy limitations](docs/privacy-model.md).
+
+## Project history
+
+ShieldSpec was demonstrated in the 2026 Zecathon Core & Tooling hackathon. The [archived submission notes](docs/submission.md) and [recording storyboard](docs/demo-video-script.md) document that milestone; the maintained project is the developer tool, its tests, and its reproducible source-level evidence. Video files are not tracked in this repository.
