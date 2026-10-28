@@ -68,8 +68,22 @@ test("the redesign uses flat gold and charcoal instead of green surfaces or grad
 
 test("published site requests versioned CSS and JS to avoid mixing the new markup with cached old assets", () => {
   const page = html();
-  assert.match(page, /href="\.\/styles\.css\?v=clarity-20261028"/);
-  assert.match(page, /src="\.\/app\.js\?v=clarity-20261028"/);
+  assert.match(page, /href="\.\/styles\.css\?v=cohesive-20261028"/);
+  assert.match(page, /src="\.\/app\.js\?v=cohesive-20261028"/);
+});
+
+test("the single live evidence panel contains the full real Zallet proposal and source-linked verdicts", () => {
+  const page = html();
+  assert.equal((page.match(/class="case-panel"/g) || []).length, 1);
+  assert.match(page, /id="case-proposal"/);
+  assert.match(page, /independently compiled historical Zallet revisions/i);
+  assert.match(page, /id="before-summary"/);
+  assert.match(page, /id="after-summary"/);
+  assert.match(page, /id="before-source" href="https:\/\/github\.com\/zcash\/zallet\/commit\/f496c9b6b2c6ebb0065b329c11bda4a5fdf73568"/);
+  assert.match(page, /id="after-source" href="https:\/\/github\.com\/zcash\/zallet\/commit\/e966780216b7a86b0a1a6618f2fde5b574da7171"/);
+  assert.match(js(), /setText\("before-sha", example\.before\.revision\)/);
+  assert.match(js(), /setText\("after-sha", example\.after\.revision\)/);
+  assert.match(js(), /setText\("case-proposal"/);
 });
 
 test("sparse hero presents real historical policy comparison with a path to proof", () => {

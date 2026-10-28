@@ -23,10 +23,30 @@
     setText("case-description", example.description);
     setText("case-scenario", example.scenario);
     setText("case-balance", example.publicBalance);
-    setText("before-sha", example.before.revision.slice(0, 12));
-    setText("after-sha", example.after.revision.slice(0, 12));
+    setText("before-sha", example.before.revision);
+    setText("after-sha", example.after.revision);
     setVerdict("before-verdict", example.before.verdict);
     setVerdict("after-verdict", example.after.verdict);
+    const historicalDifference = example.id === "zallet-677";
+    setText("case-proposal", historicalDifference
+      ? "One identical test-only wallet proposal runs against independently compiled pinned Zallet revisions. Both execute the original production FullPrivacy policy body unchanged."
+      : "Independent control: the identical test-only proposal runs through both pinned production policy revisions, verifying that the comparison does not flag every input.");
+    setText("before-summary", historicalDifference
+      ? "The original FullPrivacy policy accepted Ironwood-funded Sapling change despite the observable cross-pool value balance."
+      : "The affected revision " + example.before.verdict + " this control proposal.");
+    setText("after-summary", historicalDifference
+      ? "The corrected FullPrivacy policy rejected the identical proposal."
+      : "The corrected revision " + example.after.verdict + " the same control proposal.");
+    for (const side of ["before", "after"]) {
+      const revision = example[side].revision;
+      const link = field(side + "-source");
+      if (link && /^[a-f0-9]{40}$/i.test(revision)) {
+        link.href = "https://github.com/zcash/zallet/commit/" + revision;
+        link.hidden = false;
+      } else if (link) {
+        link.hidden = true;
+      }
+    }
     setText("case-provenance", example.discoveredByShieldSpec
       ? "Automatically rediscovered with real pinned Zallet policy runners by ShieldSpec's general fuzzer; " +
         "minimized and replay verified. Previously documented and fixed upstream—not a new vulnerability. " +

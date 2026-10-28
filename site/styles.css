@@ -152,11 +152,15 @@ h3 { font-size: 20px; }
 .case-meta span { display: flex; flex-direction: column; gap: 5px; }
 .case-meta small { color: #c5c7d0; font: 13px ui-monospace, Consolas, monospace; letter-spacing: .05em; }
 .case-meta b { color: #f0f0f2; font-size: 15px; font-weight: 600; }
+.case-proposal { padding: 17px 20px; margin: 0 0 24px; border-left: 3px solid #d9a943; border-radius: 3px; background: #25272d; color: #e2e5eb !important; font-size: 15px !important; line-height: 1.6 !important; max-width: none !important; }
 .compare-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
-.compare-panel { min-height: 152px; padding: 25px; border: 1px solid #40444e; border-radius: 8px; background: #202329; }
+.compare-panel { min-width: 0; padding: 24px; border: 1px solid #40444e; border-radius: 8px; background: #202329; }
 .compare-panel.corrected { background: #1c2025; }
-.compare-label { display: block; margin-bottom: 14px; color: #d3d5dc; font-size: 13px; letter-spacing: .05em; }
-.compare-panel code { display: block; margin-bottom: 15px; color: #f0f0f1; font-size: 15px; }
+.compare-label { display: block; margin-bottom: 12px; color: #d3d5dc; font-size: 13px; letter-spacing: .05em; }
+.compare-panel code { display: block; margin-bottom: 15px; color: #f0f0f1; font-size: 14px; overflow-wrap: anywhere; }
+.compare-summary { min-height: 65px; margin: 14px 0 13px; color: #e3e4e9; font-size: 15px; line-height: 1.55; }
+.compare-source { color: #f4c969; font-size: 14px; font-weight: 700; text-decoration: underline; text-underline-offset: 4px; }
+.compare-source:hover { color: #ffda87; }
 .verdict { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; }
 .verdict.is-accepted { color: #f1cb7a; }
 .verdict.is-rejected { color: #e2e3e7; }
