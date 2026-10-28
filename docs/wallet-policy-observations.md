@@ -12,18 +12,20 @@ pinned Zcash SDK's **actual Orchard-only spend-source policy** and emits a verdi
 policy is distinct from Zallet's FullPrivacy policy and is not a test of any historical
 FullPrivacy bypass.
 
-**Availability:** The generic decision comparison, real SDK Orchard-only adapter and
-`--scenario-family ironwood` implementation are in [open PR #42](https://github.com/Ay-obami/ShieldSpec/pull/42),
-not yet merged into `main` as of 2026-10-27. From a fresh clone, preview the exact PR head with:
+**Availability:** The generic decision comparison, real SDK Orchard-only adapter, and
+`--scenario-family ironwood` implementation are available on `main` after
+[merged PR #42](https://github.com/Ay-obami/ShieldSpec/pull/42). A fresh clone can build
+the real-proposal tools directly:
 
 ```bash
-git fetch origin pull/42/head
-git switch --detach FETCH_HEAD
 cargo build --locked -p shieldspec-zcash-runner --bins
 ```
 
-The detached checkout is for feature preview; the lightweight snapshot CLI on `main`
-does not require it.
+The lightweight snapshot CLI does not require building the real-wallet test runner. [Merged
+PR #43](https://github.com/Ay-obami/ShieldSpec/pull/43) extends separate real SDK tests
+for Sapling recipient proposals, Unified Address receiver preference, wallet-owned
+transparent UTXO shielding, ZIP-317 fees and mixed-pool input selection. These additions
+strengthen proposal coverage, but do not constitute a Zallet `FullPrivacy` policy adapter.
 
 ## Runner JSON protocol
 
@@ -82,6 +84,13 @@ This mode demonstrates genuine SDK behavior and integration with the general
 fuzzer. Comparing the same runner version with itself is a useful negative
 control, but neither establishes an upstream bug nor exercises Zallet's
 historical FullPrivacy behavior.
+
+The additional real SDK coverage in [PR #43](https://github.com/Ay-obami/ShieldSpec/pull/43)
+also has a [mixed Sapling/Orchard input-selection test](../crates/shieldspec-zcash-runner/tests/mixed_pool.rs)
+that reproduces the published [librustzcash #3133](https://github.com/zcash/librustzcash/issues/3133)
+`InsufficientFunds` result on the pinned SDK with a separate successful
+mixed-pool control. This is a **correctness/availability** finding about note
+selection, not a wallet privacy-policy decision or a newly discovered leak.
 
 With `shieldspec-fuzz fuzz --scenario-family ironwood --cases 4`, generated
 ordinals deterministically cover real NU6.3 activation states (`at`, `before`)

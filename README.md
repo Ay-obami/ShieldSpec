@@ -1,6 +1,6 @@
 # ShieldSpec
 
-**Privacy regression testing for Zcash wallet transaction proposals.** ShieldSpec checks normalized proposal facts against explicit invariants, compares baseline and candidate behavior, and—on the current development branch—drives real Zcash SDK proposal construction through deterministic differential fuzzing.
+**Privacy regression testing for Zcash wallet transaction proposals.** ShieldSpec checks normalized proposal facts against explicit invariants, compares independently built baseline and candidate runners, and drives real Zcash SDK proposal construction through deterministic differential fuzzing. The generic wallet-policy work ([PR #42](https://github.com/Ay-obami/ShieldSpec/pull/42)) and expanded real-wallet corpus ([PR #43](https://github.com/Ay-obami/ShieldSpec/pull/43)) are merged into `main`.
 
 ShieldSpec is developer tooling, not a wallet, anonymity score, signer, or transaction broadcaster. A passing check means only that the configured properties held for the inputs exercised.
 
@@ -10,9 +10,9 @@ ShieldSpec is developer tooling, not a wallet, anonymity score, signer, or trans
 - [Roadmap](docs/roadmap.md): shipped features versus integration and future work
 - [Live developer website](https://ay-obami.github.io/ShieldSpec/) · [site source and local preview](site/README.md)
 
-The GitHub Pages URL has been checked to return HTTP 200 (2026-10-27). Its historical-evidence explorer is read-only; **the browser does not run a wallet or live fuzzing**. The local `main` Git tree does not yet contain `site/` or `evidence/historical-zallet-677/`; use the PR #42 feature checkout below for those paths until integrated.
+The [developer website](https://ay-obami.github.io/ShieldSpec/) includes a read-only explorer of committed historical and control evidence; **the browser does not run a wallet or a live fuzzing campaign**. The website source (`site/`) and historical evidence (`evidence/historical-zallet-677/`) are included in `main`.
 
-## Start with the snapshot privacy gate (available on main)
+## Quickstart: the snapshot privacy gate
 
 With Git, Rust 1.95.0 (pinned in `rust-toolchain.toml`), and the repository cloned:
 
@@ -42,19 +42,17 @@ Exit statuses for the CLI and differential fuzzer:
 
 A code 2 from a **wallet-policy decision difference** does not automatically mean a privacy regression; inspect the named policy and both verdicts.
 
-## Real SDK fuzzing and policy observations (PR #42 preview)
+## Quickstart: real SDK differential fuzzing (on `main`)
 
-The generic wallet-policy comparison and activation-aware Ironwood scenario family are implemented in [PR #42](https://github.com/Ay-obami/ShieldSpec/pull/42), which is **open and not merged into `main` as of 2026-10-27**. To run these commands from a fresh clone today, fetch its current head first:
+From the same clone, build the two real-wallet binaries. No PR checkout or historical reproduction setup is required:
 
 ```bash
-git fetch origin pull/42/head
-git switch --detach FETCH_HEAD
 cargo build --locked -p shieldspec-zcash-runner --bins
 ```
 
-The detached checkout is intentional for testing a specific proposed revision. Skip the fetch/switch once those features have reached the branch you are using.
+These commands exercise deterministic wallet state through the pinned Zcash SDK in local synthetic chains. A runner compared with itself is a **negative control**, not evidence that two wallet implementations agree or that a privacy defect has been found.
 
-A clean real-wallet self-comparison:
+A snapshot-only real-wallet self-comparison (the runner is **not** instrumented for a wallet-policy verdict in this mode):
 
 ```bash
 target/debug/shieldspec-fuzz fuzz \
@@ -62,6 +60,8 @@ target/debug/shieldspec-fuzz fuzz \
   --candidate-runner target/debug/shieldspec-zcash-runner \
   --seed 148 --cases 2 --format human
 ```
+
+Expect `no_regression_found`. In JSON output, all wallet-policy observation counts are `0` because neither runner was started with `--wallet-spend-policy`. This verifies only a snapshot differential control, not wallet-policy agreement.
 
 To exercise **four real SDK NU6.3 proposals** and both sides' real Orchard-only spend-policy observations:
 
@@ -83,7 +83,7 @@ The four ordinals cover:
 | `2` | Sapling | At activation | Rejected |
 | `3` | Sapling | Before activation | Rejected |
 
-For identical runners, the expected campaign status is `no_regression_found` with `comparable_wallet_policy_cases: 4`. This does **not** mean there were no per-proposal warnings: at-activation proposals can contain actual Orchard→Ironwood or Sapling→Ironwood cross-pool value balances flagged by `SS006_CROSS_SHIELDED_POOL_VALUE_BALANCE` on *both* sides. The real SDK `zcash_spend_orchard_only_v1` policy **restricts spend-source pools**; it is not Zallet `FullPrivacy`.
+For identical runners, the expected campaign status is `no_regression_found` with all three wallet-policy observation counts (`baseline`, `candidate`, `comparable`) equal to `4`. This does **not** mean there were no per-proposal warnings: at-activation proposals can contain actual Orchard→Ironwood or Sapling→Ironwood cross-pool value balances flagged by `SS006_CROSS_SHIELDED_POOL_VALUE_BALANCE` on *both* sides. The real SDK `zcash_spend_orchard_only_v1` policy **restricts spend-source pools**; it is not Zallet `FullPrivacy`.
 
 Inspect an individual case with the same runner settings:
 
@@ -97,20 +97,35 @@ target/debug/shieldspec-fuzz replay \
   --format json
 ```
 
+PR #43 also adds real Sapling-recipient proposals, mixed Unified Address receiver selection, transparent-UTXO-funded shielded payments, fee and change accounting, fragmented-note selection, and mixed Sapling/Orchard input selection. These are **SDK-backed scenario and test coverage**, not claimed newly discovered privacy vulnerabilities. The ordinary generator retains its established replay sequence; transparent-funding cases are opt-in:
+
+```bash
+target/debug/shieldspec-fuzz fuzz \
+  --baseline-runner target/debug/shieldspec-zcash-runner \
+  --candidate-runner target/debug/shieldspec-zcash-runner \
+  --transparent-funding --seed 7523070 --cases 48 --format json
+```
+
+For a seed/ordinal replay from that opt-in stream, use `replay --transparent-funding --seed ... --ordinal ...` with the same runner options. Do not combine `--transparent-funding` with `--scenario-family ironwood`; those are distinct generators. Test the real-wallet paths with:
+
+```bash
+cargo test --locked -p shieldspec-zcash-runner --all-targets
+```
+
 For genuine differential testing, compile **independent compatible baseline and candidate runners** against the wallet/SDK revisions you intend to compare. The tool passes the same scenario JSON to both and compares normalized `ProposalSnapshot` findings **and, only when observed, the same named wallet-policy verdict**. It reports operational errors separately.
 
 ## How it works
 
-The real-proposal harness uses isolated in-memory Zcash wallet state, scans synthetic compact blocks through wallet SDK code, invokes `propose_standard_transfer`, and converts actual `Proposal` values into a stable snapshot. The fixtures and chain are synthetic; SDK selection, fees, change, steps, and routing are not made-up proposal JSON. A ZIP 320 TEX case preserves its two-step internal transparent bridge provenance, so an internal bridge is not mislabeled as wallet transparent change or funding.
+The real-proposal harness uses isolated in-memory Zcash wallet state, scans synthetic compact blocks through wallet SDK code, invokes real proposal selection, and converts actual `Proposal` values into a stable snapshot. The fixtures and chain are synthetic; SDK selection, fees, change, steps, and routing are not made-up proposal JSON. Opt-in `orchard-only` observation calls the SDK's independent restricted spend-source policy while retaining the **unrestricted** proposal as a diagnostic snapshot; an SDK insufficient-allowed-funds result is a normal rejection, while operational errors remain errors. A ZIP 320 TEX case preserves its two-step internal transparent bridge provenance, so an internal bridge is not mislabeled as wallet transparent change or funding.
 
 Separate runner processes allow two builds to compare without sharing librustzcash Rust types:
 
-1. Generate a deterministic scenario by seed, ordinal, and scenario family.
+1. Generate a deterministic scenario by seed, ordinal, and scenario family (`legacy`, `ironwood`, or opt-in `transparent`).
 2. Ask baseline and candidate runners for real proposal snapshots and optional first-class policy verdicts.
 3. Evaluate proposal rules such as `SS003`, `SS005`, and `SS006`, plus comparable observed policy decisions.
 4. On a difference, semantically shrink the case and record a replayable result.
 
-`fuzz --save <path>` saves a **discovery only when a difference is found and preserved**, including the minimized scenario, executable SHA-256, exact runner arguments, and optional *declared* `--baseline-sdk`/`--candidate-sdk` labels. `replay --input <path>` checks binary hashes and argument identities before reproducing. A hash identifies executable bytes; a user-declared SDK label does not prove the source revision. Seed/ordinal replay for the Ironwood family must include `--scenario-family ironwood`.
+`fuzz --save <path>` saves a **discovery only when a difference is found and the original and minimized findings revalidate**, including the original and minimized scenarios, executable SHA-256, exact runner arguments, and optional *declared* `--baseline-sdk`/`--candidate-sdk` labels. `replay --input <path>` checks binary hashes and argument identities before reproducing. A hash identifies executable bytes; a user-declared SDK label does not prove the source revision. Seed/ordinal replay for the Ironwood family must include `--scenario-family ironwood`.
 
 See [the runner protocol and replay outcomes](docs/wallet-policy-observations.md) and [the committed replay corpus](crates/shieldspec-zcash-runner/fixtures/discoveries/).
 

@@ -1,6 +1,6 @@
 # Get started with ShieldSpec
 
-ShieldSpec is a local, pre-signing privacy-regression tool for Zcash proposal snapshots. The fast snapshot CLI works on `main`; the generic real-wallet policy-verdict comparison and four-case NU6.3 generator are currently in [open PR #42](https://github.com/Ay-obami/ShieldSpec/pull/42), not yet merged as of 2026-10-27.
+ShieldSpec is a local, pre-signing privacy-regression tool for Zcash proposal snapshots. The snapshot CLI, real-wallet policy-verdict comparison, four-case NU6.3 generator, and expanded transparent-funding scenarios are available on `main` after merged PRs #42 and #43.
 
 You will first check committed fixtures, then (optionally) compile the real Zcash SDK runner and compare observed wallet-policy decisions. **Neither workflow signs or broadcasts transactions, and success is not an anonymity guarantee.**
 
@@ -17,14 +17,7 @@ cd ShieldSpec
 rustc --version
 ```
 
-The snapshot steps below work on the default `main` checkout. To follow the later **PR #42 preview** commands before they merge, switch to its head:
-
-```bash
-git fetch origin pull/42/head
-git switch --detach FETCH_HEAD
-```
-
-This deliberately checks out the proposed revision in detached-HEAD mode. Once the feature is on your target branch, remain on that branch instead. Check the branch or commit before attributing behavior to a published release.
+All commands below target the default `main` checkout. Record `git rev-parse HEAD` alongside a result: a moving branch is not a reproducibility pin. Use `--locked` to preserve the committed dependency resolution.
 
 ## 1. Check and compare snapshots
 
@@ -53,9 +46,9 @@ Expect the new finding `SS003_TRANSPARENT_CHANGE` and exit `2`. This is a *known
 
 **Do not equate every fuzzer exit 2 with a leak.** A policy decision change may reflect a stricter wallet, config change, or bug fix; review the contract and both verdicts.
 
-## 2. Run a real SDK differential campaign (PR #42)
+## 2. Run a real SDK differential campaign
 
-After checking out a revision containing PR #42:
+Build the runner and fuzzer from the same checkout:
 
 ```bash
 cargo build --locked -p shieldspec-zcash-runner --bins
@@ -136,7 +129,7 @@ For a repository with normalized baseline and candidate snapshot files:
 
 ```yaml
 - name: Check proposal privacy regression
-  uses: Ay-obami/ShieldSpec@v0.1.0
+  uses: Ay-obami/ShieldSpec@6abf7995bbf629e1f66219c4322e252b1dc70b3b
   with:
     baseline: fixtures/shielded-payment.json
     candidate: fixtures/transparent-change.json
@@ -148,7 +141,7 @@ The Action checks snapshots and fails the job for exit `1` or `2`; its `status` 
 
 ## 5. Optional evidence and local website
 
-The public website is reachable independently, but the local `site/` and `evidence/historical-zallet-677/` folders are currently in the feature checkout, **not** the local `main` Git tree. Switch to the PR #42 head from the prerequisites before running the following local preview or historical command.
+The `site/` and historical-evidence folders are included on `main`; no PR checkout is needed.
 
 - [Live product website](https://ay-obami.github.io/ShieldSpec/) (HTTP 200 verified 2026-10-27), with a read-only curated historical-evidence explorer.
 - Local preview:
@@ -166,7 +159,7 @@ python3 scripts/reproduce_zallet_677.py \
   --output evidence/historical-zallet-677/results
 ```
 
-This pinned historical policy comparison is **not yet automatic** in the general fuzzer. Generic verdict detection is shipped in PR #42; a real Zallet `FullPrivacy` runner pair and general automatic historical discovery remain future integration work. The [separate librustzcash #2614 case](../evidence/historical-2614/README.md) is SDK correctness history, not a proven privacy leak.
+This pinned historical policy comparison is **not yet automatic** in the general fuzzer. Generic verdict detection is available on `main`; a real Zallet `FullPrivacy` runner pair and general automatic historical discovery remain future integration work. The [separate librustzcash #2614 case](../evidence/historical-2614/README.md) is SDK correctness history, not a proven privacy leak.
 
 - An **intentionally injected** transparent-change demo remains available for checking detection/minimization/replay without claiming an upstream discovery:
 
@@ -177,4 +170,4 @@ cargo run --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz -- \
 
 That controlled demo's **exit code 2** is expected. It is not needed for normal onboarding.
 
-Next read the [privacy model](privacy-model.md) and [roadmap](roadmap.md), or open a focused issue with a reproducible scenario and clear policy expectation.
+Next read the [CI integration guide](ci-integration.md), [privacy model](privacy-model.md), and [roadmap](roadmap.md), or open a focused issue with a reproducible scenario and clear policy expectation.

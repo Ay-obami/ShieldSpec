@@ -89,7 +89,7 @@
             <div class="flow-arrow" aria-hidden="true">→</div>
             <div class="workflow-step" role="listitem"><span class="step-no">04</span><div class="step-icon">↻</div><h3>Replay</h3><p>Minimized cases with seeds and runner provenance.</p></div>
           </div>
-          <p class="detail-note"><span class="info-mark" aria-hidden="true">i</span><span>Available today: the real SDK proposal runner, <code>SS006_CROSS_SHIELDED_POOL_VALUE_BALANCE</code> snapshot observations, and opt-in observed Orchard-only spend-policy decisions. The snapshot rule is <strong>not</strong> a wallet acceptance verdict; the SDK's spend restriction is distinct from Zallet's historical FullPrivacy policy.</span></p>
+          <p class="detail-note"><span class="info-mark" aria-hidden="true">i</span><span>Available today on main: real SDK proposal execution and differential comparisons covering Orchard spend policy, Sapling recipients, Unified Address receiver choices, wallet-owned transparent UTXO shielding, shielded change, ZIP-317 fees, and note selection. The <code>SS006_CROSS_SHIELDED_POOL_VALUE_BALANCE</code> snapshot rule remains an observation, <strong>not</strong> a wallet acceptance verdict; the SDK's spend restriction is distinct from Zallet's historical FullPrivacy policy.</span></p>
         </div>
       </section>
 
@@ -166,9 +166,7 @@
 cd ShieldSpec
 cargo run --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz -- demo --format human</code></pre></div>
           <p class="command-caption">Expected: an intentionally injected privacy-regression finding and a replay command. Exit code 2 indicates a detected finding.</p>
-          <div class="command-card" id="sdk-command-card"><div class="command-header"><span>02 / REAL SDK CONTROL · FOUR CASES</span><button class="copy-button" data-copy-target="sdk-command" type="button" aria-label="Copy NU6.3 four-case campaign command">Copy ↗</button></div><pre id="sdk-command" tabindex="0" aria-label="NU6.3 observed spend-policy campaign shell commands"><code>git fetch origin pull/42/head
-git switch --detach FETCH_HEAD
-cargo build --locked -p shieldspec-zcash-runner --bins
+          <div class="command-card" id="sdk-command-card"><div class="command-header"><span>02 / REAL SDK CONTROL · FOUR CASES</span><button class="copy-button" data-copy-target="sdk-command" type="button" aria-label="Copy NU6.3 four-case campaign command">Copy ↗</button></div><pre id="sdk-command" tabindex="0" aria-label="NU6.3 observed spend-policy campaign shell commands"><code>cargo build --locked -p shieldspec-zcash-runner --bins
 target/debug/shieldspec-fuzz fuzz \
   --baseline-runner target/debug/shieldspec-zcash-runner \
   --candidate-runner target/debug/shieldspec-zcash-runner \
@@ -193,9 +191,9 @@ target/debug/shieldspec-fuzz fuzz \
           <div><div class="section-kicker"><span>06</span> / OPEN SOURCE ROADMAP</div><h2 id="roadmap-title">This is a tool,<br><span class="text-dim">not a one-off demo.</span></h2><p>ShieldSpec is being developed as reusable testing infrastructure for wallet maintainers. The roadmap is deliberately specific about what ships today and what's next.</p><a class="text-link" href="https://github.com/Ay-obami/ShieldSpec/issues" target="_blank" rel="noopener noreferrer">Track work on GitHub ↗</a></div>
           <ol class="roadmap-list">
             <li><span class="roadmap-step complete">✓</span><div><span class="roadmap-state">AVAILABLE</span><h3>Snapshot privacy regression gate</h3><p>CLI, Rust core, fixtures, GitHub Action, real proposal harness.</p></div></li>
-            <li><span class="roadmap-step complete">✓</span><div><span class="roadmap-state">AVAILABLE · OPT-IN</span><h3>Observed SDK policy + NU6.3 boundary</h3><p>Real Orchard-only spend decisions, four-case Ironwood scenarios, comparable verdict counts, semantic shrinking, and replay.</p></div></li>
+            <li><span class="roadmap-step complete">✓</span><div><span class="roadmap-state">AVAILABLE · OPT-IN</span><h3>Observed SDK policy + expanded real-wallet coverage</h3><p>Real Orchard spend decisions, Sapling and Unified Address receiver paths, transparent shielding, shielded change, fee and note-selection cases, semantic shrinking, and replay—all merged on main.</p></div></li>
             <li><span class="roadmap-step active">↗</span><div><span class="roadmap-state">IN PROGRESS</span><h3>Historical wallet-policy integrations</h3><p>Automatic general-fuzzer reproduction of the pinned Zallet FullPrivacy difference still requires its own policy-enabled wallet runner.</p></div></li>
-            <li><span class="roadmap-step">04</span><div><span class="roadmap-state">PLANNED</span><h3>Broader wallet integration</h3><p>More adapters, maintained regression corpus, and contributor-friendly releases.</p></div></li>
+            <li><span class="roadmap-step">04</span><div><span class="roadmap-state">PLANNED</span><h3>More independent wallet-policy adapters</h3><p>Beyond the merged SDK proposal coverage: additional independently behaving wallet-policy implementations, a maintained regression corpus, and contributor-friendly releases.</p></div></li>
           </ol>
         </div>
       </section>
