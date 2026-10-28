@@ -4,14 +4,15 @@
 
 ShieldSpec is developer tooling, not a wallet, anonymity score, signer, or transaction broadcaster. A passing check means only that the configured properties held for the inputs exercised.
 
-- [Get started](docs/getting-started.md): commands, expected outputs, exit codes, and CI integration
+- [On-site developer guide](https://ay-obami.github.io/ShieldSpec/docs.html): guided installation, copyable commands, expected results, real SDK comparisons, historical Zallet reproduction, and CI setup
+- [Get started in the repository](docs/getting-started.md): detailed commands, expected outputs, exit codes, and CI integration
 - [Privacy model](docs/privacy-model.md): what snapshots and actual wallet-policy verdicts do—and do not—establish
 - [Wallet-policy observations](docs/wallet-policy-observations.md): runner protocol, real SDK Orchard-only mode, and NU6.3 campaign
 - [Historical Zallet automatic rediscovery](docs/zallet-auto-discovery.md): build pinned independent FullPrivacy runners, run a real three-case differential campaign, and replay its minimized discovery
 - [Roadmap](docs/roadmap.md): shipped features versus integration and future work
-- [Live developer website](https://ay-obami.github.io/ShieldSpec/) · [site source and local preview](site/README.md)
+- [Live developer website](https://ay-obami.github.io/ShieldSpec/) · [site source and local preview](site/README.md) · [video walkthrough plan](docs/demo-video-script.md)
 
-The [developer website](https://ay-obami.github.io/ShieldSpec/) includes a read-only explorer of committed historical and control evidence; **the browser does not run a wallet or a live fuzzing campaign**. The website source (`site/`) and historical evidence (`evidence/historical-zallet-677/`) are included in `main`.
+The [developer website](https://ay-obami.github.io/ShieldSpec/) explains the privacy problem, checked properties, comparison workflow, reproducible result artifacts, and historical evidence. Its [step-by-step guide](https://ay-obami.github.io/ShieldSpec/docs.html) provides actual CLI commands and expected outcomes. The browser is a **read-only explainer and evidence explorer**; it does not run a wallet or a live fuzzing campaign. The website source (`site/`) and historical evidence (`evidence/historical-zallet-677/`) are included in `main`.
 
 ## Quickstart: the snapshot privacy gate
 
