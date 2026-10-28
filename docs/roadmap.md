@@ -1,6 +1,6 @@
 # ShieldSpec product roadmap
 
-ShieldSpec is **reusable privacy-regression infrastructure for Zcash wallet developers**, not a one-off vulnerability claim. This page distinguishes code already merged into `main` from features needing further wallet integration. The [public issue tracker](https://github.com/Ay-obami/ShieldSpec/issues) and linked PRs hold review details; the historical `v0.1.0` tag predates the expanded fuzzer; the `v0.2.0` source release includes it, while the composite GitHub Action remains snapshot-only.
+ShieldSpec is **reusable privacy-regression infrastructure for Zcash wallet developers**, not a one-off vulnerability claim. This page distinguishes code already merged into `main` from features needing further wallet integration. The [public issue tracker](https://github.com/Ay-obami/ShieldSpec/issues) and linked PRs hold review details; the historical `v0.1.0` tag predates the expanded fuzzer; the `v0.2.0` source release includes it and four workspace crates are also published to crates.io, while the composite GitHub Action remains snapshot-only.
 
 ## Available on main
 
