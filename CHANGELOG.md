@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.3.0 — 2026-10-28 (GitHub Action/source release)
+
+- Opt-in differential GitHub Action with a built-in first-party Zcash SDK negative-control preset and caller-built custom runner support.
+- Deterministic campaign configuration, JSON reports, minimized discoveries and GitHub Actions evidence artifact upload before CI enforces status 0/1/2.
+- Snapshot mode remains the default and backwards compatible.
+- **Distribution boundary:** no v0.3.0 crates.io packages or prebuilt binaries; the four independently versioned published crates remain at 0.2.0. See [v0.3.0 release notes](docs/releases/v0.3.0.md).
+
 ## v0.2.0 — 2026-10-28
 
 GitHub source release of the standalone ShieldSpec developer tool. Following the original tag, `shieldspec-core`, `shieldspec-testkit`, `shieldspec-cli`, and `shieldspec-zcash` version `0.2.0` were published to crates.io in dependency order. No prebuilt binaries are attached to the GitHub release.
