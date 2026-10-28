@@ -1,10 +1,37 @@
 # ShieldSpec — narrated walkthrough and technical demo scripts
 
-## Current recorded walkthrough (28 October 2026)
+## Current recording plan — browser-first, updated website
 
-A **109.7-second voiced walkthrough has been recorded** from an actual interactive Brave browser session at 1600×900, 15 fps, with female narration and AAC audio. It starts on the [live ShieldSpec landing page](https://ay-obami.github.io/ShieldSpec/), navigates and scrolls the site, interacts with its evidence explorer, visits the upstream Zcash references and shows the repository's real-wallet coverage. This is continuous captured website interaction, **not a slideshow**. The verified local export is named `ShieldSpec-Zecathon-2026-Voiced-Demo-20261028.mp4`; **a publicly hosted video URL has not yet been verified**. Do not publish a placeholder URL. The recording predates the merge of [PR #43](https://github.com/Ay-obami/ShieldSpec/pull/43); the expanded coverage is now on `main`.
+Record **actual continuous website interaction**, not a slideshow, from the [live website](https://ay-obami.github.io/ShieldSpec/) and [new developer guide](https://ay-obami.github.io/ShieldSpec/docs.html), at 1600×900 or higher. Use a natural **female** English narration, captions, legible code and deliberate scrolling/clicking. The approved narration is approximately 96 seconds; aim for a 1:45–2:00 finished video, with a hard ceiling of **2:30**. Keep the no-gradients charcoal, off-white and ZEC-gold website visible; no full-screen static title cards that conceal the product.
 
-The site is a **static evidence viewer**, not a browser-based fuzzer. The narration distinguishes the historical, already-fixed Zallet #677 reproduction from ShieldSpec's intentionally injected, deterministic fuzzer demonstration. It does **not** claim a newly discovered Zcash vulnerability, nor that the generic fuzzer automatically found the historical Zallet bug.
+This recording supersedes the older 109.7-second female-voiced browser walkthrough at `/home/ayobami/Videos/ShieldSpec-Zecathon-2026-Voiced-Demo-20261028.mp4`, which predates expanded coverage and the website redesign. An older 117.7-second captioned technical recording may also remain on the laptop. Both are **historical assets**, not verification that the new recording was produced or published.
+
+The website is a static evidence viewer and documentation site, **not** an in-browser fuzzer. The strongest real demonstration now exists: ShieldSpec's general engine **automatically rediscovered the previously documented, already-fixed Zallet #677 privacy-policy difference** using two independently compiled, pinned upstream policy runners, then minimized and replayed it. That claim is different from the labeled fault-injection demo and SDK same-runner negative control. Do not claim a new upstream vulnerability.
+
+| Target time | Real browser interaction | Point to demonstrate |
+| --- | --- | --- |
+| 0:00–0:13 | Start on landing-page hero; move cursor over the two pinned historical verdicts | What goes wrong when a valid transaction exposes unexpected information |
+| 0:13–0:28 | Scroll through “The problem,” the check coverage, and Generate → Execute → Compare → Replay | Concrete risks and the baseline-versus-candidate method |
+| 0:28–0:54 | Interact with the historical evidence tabs, affected/corrected verdicts, upstream fix and saved replay proof | Actual automatic discovery of an old, fixed Zallet `FullPrivacy` difference, not an injected bug |
+| 0:54–1:12 | Scroll to SDK coverage; enter the developer guide and show snapshot commands and real SDK examples | A developer can run actual tests and understand the supported scope |
+| 1:12–1:28 | Scroll through historical reproduction, CI, and linked upstream Zcash issues #693, #2614 and #2775 | Auditable proof and authentic Zcash engineering motivation |
+| 1:28–1:40 | Return to the home page; show the GitHub repository, documentation call to action and final result | Close on repeatable developer tooling |
+
+### Voiceover draft (natural, measured delivery)
+
+> A Zcash payment can be valid and still reveal more than its sender intended. ShieldSpec tests wallet transaction proposals before signing, so developers can catch privacy regressions during development.
+>
+> It generates deterministic wallet states, executes baseline and candidate implementations, and compares both observable outputs and named policy decisions. When they disagree, ShieldSpec reduces it to a replayable test with binary hashes.
+>
+> Here's the proof. We compiled two pinned Zallet versions around upstream fix six seventy-seven. The affected FullPrivacy policy accepted an Ironwood input with Sapling change, exposing a cross-pool balance. The corrected version rejected it. ShieldSpec's general fuzzer automatically detected, minimized and replayed that genuine historical difference. It was already disclosed and fixed. This isn't a new vulnerability.
+>
+> Real Zcash SDK scenarios also cover Orchard and Sapling funding, Unified Address receiver choice, shielded change, transparent shielding, fees and activation boundaries. The developer guide includes commands for snapshot checks, SDK runs, historical reproduction and CI.
+>
+> The broader need is documented in Zallet issue six ninety-three and librustzcash issues twenty-six fourteen and twenty-seven seventy-five: wallet edge cases are hard to test, and correctness alone doesn't establish privacy.
+>
+> ShieldSpec makes privacy behavior observable, differences reproducible, and regressions testable before they reach users.
+
+Keep narration synchronized to **visible live interaction**. If the generated voice is slower than the time grid, adjust capture timing or trim pauses without cutting substantive evidence; never exceed 2:30. Verify final captions against domain spellings: ShieldSpec, Zcash, Zallet, Ironwood, Sapling, Orchard, FullPrivacy, ZIP-317, and librustzcash.
 
 ## Optional second recording — 2:30 terminal-first technical walkthrough
 

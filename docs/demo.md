@@ -1,8 +1,8 @@
 # Zecathon demo storyboard
 
-For supporting narration and scene timing, see [the submission notes](submission.md) and [video script](demo-video-script.md). This storyboard uses runnable commands from the merged `main` branch; it does not depend on a hosted video. The [developer website](https://ay-obami.github.io/ShieldSpec/) presents a read-only evidence explorer, not a browser-based wallet or live fuzzing service.
+For supporting narration and scene timing, see [the submission notes](submission.md) and [current browser-first script](demo-video-script.md). This technical storyboard uses runnable commands from merged `main`; it does not depend on a hosted video. The [developer website](https://ay-obami.github.io/ShieldSpec/) and its [hands-on guide](https://ay-obami.github.io/ShieldSpec/docs.html) explain the tool and display committed evidence, but the browser does not run a wallet or a live fuzzing service.
 
-Keep two demonstrations distinct: the **controlled injected fault** proves detection, minimization, and replay, while the **real SDK policy-observation control** below proves that the runner invokes actual Orchard-only wallet input selection. Neither is a newly discovered vulnerability.
+Keep three demonstrations distinct: (1) the **historical Zallet automatic rediscovery** runs independently compiled, pinned upstream `FullPrivacy` implementations through ShieldSpec's general fuzzer; (2) the **controlled injected fault** deterministically proves the generic detection, minimization and replay path; and (3) the **real SDK self-comparison** proves that the runner executes genuine Orchard-only wallet input selection. None is a newly discovered upstream vulnerability.
 
 ## The problem in one sentence
 
@@ -139,11 +139,17 @@ The optional transparent funding generator uses `--transparent-funding` with `fu
 
 ## Published motivation and historical evidence
 
-The motivation is real wallet-development risk, but distinguish that from what the demo proves. [Zallet #693](https://github.com/zcash/zallet/issues/693) documents a proposal-testing difficulty; [librustzcash #2614](https://github.com/zcash/librustzcash/issues/2614) concerns independently reproduced transparent send-max **correctness** behavior, not an established privacy leak. The pinned [historical Zallet #677](../evidence/historical-zallet-677/README.md) before/after witness involves the upstream `FullPrivacy` policy and was already fixed upstream; it is separate from this generic campaign and the Orchard-only SDK spend-source control.
+The motivation is real wallet-development risk, but distinguish it from what each demo proves. [Zallet #693](https://github.com/zcash/zallet/issues/693) documents proposal-testing difficulty; [librustzcash #2614](https://github.com/zcash/librustzcash/issues/2614) concerns independently reproduced transparent send-max **correctness** behavior, not an established privacy leak; [librustzcash #2775](https://github.com/zcash/librustzcash/issues/2775) illustrates demand for explicit metadata leak-regression assertions. These are contextual Zcash engineering examples, not claimed fixes delivered by ShieldSpec.
+
+### Actual automated discovery of the already-fixed Zallet policy difference
+
+The standalone [historical Zallet #677](../evidence/historical-zallet-677/README.md) before/after witness runs the upstream `FullPrivacy` policy around its documented fix. **In addition**, ShieldSpec's general differential fuzzer now executes independently compiled, pinned affected and corrected Zallet policy runners. Two control scenarios agree on both versions; the historical Ironwood→Sapling change scenario differs, is semantically minimized, and replays with executable provenance verified. The validator requires the real policy difference, not a fabricated post-processing delta.
+
+For an executable build-to-replay walkthrough, run the commands in [automated Zallet discovery](zallet-auto-discovery.md). The source builds can be lengthy, so a short browser-first video should instead show the [successful historical discovery CI run](https://github.com/Ay-obami/ShieldSpec/actions/runs/40616469538), its pinned revisions, and the website's evidence tabs; it must explain that the bug was **previously disclosed and fixed upstream**. This is the strongest proof of genuine historical independent-runner differential detection, not a new disclosure.
 
 Say:
 
-> ShieldSpec makes wallet proposal behavior inspectable: execute the real SDK on deterministic wallet states, compare explicit privacy rules and genuinely observed policy decisions, and turn a difference into a smaller replayable developer test. The judge demo injects its fault on purpose; the SDK policy control does not.
+> ShieldSpec makes wallet proposal behavior inspectable: execute real SDK code on deterministic wallet states, compare explicit privacy rules and genuinely observed policy decisions, and turn differences into smaller, replayable developer tests. Its general fuzzer has automatically reproduced Zallet's *already-fixed* historical policy difference. The separate fault-injection demonstration is labeled, and the SDK self-comparison is a control.
 
 Do **not** claim the injected transparent-change case or same-runner Orchard-only control discovered a new upstream privacy bypass, and do not claim a clean campaign proves anonymity.
 
