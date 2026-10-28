@@ -1,11 +1,17 @@
 # Simple ShieldSpec workflows
 
-The source-build CLI now offers a short, configuration-driven entry point. These features are part of the upcoming CLI 0.4.0 release; the currently published `shieldspec-cli 0.2.0` does not include `try` or `test`. Until the new version is released, use the feature branch's source build. Use Rust 1.95 and a fresh clone.
+The published `shieldspec-cli 0.4.0` provides a short, configuration-driven entry point. Install using Rust 1.95+:
+
+```sh
+cargo install shieldspec-cli --version 0.4.0 --locked
+```
+
+The first check below needs no source checkout; the example files and differential runners in later sections use a clone of this repository.
 
 ## 1. Try a built-in snapshot check
 
 ```sh
-cargo run --locked -p shieldspec-cli -- try
+shieldspec try
 ```
 
 This runs a bundled, known-good **snapshot fixture** without wallet credentials or a funded account. It does **not** exercise a wallet, run differential fuzzing, or prove anonymity.
@@ -15,7 +21,7 @@ This runs a bundled, known-good **snapshot fixture** without wallet credentials 
 For an immediately runnable, known-good snapshot comparison:
 
 ```sh
-cargo run --locked -p shieldspec-cli -- test --config examples/shieldspec-snapshot-control.toml
+shieldspec test --config examples/shieldspec-snapshot-control.toml
 ```
 
 This compares the same committed fixture to itself. For your own snapshots, create `shieldspec.toml` beside your fixture files:
@@ -33,7 +39,7 @@ policy = "standard"
 Run:
 
 ```sh
-cargo run --locked -p shieldspec-cli -- test
+shieldspec test
 ```
 
 A clean result exits `0`, an input/operational error `1`, and a configured privacy failure `2`. Relative paths resolve from the configuration file's directory. To choose another file, use `test --config path/to/shieldspec.toml`.
@@ -67,9 +73,9 @@ cases = 4
 Run:
 
 ```sh
-cargo run --locked -p shieldspec-cli -- test
+shieldspec test
 ```
 
 Expect a `no_regression_found` control with four comparable real-wallet policy observations on each side. **This does not test your wallet or establish cross-version agreement**. For meaningful regression testing, replace both runner executables with independently built, protocol-compatible versions of your wallet and retain each executable's provenance. Use the [Rust runner-adapter starter](../examples/runner-adapter/README.md) and [runner contract](runner-protocol-contract.md); ShieldSpec does not automatically generate arbitrary wallet adapters.
 
-Advanced, independently reproducible controls remain available in [the full CLI guide](getting-started.md), [CI guide](github-action.md), and [historical Zallet reproduction](zallet-auto-discovery.md). The earlier `check`, `diff`, `fixture`, `shieldspec-fuzz fuzz`, and `replay` commands remain available. The existing GitHub Action `v0.3.0` is separate from these source-only CLI changes. Level 3 automatic wallet-runner creation remains deferred.
+Advanced, independently reproducible controls remain available in [the full CLI guide](getting-started.md), [CI guide](github-action.md), and [historical Zallet reproduction](zallet-auto-discovery.md). The earlier `check`, `diff`, `fixture`, `shieldspec-fuzz fuzz`, and `replay` commands remain available. The GitHub Action is separately scoped from the CLI and retains its existing behavior in `v0.4.0`. Level 3 automatic wallet-runner creation remains deferred.

@@ -42,8 +42,9 @@
           <section class="docs-section" id="quick-try">
             <div class="docs-step-label">FASTEST PATH</div>
             <h2>Try ShieldSpec with one command</h2>
-            <p>After cloning the repository and installing its pinned Rust toolchain, run the source-build quickstart. It uses a bundled, known-good <strong>snapshot fixture</strong>, not your wallet or a live differential campaign. The published CLI 0.2.0 does not yet include this new command.</p>
-            <div class="command-card"><div class="command-header"><span>BUILT-IN SNAPSHOT CONTROL</span><button class="copy-button" type="button" data-copy-target="docs-quick-try">Copy ↗</button></div><pre id="docs-quick-try" tabindex="0" aria-label="Run ShieldSpec built-in snapshot example"><code>cargo run --locked -p shieldspec-cli -- try</code></pre></div>
+            <p>Install the published CLI v0.4.0 and run the quickstart. It uses a bundled, known-good <strong>snapshot fixture</strong>, not your wallet or a live differential campaign.</p>
+            <div class="command-card"><div class="command-header"><span>BUILT-IN SNAPSHOT CONTROL</span><button class="copy-button" type="button" data-copy-target="docs-quick-try">Copy ↗</button></div><pre id="docs-quick-try" tabindex="0" aria-label="Run ShieldSpec built-in snapshot example"><code>cargo install shieldspec-cli --version 0.4.0 --locked
+shieldspec try</code></pre></div>
             <p class="docs-outcome"><strong>Expected:</strong> <code>status: PASS</code> and <code>findings: 0</code>. For a reusable one-command project check, see <a href="https://github.com/Ay-obami/ShieldSpec/blob/main/docs/simple-workflows.md" target="_blank" rel="noopener noreferrer">snapshot and differential configuration examples</a> using <code>shieldspec test</code>.</p>
           </section>
 

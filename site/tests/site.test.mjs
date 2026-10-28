@@ -323,7 +323,8 @@ test("public site documents the published v0.3.0 Action and honest runner bounda
 test("new CLI onboarding is discoverable without implying the built-in control tests a wallet", () => {
   const guide = read("docs.html");
   assert.match(guide, /id="quick-try"/);
-  assert.match(guide, /cargo run --locked -p shieldspec-cli -- try/);
+  assert.match(guide, /cargo install shieldspec-cli --version 0\.4\.0 --locked/);
+  assert.match(guide, /shieldspec try/);
   assert.match(guide, /not your wallet or a live differential campaign/);
   assert.match(guide, /docs\/simple-workflows\.md/);
 });
