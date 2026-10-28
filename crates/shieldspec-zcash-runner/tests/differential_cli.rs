@@ -560,3 +560,50 @@ fn general_fuzzer_can_generate_and_replay_ironwood_scenarios_by_seed() {
     assert_eq!(replay["scenario"], campaign["scenario"]);
     assert_eq!(replay["status"], "wallet_policy_difference_reproduced");
 }
+
+#[test]
+fn zallet_privacy_campaign_requires_comparable_wallet_policy_observations() {
+    let directory = TestDirectory::new("zallet-policy-coverage");
+    let root = directory.path();
+    let baseline = observed_runner(root, "zallet-baseline", WalletPolicyDecision::Accepted);
+    let candidate = observed_runner(root, "zallet-candidate", WalletPolicyDecision::Accepted);
+    let args = [
+        "fuzz",
+        "--scenario-family",
+        "zallet-privacy",
+        "--baseline-runner",
+        baseline.to_str().unwrap(),
+        "--candidate-runner",
+        candidate.to_str().unwrap(),
+        "--seed",
+        "2026",
+        "--cases",
+        "3",
+        "--format",
+        "json",
+    ];
+    let (exit, report) = run_binary(&args);
+    assert_eq!(exit, 0, "{report}");
+    assert_eq!(report["cases_executed"], 3);
+    assert_eq!(report["comparable_wallet_policy_cases"], 3);
+
+    let snapshot_only = RunnerResponse::Ok {
+        snapshot: serde_json::from_str(include_str!("../../../fixtures/shielded-payment.json"))
+            .unwrap(),
+    };
+    fs::write(
+        root.join("zallet-candidate.json"),
+        serde_json::to_vec(&snapshot_only).unwrap(),
+    )
+    .unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_shieldspec-fuzz"))
+        .args(args)
+        .output()
+        .expect("launch Zallet privacy campaign");
+    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("comparable wallet-policy"),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}

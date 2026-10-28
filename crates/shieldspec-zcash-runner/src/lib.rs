@@ -143,6 +143,59 @@ pub struct Nu63OrchardPaymentScenario {
     pub activation: Nu63Activation,
 }
 
+/// Only Orchard-family notes can fund the pinned Zallet policy probe.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ZalletInputPool {
+    Orchard,
+    Ironwood,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ZalletChangePool {
+    Sapling,
+    Orchard,
+    Ironwood,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct ZalletPrivacyProbeScenario {
+    pub input_pool: ZalletInputPool,
+    pub change_pool: ZalletChangePool,
+    pub input_zat: u64,
+    pub fee_zat: u64,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ZalletPrivacyProbeUnchecked {
+    input_pool: ZalletInputPool,
+    change_pool: ZalletChangePool,
+    input_zat: u64,
+    fee_zat: u64,
+}
+
+impl<'de> Deserialize<'de> for ZalletPrivacyProbeScenario {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let input = ZalletPrivacyProbeUnchecked::deserialize(deserializer)?;
+        if input.fee_zat == 0
+            || input.input_zat <= input.fee_zat
+            || input.input_zat > 2_100_000_000_000_000
+        {
+            return Err(serde::de::Error::custom(
+                "Zallet proposal requires a positive fee, positive change, and bounded input",
+            ));
+        }
+        Ok(Self {
+            input_pool: input.input_pool,
+            change_pool: input.change_pool,
+            input_zat: input.input_zat,
+            fee_zat: input.fee_zat,
+        })
+    }
+}
+
 /// Deterministic ZIP 320 scenario that pays a TEX recipient from Orchard funds.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -870,6 +923,7 @@ pub enum Scenario {
     UnifiedPayment(UnifiedPaymentScenario),
     TransparentFundedPayment(TransparentFundedPaymentScenario),
     Nu63OrchardPayment(Nu63OrchardPaymentScenario),
+    ZalletPrivacyProbe(ZalletPrivacyProbeScenario),
 }
 
 impl Scenario {
@@ -885,6 +939,7 @@ impl Scenario {
             Self::Nu63OrchardPayment(scenario) => {
                 20_000 + (scenario.payment.note_count as u64) * 10_000
             }
+            Self::ZalletPrivacyProbe(scenario) => scenario.fee_zat,
         }
     }
 
@@ -941,6 +996,9 @@ impl Scenario {
                     + scenario.change_pool.complexity_weight()
                     + scenario.receivers.complexity_weight()
             }
+            Self::ZalletPrivacyProbe(scenario) => {
+                scenario.input_zat as u128 + scenario.fee_zat as u128
+            }
         }
     }
 }
@@ -994,6 +1052,9 @@ pub fn run_scenario(scenario: &Scenario) -> Result<ProposalSnapshot, RunnerError
         Scenario::Nu63OrchardPayment(scenario) => {
             run_orchard_payment_with_activation(&scenario.payment, Some(scenario.activation))
         }
+        Scenario::ZalletPrivacyProbe(_) => Err(RunnerError::InvalidScenario(
+            "Zallet policy probes require pinned external wallet-policy runners",
+        )),
     }
 }
 
@@ -1011,7 +1072,9 @@ pub fn run_scenario_with_orchard_only_spend_policy(
         Scenario::Nu63OrchardPayment(scenario) => {
             run_orchard_payment_internal(&scenario.payment, true, Some(scenario.activation))
         }
-        Scenario::UnifiedPayment(_) | Scenario::TransparentFundedPayment(_) => {
+        Scenario::UnifiedPayment(_)
+        | Scenario::TransparentFundedPayment(_)
+        | Scenario::ZalletPrivacyProbe(_) => {
             return Err(RunnerError::InvalidScenario(
                 "Orchard-only spend policy is not supported for this scenario kind",
             ));
@@ -1199,7 +1262,9 @@ impl ScenarioGenerator {
                 recipient_pool: ShieldedPoolChoice::Sapling,
             }),
             // The legacy generator emits neither opt-in transparent funding nor NU6.3 cases.
-            Scenario::TransparentFundedPayment(_) | Scenario::Nu63OrchardPayment(_) => {
+            Scenario::TransparentFundedPayment(_)
+            | Scenario::Nu63OrchardPayment(_)
+            | Scenario::ZalletPrivacyProbe(_) => {
                 unreachable!("legacy generator only")
             }
         }
@@ -1230,6 +1295,34 @@ impl ScenarioGenerator {
             let _ = generator.next_case();
         }
         generator.next_case()
+    }
+
+    /// Dedicated historical Zallet FullPrivacy scenario family. These are
+    /// in-memory policy probes: one actual wallet input, one change, no payee.
+    /// Three ordinals repeat controls and the historically affected crossing.
+    #[must_use]
+    pub fn zallet_privacy_case_at(seed: u64, ordinal: u64) -> GeneratedCase {
+        let mixed = seed
+            .wrapping_add(ordinal.wrapping_mul(0x9e37_79b9_7f4a_7c15))
+            .wrapping_mul(0xbf58_476d_1ce4_e5b9)
+            ^ 0x94d0_49bb_1331_11eb;
+        let (input_pool, change_pool) = match ordinal % 3 {
+            0 => (ZalletInputPool::Ironwood, ZalletChangePool::Ironwood),
+            1 => (ZalletInputPool::Orchard, ZalletChangePool::Sapling),
+            _ => (ZalletInputPool::Ironwood, ZalletChangePool::Sapling),
+        };
+        let fee_zat = 10_000 + (mixed & 0xff) * 10;
+        let input_zat = fee_zat + 10_000 + ((mixed >> 16) % 100_000);
+        GeneratedCase {
+            seed,
+            ordinal,
+            scenario: Scenario::ZalletPrivacyProbe(ZalletPrivacyProbeScenario {
+                input_pool,
+                change_pool,
+                input_zat,
+                fee_zat,
+            }),
+        }
     }
 
     /// Deterministic, opt-in NU6.3 proposal case with exact replay provenance.
@@ -1270,7 +1363,7 @@ impl ScenarioGenerator {
             Scenario::TransparentFundedPayment(_) => {
                 unreachable!("legacy generator does not emit transparent funding")
             }
-            Scenario::Nu63OrchardPayment(_) => {
+            Scenario::Nu63OrchardPayment(_) | Scenario::ZalletPrivacyProbe(_) => {
                 unreachable!("legacy generator emits only legacy cases")
             }
         };
@@ -1310,6 +1403,19 @@ fn shrink_candidates(scenario: &Scenario) -> Vec<Scenario> {
     let mut candidates = Vec::new();
 
     match scenario {
+        Scenario::ZalletPrivacyProbe(current) => {
+            let min_input = current.fee_zat + 1;
+            if current.input_zat > min_input {
+                let mut candidate = current.clone();
+                candidate.input_zat = min_input;
+                candidates.push(Scenario::ZalletPrivacyProbe(candidate));
+            }
+            if current.fee_zat > 1 {
+                let mut candidate = current.clone();
+                candidate.fee_zat = 1;
+                candidates.push(Scenario::ZalletPrivacyProbe(candidate));
+            }
+        }
         Scenario::TransparentFundedPayment(current) => {
             if current.confirmations > 1 {
                 let mut candidate = current.clone();
