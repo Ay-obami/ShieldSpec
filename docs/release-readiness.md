@@ -23,6 +23,32 @@ The generic runner protocol, observed policy comparisons, expanded real SDK corp
 
 **Prepare a separately reviewed `v0.2.0` candidate; do not move the existing `v0.1.0` tag.** The new differential and policy-observation surface is a substantial pre-1.0 feature expansion. This is a recommendation only: no version bump, package publication, tag or release was created by this audit.
 
+### Compatibility inventory for a source release
+
+| Consumer interface | Current contract | Release risk / required check |
+| --- | --- | --- |
+| Snapshot JSON (`shieldspec-core`) | `schema_version: 1`; `InputFact.origin` defaults to `wallet` when omitted; snapshots reject unknown fields | Compare `v0.1.0` fixture inputs and expected findings against the release candidate; document any changed rule behavior. |
+| Snapshot CLI and composite Action | `check`/`diff`, policies `standard`/`strict`, formats `human`/`json`/`sarif`; exit `0`/`1`/`2` | Retain golden-output and downstream Action smoke gates. The Action has no fuzzer or code-scanning upload. |
+| Differential JSON runner boundary (`shieldspec-fuzz`) | Legacy unversioned envelope or optional explicit `protocol_version: 1`; `ok`, `observed`, `error` | Keep legacy decoding and first-class actual policy observations distinct; test both sides of the versioned protocol. |
+| Saved discovery/replay | Scenario family, original/minimized inputs, runner SHA-256 and exact arguments | Verify replay fails closed on changed binaries, policy names, argument identities, or verdict direction. |
+| Real SDK adapter (`shieldspec-zcash`) | `zcash_client_backend =0.25.0-pre.2` and `zcash_protocol =0.11.0-pre.1` | Exact prerelease SDK pins are not broad semver compatibility; rebuild consumer examples and test against any future SDK revision deliberately. |
+| Real runner (`shieldspec-zcash-runner`) | Further exact prerelease pins for SQLite, keys, primitives, transparent and ZIP-321; synthetic wallet state | Validate Rust 1.95 and native build requirements on clean Linux; independent wallet builds need compatible JSON, not matching Rust types. |
+
+### Distribution decision
+
+For the next release, **source-only GitHub release plus the existing snapshot-only composite Action** is the lowest-risk candidate. The repository can document a source-built `shieldspec-fuzz` command without claiming a published binary or crates.io distribution. If downloadable runner binaries or published crates are desired later, that is a separate packaging and supply-chain task.
+
+| Crate | Manifest version at audit | crates.io release posture |
+| --- | --- | --- |
+| `shieldspec-core` | `0.1.0` | Default publishable; no package dry-run or registry availability verification performed |
+| `shieldspec-testkit` | `0.1.0` | Default publishable; depends on `shieldspec-core` at matching version |
+| `shieldspec-cli` | `0.1.0` | Default publishable; depends on matching internal core/testkit versions |
+| `shieldspec-zcash` | `0.1.0` | Default publishable; depends on matching core and exact prerelease Zcash SDK |
+| `shieldspec-fuzz` | `0.1.0` | Explicitly `publish = false`; source-build only |
+| `shieldspec-zcash-runner` | `0.1.0` | Explicitly `publish = false`; source-build only |
+
+There is no evidence here that the four default-publishable packages already exist in the registry. Publishing them would require package dry-runs and an ordered release of internal dependencies, not just changing manifest versions. For a **source-only** `v0.2.0`, the version in crate manifests should be aligned with the chosen release policy before tagging, but publishing to crates.io is optional.
+
 Before tagging:
 
 1. Run the full workspace test, formatting and strict Clippy gates from the intended release commit; rerun pinned historical discovery if claiming newly verified upstream reproduction for that release.
@@ -30,5 +56,18 @@ Before tagging:
 3. Decide whether release distribution means source-only CLI/Action or separately installable runner binaries. The current composite Action must remain accurately labeled snapshot-only unless its behavior is deliberately changed and tested.
 4. Resolve crate publishability and internal dependency version alignment if crates.io distribution is intended; do not publish the `publish = false` runner/fuzzer as though they were packages.
 5. Update changelog, release notes, examples and consumer pin to the actual immutable tag/commit, then check clean-checkout installation and CI on that exact ref.
+
+Suggested candidate verification commands, run on the **exact intended tag commit**:
+
+```bash
+cargo fmt --check
+cargo test --locked --workspace --all-targets
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo test --locked --manifest-path examples/mock-wallet/Cargo.toml --all-targets
+python3 -m unittest discover -s scripts/tests -v
+node --test site/tests/site.test.mjs
+```
+
+For an eventual crates.io decision, run `cargo package --list` and `cargo publish --dry-run` in dependency order on each publishable crate, resolving unpublished internal dependencies first. These commands were **not** run in this audit environment; do not infer successful packaging from green tests. The separately pinned [historical Zallet workflow](../.github/workflows/zallet-auto-discovery.yml) remains opt-in when its upstream compilation dependencies are available.
 
 The next meaningful product proof is external wallet-developer reproduction and a genuine different-revision comparison, not another controlled injected failure or a claim of a new upstream vulnerability.
