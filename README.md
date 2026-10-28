@@ -186,4 +186,4 @@ The repository pins Rust 1.95.0. Maintainers can verify the complete workspace w
 
 ## Project history
 
-ShieldSpec was demonstrated in the 2026 Zecathon Core & Tooling hackathon. The [archived submission notes](docs/submission.md) and [recording storyboard](docs/demo-video-script.md) document that milestone; the maintained project is the developer tool, its tests, and its reproducible source-level evidence. Video files are not tracked in this repository.
+ShieldSpec was demonstrated in the 2026 Zecathon Core & Tooling hackathon. The [archived submission notes](docs/submission.md) and [recording storyboard](docs/demo-video-script.md) document that milestone; the maintained project is the developer tool, its tests, and its reproducible source-level evidence.
