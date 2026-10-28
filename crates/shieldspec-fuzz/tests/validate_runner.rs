@@ -2,10 +2,15 @@ use std::{fs, process::Command};
 
 fn invoke(script: &str) -> (bool, String) {
     let dir = std::env::temp_dir();
-    let fixture = dir.join(format!("shieldspec-validator-{}.json", std::process::id()));
+    let fixture = dir.join(format!(
+        "shieldspec-validator-{}-{:?}.json",
+        std::process::id(),
+        std::thread::current().id()
+    ));
     fs::write(&fixture, r#"{"kind":"orchard_payment","params":{}}"#).unwrap();
+    let shell_script = format!("cat >/dev/null; {script}");
     let output = Command::new(env!("CARGO_BIN_EXE_shieldspec-validate-runner"))
-        .args(["/bin/sh", fixture.to_str().unwrap(), "-c", script])
+        .args(["/bin/sh", fixture.to_str().unwrap(), "-c", &shell_script])
         .output()
         .unwrap();
     let _ = fs::remove_file(fixture);
@@ -54,6 +59,17 @@ fn rejects_nonzero_exit_even_with_ok_payload() {
     );
     assert!(!ok);
     assert!(stderr.contains("exit code"), "{stderr}");
+}
+
+#[test]
+fn concurrent_preflights_have_independent_scenario_files() {
+    let workers: Vec<_> = (0..24)
+        .map(|_| std::thread::spawn(|| invoke(r#"printf '%s\n' '{"status":"ok","snapshot":{"schema_version":1,"network":"testnet","steps":[]}}'"#)))
+        .collect();
+    for worker in workers {
+        let (ok, stderr) = worker.join().unwrap();
+        assert!(ok, "{stderr}");
+    }
 }
 
 #[test]
