@@ -1,0 +1,15 @@
+# Demonstration only: compares the same first-party SDK runner against itself.
+# Paths are resolved relative to this configuration file.
+[comparison]
+mode = "differential"
+fuzzer_binary = "../target/debug/shieldspec-fuzz"
+baseline_runner = "../target/debug/shieldspec-zcash-runner"
+candidate_runner = "../target/debug/shieldspec-zcash-runner"
+baseline_args = ["--wallet-spend-policy", "orchard-only"]
+candidate_args = ["--wallet-spend-policy", "orchard-only"]
+
+[testing]
+scenario_family = "ironwood"
+policy = "standard"
+seed = 2026
+cases = 4

@@ -1,0 +1,9 @@
+# Demonstration only: identical approved fixture snapshots.
+# Replace both paths with your wallet's exported normalized snapshots.
+[comparison]
+mode = "snapshot"
+baseline = "../fixtures/shielded-payment.json"
+candidate = "../fixtures/shielded-payment.json"
+
+[testing]
+policy = "standard"

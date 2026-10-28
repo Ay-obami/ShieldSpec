@@ -1,6 +1,6 @@
 [package]
 name = "shieldspec-cli"
-version = "0.2.0"
+version = "0.4.0"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -16,5 +16,6 @@ path = "src/main.rs"
 clap.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+toml = "0.8"
 shieldspec-core = { version = "0.2.0", path = "../shieldspec-core" }
 shieldspec-testkit = { version = "0.2.0", path = "../shieldspec-testkit" }
