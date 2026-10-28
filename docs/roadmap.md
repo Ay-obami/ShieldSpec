@@ -29,14 +29,14 @@ None of these tools proves wallet anonymity. Historical upstream behavior must n
 | Provenance and replay safeguards | Runner SHA-256 and exact args verified on saved replay; SDK labels are user-declared, not hash-to-source proof |
 | Expanded real-wallet proposal cases (PR #43) | Real Sapling recipient proposals, mixed Unified Address receiver preference, shielded change behavior, wallet-owned transparent UTXO shielding, ZIP-317 fees and input/note selection |
 | Published SDK correctness control | Pinned mixed Sapling/Orchard input-selection regression from [librustzcash#3133](https://github.com/zcash/librustzcash/issues/3133), classified as an availability/correctness defect rather than a discovered privacy leak |
-| Zallet historical source witness | Pinned before/after `FullPrivacy` test and controls for [zallet#677](https://github.com/zcash/zallet/pull/677), independent of generic fuzzing; evidence is present in `main` |
+| Zallet historical source witness | Pinned before/after `FullPrivacy` test and controls for [zallet#677](https://github.com/zcash/zallet/pull/677), preserved as separate original evidence |
+| Real Zallet automatic policy discovery | Two separately compiled pinned `zallet-core` binaries, typed Proposal-derived policy observations, dedicated `zallet-privacy` generator, three-case control/difference campaign, minimized saved-case replay with SHA-linked provenance; [reproduce and review](zallet-auto-discovery.md) |
 | Static site source | `site/` provides the landing page and read-only historical-evidence explorer; it does not execute wallet fuzzing in a browser |
 
-The observed decision-difference engine is **generic**: tests prove detection, shrinking, and replay with controlled policy changes. The real Orchard-only adapter proves an actual SDK decision is obtainable. These two facts must not be combined into a claim of automatically discovering Zallet's historical bypass.
+The observed decision-difference engine is **generic** and the Orchard-only SDK restriction remains separate from `FullPrivacy`. The new dedicated Zallet historical adapter closes [#40](https://github.com/Ay-obami/ShieldSpec/issues/40)'s technical discovery gap: a verified local run compared three genuine policy observations from independently compiled Zallet revisions, detected the documented historical difference, minimized it, and replayed the same verdict direction. This is not a new upstream vulnerability, and no live wallet funds or network broadcasts were involved.
 
 ## In progress / integration gaps
 
-- [#40 — automatic discovery and replay integration](https://github.com/Ay-obami/ShieldSpec/issues/40): a general campaign that independently builds affected/corrected wallet runners, runs the **actual Zallet FullPrivacy policy**, discovers its historical verdict difference, and saves/replays the same minimized finding is **not yet automatic**. The pinned [historical witness](../evidence/historical-zallet-677/README.md) remains separate.
 - [#36 — wallet policy input and provenance](https://github.com/Ay-obami/ShieldSpec/issues/36) and [#37 — cross-pool oracle](https://github.com/Ay-obami/ShieldSpec/issues/37): generic runner protocol, observed SDK policy, cross-pool rules and replay are implemented; adapting additional independent wallet policies remains work.
 - [#35 — realistic cross-pool scenarios](https://github.com/Ay-obami/ShieldSpec/issues/35): activation-boundary and broader PR #43 real-wallet cases are available; more wallets and policy configurations remain to be covered.
 - [#39 — onboarding/docs](https://github.com/Ay-obami/ShieldSpec/issues/39): maintain correct commands for current `main`, explicit exit semantics, CI examples and limitations.
@@ -46,7 +46,7 @@ The [#38 developer-first website](https://github.com/Ay-obami/ShieldSpec/issues/
 
 ## Planned after integration
 
-- **More real wallet-policy adapters:** A concrete Zallet `FullPrivacy` runner and distinct policy versions, without manufacturing verdicts from ShieldSpec warnings.
+- **More real wallet-policy adapters:** Expand beyond the implemented Zallet `FullPrivacy` historical probe and pinned SDK Orchard-only policy, without manufacturing verdicts from ShieldSpec warnings.
 - **Maintained regression corpus:** Known expected cases and verified discoveries with stable source provenance, replay identities and clear semantics.
 - **Versioned contracts:** Document migrations for scenario JSON, normalized snapshots, policy-observation envelopes, and differential reports.
 - **Developer policy configuration:** Let wallets select and justify invariants, including legitimate cross-pool transfers, without overstating their meaning.

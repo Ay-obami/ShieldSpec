@@ -7,6 +7,7 @@ ShieldSpec is developer tooling, not a wallet, anonymity score, signer, or trans
 - [Get started](docs/getting-started.md): commands, expected outputs, exit codes, and CI integration
 - [Privacy model](docs/privacy-model.md): what snapshots and actual wallet-policy verdicts do—and do not—establish
 - [Wallet-policy observations](docs/wallet-policy-observations.md): runner protocol, real SDK Orchard-only mode, and NU6.3 campaign
+- [Historical Zallet automatic rediscovery](docs/zallet-auto-discovery.md): build pinned independent FullPrivacy runners, run a real three-case differential campaign, and replay its minimized discovery
 - [Roadmap](docs/roadmap.md): shipped features versus integration and future work
 - [Live developer website](https://ay-obami.github.io/ShieldSpec/) · [site source and local preview](site/README.md)
 
@@ -120,7 +121,7 @@ The real-proposal harness uses isolated in-memory Zcash wallet state, scans synt
 
 Separate runner processes allow two builds to compare without sharing librustzcash Rust types:
 
-1. Generate a deterministic scenario by seed, ordinal, and scenario family (`legacy`, `ironwood`, or opt-in `transparent`).
+1. Generate a deterministic scenario by seed, ordinal, and scenario family (`legacy`, `ironwood`, `zallet-privacy`, or opt-in `transparent`).
 2. Ask baseline and candidate runners for real proposal snapshots and optional first-class policy verdicts.
 3. Evaluate proposal rules such as `SS003`, `SS005`, and `SS006`, plus comparable observed policy decisions.
 4. On a difference, semantically shrink the case and record a replayable result.
@@ -131,7 +132,7 @@ See [the runner protocol and replay outcomes](docs/wallet-policy-observations.md
 
 ## Evidence versus discovery
 
-[Historical Zallet #677](evidence/historical-zallet-677/README.md) is a separate, pinned source-level witness: affected `f496c9b` accepted an Ironwood→Sapling crossing under its actual `FullPrivacy` policy; corrected `e966780` rejected it. This was **previously documented and fixed upstream**. The witness and control cases are not a new vulnerability or an automatically discovered generic-fuzzer verdict difference. Reproduction requires Rust 1.95, network access, and native upstream build dependencies:
+[Historical Zallet #677](evidence/historical-zallet-677/README.md) is a separate, pinned source-level witness: affected `f496c9b` accepted an Ironwood→Sapling crossing under its actual `FullPrivacy` policy; corrected `e966780` rejected it. This was **previously documented and fixed upstream**. The original fixed witness is not a new vulnerability. A **separate, now verified automatic integration** exercises both independently compiled historical wallet-policy implementations through ShieldSpec's generic fuzzer: seed 2026 finds a named verdict difference at ordinal 2 after two agreeing controls, minimizes the case, and reproduces it with verified SHA-linked runner provenance. See [the complete live-run recipe](docs/zallet-auto-discovery.md). Reproduction requires Rust 1.95, network access, and native upstream build dependencies:
 
 ```bash
 python3 scripts/reproduce_zallet_677.py --output evidence/historical-zallet-677/results
@@ -167,6 +168,6 @@ The Action runs the snapshot CLI only; it does **not** build or fuzz a wallet. I
 - `shieldspec-cli` and `action.yml` — fast snapshot privacy gate.
 - `examples/mock-wallet` — independent downstream consumption example.
 
-The repository pins Rust 1.95.0. Maintainers can verify the complete workspace with `cargo fmt --check`, `cargo test --locked --workspace --all-targets`, and `cargo clippy --locked --workspace --all-targets -- -D warnings`. For a narrower check of the real-wallet tooling, run `cargo test --locked -p shieldspec-fuzz -p shieldspec-zcash-runner --all-targets`. Historical upstream reproduction is opt-in, not part of normal CI.
+The repository pins Rust 1.95.0. Maintainers can verify the complete workspace with `cargo fmt --check`, `cargo test --locked --workspace --all-targets`, and `cargo clippy --locked --workspace --all-targets -- -D warnings`. For a narrower check of the real-wallet tooling, run `cargo test --locked -p shieldspec-fuzz -p shieldspec-zcash-runner --all-targets`. Historical upstream compilation remains opt-in for local development; a separate [automatic Zallet discovery workflow](.github/workflows/zallet-auto-discovery.yml) tests both pinned revisions in CI.
 
 **Scope:** no real signing, broadcast, user seed phrases, custody, anonymity score, or universal privacy guarantee. See [privacy limitations](docs/privacy-model.md).

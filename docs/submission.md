@@ -39,7 +39,7 @@ An identical test-only witness creates a real Zcash wallet proposal and calls Za
 | Ironwood note → Ironwood change (control) | Accepted | Accepted |
 | Actual `cargo test` | Exit 101: 2 pass, 1 deliberately failing privacy assertion | Exit 0: all 3 pass |
 
-The [pinned source, exact full revisions, test SHA-256, reproducibility command, raw logs and verdict](../evidence/historical-zallet-677/README.md) are supplied. **This is an independently reproduced, previously disclosed and fixed Zcash wallet-core bug**, not a newly discovered flaw and not a claim that the general ShieldSpec fuzzer automatically found it. No production code was patched in either checkout.
+The [original pinned historical witness, exact Git revisions, test hashes, raw logs and verdict](../evidence/historical-zallet-677/README.md) remain preserved. **New technical proof:** ShieldSpec's normal differential fuzzer now independently executes two compiled Zallet `FullPrivacy` policy runners through an explicit dynamic scenario family. In a verified three-case seed-2026 run, both control pairs agreed; ordinal 2 produced `wallet_policy_difference`, with the corrected baseline rejecting and historically affected candidate accepting. The shrinker reduced the true proposal from 102,837 input / 11,590 fee to **2 input / 1 fee** without losing the actual policy difference; saved replay reported `wallet_policy_difference_reproduced`, `recorded_rule_reproduced: true` and `provenance_verified: true`. [Run and audit the exact workflow](zallet-auto-discovery.md). This rediscovered **previously disclosed and fixed** Zcash wallet-core behavior; it is not a novel vulnerability. Neither checkout's production privacy logic was modified.
 
 Separately, the [librustzcash#2614 historical SDK test](../evidence/historical-2614/README.md) reproduces a transparent send-max **correctness**, rather than privacy, difference (`PaymentPoolsMismatch` before fix; passing afterward). The expanded corpus also exercises the documented [librustzcash#3133](https://github.com/zcash/librustzcash/issues/3133) mixed Sapling/Orchard input-selection case as an availability/correctness regression, **not** a newly discovered privacy leak. These are supporting engineering context, not the historical Zallet privacy proof.
 
@@ -65,6 +65,8 @@ cargo test --locked --workspace --all-targets
 cargo clippy --locked --workspace --all-targets -- -D warnings
 python3 -m unittest discover -s scripts/tests -v
 python3 scripts/reproduce_zallet_677.py --output evidence/historical-zallet-677/results
+# For the independently compiled general-fuzzer discovery and replay:
+# see docs/zallet-auto-discovery.md
 python3 scripts/reproduce_librustzcash_2614.py --output evidence/historical-2614/results
 ```
 

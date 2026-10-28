@@ -187,6 +187,6 @@ The discovery rule is not a hardcoded historical bug detector.
   generic detection/minimization/replay machinery; it is not evidence of an upstream Zcash bug.
 - Wallet policy enforcement must be executed by the independently built wallet runner.
   Merely labeling a ShieldSpec assessment as a wallet decision is invalid.
-- No historical bypass-reproduction experiment is included here.
+- The separate [historical Zallet #677 automatic discovery](zallet-auto-discovery.md) now runs real `FullPrivacy` policy code from two pinned, independently compiled wallet-core revisions. Two controls agree, the historical Ironwood→Sapling difference is detected, and its minimized scenario replays under SHA-linked provenance. This was already reported and fixed upstream.
 - A clean run means only that no configured snapshot regression or comparable observed
   decision difference was detected for the scenarios exercised.

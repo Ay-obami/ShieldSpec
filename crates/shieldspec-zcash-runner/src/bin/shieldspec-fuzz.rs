@@ -188,7 +188,7 @@ fn effective_scenario_family(
 ) -> Result<ScenarioFamily, String> {
     match (scenario_family, transparent_funding) {
         (ScenarioFamily::Ironwood | ScenarioFamily::ZalletPrivacy, true) => Err(
-            "--transparent-funding cannot be combined with --scenario-family ironwood".to_owned(),
+            "--transparent-funding cannot be combined with --scenario-family ironwood or zallet-privacy".to_owned(),
         ),
         (ScenarioFamily::Legacy, true) => Ok(ScenarioFamily::Transparent),
         (family, _) => Ok(family),

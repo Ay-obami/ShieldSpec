@@ -20,12 +20,13 @@ class ProductDocumentationTests(unittest.TestCase):
         self.assertIn("intentionally injected", text.lower())
         self.assertIn("GitHub Action", text)
 
-    def test_roadmap_makes_automatic_historical_discovery_a_future_target(self):
+    def test_roadmap_documents_verified_historical_auto_discovery_and_remaining_limits(self):
         text = (ROOT / "docs/roadmap.md").read_text()
         self.assertIn("Available", text)
         self.assertIn("In progress", text)
         self.assertIn("Planned", text)
-        self.assertIn("not yet automatic", text.lower())
+        self.assertIn("zallet-auto-discovery.md", text)
+        self.assertIn("independently compiled Zallet revisions", text)
         self.assertIn("zallet#677", text)
 
 
