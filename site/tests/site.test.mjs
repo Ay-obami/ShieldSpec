@@ -308,3 +308,14 @@ test("the NU6.3 runner evidence links to a pinned source revision, not stale mai
   assert.match(url.pathname,
     /^\/Ay-obami\/ShieldSpec\/blob\/[0-9a-f]{40}\/crates\/shieldspec-zcash-runner\/tests\/scenario_generation\.rs$/);
 });
+
+test("public site documents the published v0.3.0 Action and honest runner boundaries", () => {
+  const home = html();
+  const guide = read("docs.html");
+  assert.ok(home.includes("https://github.com/marketplace/actions/shieldspec-privacy-check"));
+  assert.ok(guide.includes("uses: Ay-obami/ShieldSpec@v0.3.0"));
+  assert.ok(guide.includes("preset: zcash-sdk"));
+  assert.ok(guide.includes("preset: custom"));
+  assert.ok(guide.includes("examples/runner-adapter/README.md"));
+  assert.ok(guide.includes("Level 3 automatic wallet-runner generation remains deferred"));
+});
