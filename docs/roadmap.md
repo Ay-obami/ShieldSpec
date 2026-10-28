@@ -1,6 +1,6 @@
 # ShieldSpec product roadmap
 
-ShieldSpec is **reusable privacy-regression infrastructure for Zcash wallet developers**, not a one-off vulnerability claim. This page distinguishes code already merged into `main` from features needing further wallet integration. The [public issue tracker](https://github.com/Ay-obami/ShieldSpec/issues) and linked PRs hold review details; the historical `v0.1.0` tag predates the expanded fuzzer; the `v0.2.0` source release includes it and four workspace crates are also published to crates.io, while the composite GitHub Action remains snapshot-only.
+ShieldSpec is **reusable privacy-regression infrastructure for Zcash wallet developers**, not a one-off vulnerability claim. This page distinguishes code already merged into `main` from features needing further wallet integration. The [public issue tracker](https://github.com/Ay-obami/ShieldSpec/issues) and linked PRs hold review details; the historical `v0.1.0` tag predates the expanded fuzzer; the `v0.2.0` source release includes it and four workspace crates published to crates.io; the `v0.3.0` Action/source release adds opt-in differential CI. The Rust runner-adapter starter and validator are available from `main` after merged PR #55, not from the immutable `v0.3.0` tag.
 
 ## Available on main
 
@@ -8,7 +8,7 @@ ShieldSpec is **reusable privacy-regression infrastructure for Zcash wallet deve
 | --- | --- |
 | Privacy policy core and normalized proposal model | Explicit proposal-level transparent exposure, routing and related invariants |
 | Snapshot CLI | `check`, `diff`, human/JSON/SARIF and 0/1/2 exit status |
-| GitHub Action (`v0.2.0`; older `v0.1.0`) | Baseline-versus-candidate snapshot privacy check; does **not** spin up a wallet |
+| GitHub Action (`v0.3.0`) | Snapshot mode by default; opt-in differential CI using the pinned SDK negative control or developer-supplied compatible wallet runners |
 | Deterministic real proposal harness and controlled demo | Isolated synthetic chain and wallet state; real Zcash SDK proposal construction, baseline/candidate processes, replay and deliberate fault injection |
 
 The [GitHub Pages site](https://ay-obami.github.io/ShieldSpec/) is publicly reachable and its `site/` source plus historical Zallet evidence are now in `main`. The site is an **interactive read-only explorer**, not a browser-hosted SDK fuzzer. New site copy will only become public after the corresponding GitHub Pages deployment succeeds.
@@ -39,14 +39,18 @@ The observed decision-difference engine is **generic** and the Orchard-only SDK 
 
 The original implementation and release-presentation tickets [#35](https://github.com/Ay-obami/ShieldSpec/issues/35), [#36](https://github.com/Ay-obami/ShieldSpec/issues/36), [#37](https://github.com/Ay-obami/ShieldSpec/issues/37), and [#41](https://github.com/Ay-obami/ShieldSpec/issues/41) were audited and closed on October 28, 2026, with code and CI evidence linked in their closing comments. The onboarding [#39](https://github.com/Ay-obami/ShieldSpec/issues/39) and initial site [#38](https://github.com/Ay-obami/ShieldSpec/issues/38) are also closed. No currently open issue should be inferred from these historical links.
 
-The remaining work is **new integration and release work**, not unfinished acceptance criteria of those tickets:
+The remaining work is **adoption and maintenance**, not unfinished acceptance criteria of those tickets. The differential Action and Rust runner starter are already implemented:
 
 - **Independent adoption:** Have a wallet/SDK integrator execute the documented commands on a clean environment and provide actionable feedback.
 - **New wallet-policy adapters:** Extend beyond the pinned Zallet historical `FullPrivacy` adapter and SDK Orchard-only spend restriction; do not synthesize policy verdicts from static snapshot findings.
 - **Broader differential coverage:** Compare truly different compatible SDK/wallet builds and add replayable regression cases for verified differences.
-- **Release readiness:** Review the post-`v0.1.0` API/protocol changes, crate packaging and consumer compatibility before publishing another tag; see [release-readiness audit](release-readiness.md).
+- **Developer adoption:** Collect independent feedback on the [Rust starter](../examples/runner-adapter/README.md) and [GitHub Action setup](github-action.md); its synthetic control does not substitute for testing a real wallet. The historical [release-readiness audit](release-readiness.md) remains available for packaging and compatibility context.
 
 The [developer website](https://ay-obami.github.io/ShieldSpec/) is already published. Its content and uptime remain ongoing maintenance rather than an uncompleted initial deployment.
+
+## Deferred: Level 3 automation
+
+Automatic detection and generation of wallet-specific runners is intentionally **deferred**. Level 1 (the built-in SDK control) and Level 2 (developer-provided runners, Rust adapter starter, protocol preflight and CI recipe) are the supported direction today. Generated or custom adapters must never fabricate a wallet-policy success.
 
 ## Planned after integration
 

@@ -1,6 +1,6 @@
 # Get started with ShieldSpec
 
-ShieldSpec is a local, pre-signing privacy-regression tool for Zcash proposal snapshots. The snapshot CLI, real-wallet policy-verdict comparison, four-case NU6.3 generator, and expanded transparent-funding scenarios are available on `main` after merged PRs #42 and #43.
+ShieldSpec is a local, pre-signing privacy-regression tool for Zcash proposal snapshots. The snapshot CLI, real-wallet policy-verdict comparison, four-case NU6.3 generator, and expanded transparent-funding scenarios are available on `main`. The `v0.3.0` GitHub Action supports snapshot gates and opt-in differential CI; see [GitHub Action setup](github-action.md). The Rust runner starter and preflight validator were merged to `main` in PR #55 and are not part of the older `v0.3.0` tag.
 
 You will first check committed fixtures, then (optionally) compile the real Zcash SDK runner and compare observed wallet-policy decisions. **Neither workflow signs or broadcasts transactions, and success is not an anonymity guarantee.**
 
