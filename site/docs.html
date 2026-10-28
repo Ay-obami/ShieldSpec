@@ -127,17 +127,27 @@ python3 scripts/verify_zallet_auto_discovery.py \
 
           <section class="docs-section" id="ci-integration">
             <div class="docs-step-label">AUTOMATION</div>
-            <h2>Gate snapshot changes in GitHub Actions</h2>
-            <p>Add the lightweight action to a job <strong>after checking out your repository</strong>. This checks your own normalized proposal fixtures; it does not build or fuzz an SDK wallet. Replace the example baseline/candidate paths with your repository's generated snapshot files.</p>
+            <h2>Run ShieldSpec in GitHub Actions</h2>
+            <p>The published <a href="https://github.com/marketplace/actions/shieldspec-privacy-check" target="_blank" rel="noopener noreferrer">ShieldSpec Privacy Check on GitHub Marketplace</a> supports both snapshot checks and opt-in differential fuzzing at <code>v0.3.0</code>. Snapshot mode is the default: after checking out your repository, it checks normalized proposal fixtures without building or fuzzing an SDK wallet. Replace these example paths with your own files.</p>
             <div class="command-card"><div class="command-header"><span>GITHUB ACTIONS JOB STEPS</span><button class="copy-button" type="button" data-copy-target="docs-ci">Copy ↗</button></div><pre id="docs-ci" tabindex="0" aria-label="ShieldSpec GitHub Actions example"><code>- uses: actions/checkout@v4
 - name: Check proposal privacy regression
-  uses: Ay-obami/ShieldSpec@6abf7995bbf629e1f66219c4322e252b1dc70b3b
+  uses: Ay-obami/ShieldSpec@v0.3.0
   with:
     baseline: fixtures/shielded-payment.json
     candidate: fixtures/transparent-change.json
     policy: standard
     format: sarif</code></pre></div>
-            <p class="docs-outcome"><strong>Heads-up:</strong> The sample candidate intentionally contains transparent change, so this example fails with exit <code>2</code>. For a real CI gate, use your own approved baseline and current candidate snapshot. See the <a href="https://github.com/Ay-obami/ShieldSpec/blob/main/docs/ci-integration.md" target="_blank" rel="noopener noreferrer">complete integration guide</a>.</p>
+            <p class="docs-outcome"><strong>Heads-up:</strong> The sample candidate intentionally contains transparent change, so this example fails with exit <code>2</code>. For a real CI gate, use your approved baseline and current candidate snapshot.</p>
+            <p>For a first differential CI run, change the Action step to the following SDK <strong>negative control</strong>. It builds and compares the same pinned Zcash SDK runner against itself; it does <strong>not</strong> test your wallet or establish cross-version agreement.</p>
+            <div class="command-card"><div class="command-header"><span>OPT-IN DIFFERENTIAL CI</span><button class="copy-button" type="button" data-copy-target="docs-ci-differential">Copy ↗</button></div><pre id="docs-ci-differential" tabindex="0" aria-label="ShieldSpec differential GitHub Actions example"><code>- uses: actions/checkout@v4
+- name: Explore SDK differential control
+  uses: Ay-obami/ShieldSpec@v0.3.0
+  with:
+    mode: differential
+    preset: zcash-sdk
+    seed: '148'
+    cases: '2'</code></pre></div>
+            <p>To compare independent wallet versions, select <code>preset: custom</code> and supply two executable, protocol-compatible runner paths built by your workflow. ShieldSpec does not automatically build arbitrary wallets. Start with the <a href="https://github.com/Ay-obami/ShieldSpec/blob/main/examples/runner-adapter/README.md" target="_blank" rel="noopener noreferrer">Rust runner-adapter starter and preflight</a> on <code>main</code>, then follow the <a href="https://github.com/Ay-obami/ShieldSpec/blob/main/docs/github-action.md" target="_blank" rel="noopener noreferrer">v0.3.0 Action guide</a> or <a href="https://github.com/Ay-obami/ShieldSpec/blob/main/docs/ci-integration.md" target="_blank" rel="noopener noreferrer">full CI integration guide</a>. The starter is newer than the immutable <code>v0.3.0</code> tag; Level 3 automatic wallet-runner generation remains deferred.</p>
           </section>
 
           <section class="docs-section" id="exit-codes">
