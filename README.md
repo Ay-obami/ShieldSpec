@@ -182,7 +182,19 @@ The Action runs the snapshot CLI only; it does **not** build or fuzz a wallet. I
 
 `v0.2.0` is the source tag for the expanded differential fuzzer and four published crates.io packages (`shieldspec-core`, `shieldspec-testkit`, `shieldspec-cli`, and `shieldspec-zcash`), but its composite Action still runs **only** the snapshot check. Build the fuzzer from source following [CI integration](docs/ci-integration.md). The older `v0.1.0` tag predates these additions; neither tag tracks the moving `main` branch.
 
-The next Action upgrade adds an **opt-in differential CI mode** with two paths: a first-party `zcash-sdk` negative-control preset for quick exploration, or `custom` runners built by wallet developers for real implementation comparisons. See the [new Action examples](docs/ci-integration.md#differential-action-first-party-sdk-exploration). This feature is under development and **is not part of the immutable `v0.2.0` Action tag**.
+The **`v0.3.0` GitHub Action/source release** adds opt-in differential CI while keeping snapshot mode as the default. It provides a first-party `zcash-sdk` **negative-control** preset for quick exploration and `custom` runners built by wallet developers for actual implementation comparisons:
+
+```yaml
+- name: Explore ShieldSpec SDK differential CI
+  uses: Ay-obami/ShieldSpec@v0.3.0
+  with:
+    mode: differential
+    preset: zcash-sdk
+    seed: '148'
+    cases: '2'
+```
+
+This preset compares the same pinned SDK runner against itself; it is **not** a test of your wallet or a cross-version discovery. See [custom runner and artifact integration](docs/ci-integration.md#differential-action-custom-wallet-runners). The `v0.3.0` tag distributes GitHub source/Action functionality, not new crates.io packages (those remain `0.2.0`).
 
 ## Project layout and development
 

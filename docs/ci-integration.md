@@ -1,6 +1,6 @@
 # Developer integration and CI
 
-Start with the [quickstart](getting-started.md). The immutable `v0.2.0` Action remains snapshot-only. The opt-in differential Action described below is available on this feature branch until its own reviewed release is tagged; pin its exact reviewed commit to adopt it. See [release readiness](release-readiness.md) before treating a moving branch as a release.
+Start with the [quickstart](getting-started.md). The immutable `v0.2.0` Action remains snapshot-only. Use `Ay-obami/ShieldSpec@v0.3.0` for the opt-in differential Action or snapshot checks; security-sensitive consumers can pin the full immutable commit SHA behind that tag. The GitHub Action/source release is versioned separately from the crates.io packages, which remain `0.2.0`.
 
 ## Rust integration: inspect before signing
 
@@ -61,11 +61,11 @@ This known candidate exits `2`. In a multi-step CI job, use `if: always()` for r
 
 ## Differential Action: first-party SDK exploration
 
-On the reviewed differential Action commit (not `v0.2.0`), developers can try the SDK runner without writing an adapter:
+With `v0.3.0` (not the snapshot-only `v0.2.0`), developers can try the SDK runner without writing an adapter:
 
 ```yaml
 - name: ShieldSpec SDK differential control
-  uses: Ay-obami/ShieldSpec@<reviewed-full-commit-sha>
+  uses: Ay-obami/ShieldSpec@v0.3.0
   with:
     mode: differential
     preset: zcash-sdk
@@ -81,7 +81,7 @@ Compile two [protocol-compatible runners](runner-protocol-contract.md) in preced
 
 ```yaml
 - name: ShieldSpec wallet differential
-  uses: Ay-obami/ShieldSpec@<reviewed-full-commit-sha>
+  uses: Ay-obami/ShieldSpec@v0.3.0
   with:
     mode: differential
     preset: custom
