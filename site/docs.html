@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Use ShieldSpec to check Zcash proposal privacy, compare real SDK wallet builds, replay differential findings, and integrate privacy regression gates into CI.">
+  <meta name="theme-color" content="#f8f9fb">
+  <title>Developer guide — ShieldSpec</title>
+  <link rel="stylesheet" href="./styles.css?v=clarity-20261028">
+  <script src="./app.js?v=clarity-20261028" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="site-shell">
+    <header class="site-header">
+      <div class="container header-inner">
+        <a class="wordmark" href="./index.html" aria-label="ShieldSpec home"><span class="brand-icon" aria-hidden="true"><svg viewBox="0 0 38 42" fill="none"><path d="M19 2 35 8v12c0 10-6.3 16.3-16 20C9.3 36.3 3 30 3 20V8L19 2Z" stroke="currentColor" stroke-width="2"/><path d="m11 21 6 6 11-13" stroke="currentColor" stroke-width="2.5"/></svg></span><span>shield<span class="wordmark-accent">spec</span><span class="wordmark-mark">/</span></span></a>
+        <nav class="nav-links" aria-label="Main navigation"><a href="./index.html#how-it-works">How it works</a><a href="./index.html#findings">Evidence</a><a href="./docs.html" aria-current="page">Developer guide</a></nav>
+        <a class="header-action" href="https://github.com/Ay-obami/ShieldSpec" target="_blank" rel="noopener noreferrer">GitHub <span aria-hidden="true">↗</span></a>
+      </div>
+    </header>
+
+    <main id="main" class="docs-main">
+      <section class="docs-hero">
+        <div class="container">
+          <p class="section-kicker">DOCUMENTATION / HANDS-ON SETUP</p>
+          <h1>Get from installation to a replayable privacy check.</h1>
+          <p class="docs-lede">ShieldSpec is a local developer tool for <strong>testing privacy behavior before a Zcash transaction is signed</strong>. Start by inspecting known proposal fixtures, then run the real Zcash SDK against controlled wallet states. When two compatible wallet versions disagree, the differential fuzzer can minimize the input and save a reproducible finding.</p>
+          <div class="docs-hero-actions"><a class="button primary" href="#prerequisites">Follow the guide</a><a class="button text-action" href="https://github.com/Ay-obami/ShieldSpec/blob/main/docs/getting-started.md" target="_blank" rel="noopener noreferrer">View source documentation ↗</a></div>
+          <p class="docs-safety">Test-only synthetic data. No wallet seed phrase, funded account, signing, or broadcasting required.</p>
+        </div>
+      </section>
+
+      <div class="container docs-layout">
+        <aside class="docs-sidebar" aria-label="Developer guide contents">
+          <p class="docs-sidebar-label">ON THIS PAGE</p>
+          <nav aria-label="Guide sections"><a href="#prerequisites">Before you start</a><a href="#snapshot-check">1. Check a snapshot</a><a href="#real-sdk">2. Run the real SDK</a><a href="#compare-builds">3. Compare wallet builds</a><a href="#zallet-proof">4. Reproduce the Zallet proof</a><a href="#ci-integration">5. Add a CI gate</a><a href="#exit-codes">Exit codes</a><a href="#troubleshooting">Troubleshooting</a></nav>
+          <div class="docs-sidebar-note">New to the project? Start with the snapshot CLI; it builds faster than the full SDK harness.</div>
+        </aside>
+
+        <div class="docs-content">
+          <section class="docs-section" id="prerequisites">
+            <div class="docs-step-label">START HERE</div>
+            <h2>Before you start</h2>
+            <p>Install Git and the Rust toolchain. The repository pins <strong>Rust 1.95.0</strong> through <code>rust-toolchain.toml</code>. Your first build needs an internet connection to download dependencies. The real SDK runner takes more time and disk space than the lightweight snapshot checker.</p>
+            <div class="command-card"><div class="command-header"><span>CLONE AND VERIFY</span><button class="copy-button" type="button" data-copy-target="docs-clone">Copy ↗</button></div><pre id="docs-clone" tabindex="0" aria-label="Clone ShieldSpec and verify Rust"><code>git clone https://github.com/Ay-obami/ShieldSpec.git
+cd ShieldSpec
+rustc --version</code></pre></div>
+            <p class="docs-note">Run the commands below from the repository root. Keep <code>--locked</code> so your dependency graph matches the committed lockfile.</p>
+          </section>
+
+          <section class="docs-section" id="snapshot-check">
+            <div class="docs-step-label">PATH 01 / FASTEST START</div>
+            <h2>Check a snapshot, then compare two</h2>
+            <p>A <strong>proposal snapshot</strong> describes observable facts about a proposed transaction—for example, whether change would go to a transparent address. ShieldSpec's lightweight CLI checks those facts against configured rules. It does not need a live wallet.</p>
+            <h3>First, verify a known-good fixture</h3>
+            <div class="command-card"><div class="command-header"><span>SNAPSHOT CHECK</span><button class="copy-button" type="button" data-copy-target="docs-check">Copy ↗</button></div><pre id="docs-check" tabindex="0" aria-label="Check a known-good proposal"><code>cargo run --locked -p shieldspec-cli -- \
+  check --input fixtures/shielded-payment.json \
+  --policy standard --format human</code></pre></div>
+            <p class="docs-outcome"><strong>Expected:</strong> The fixture passes the configured privacy rules and exits <code>0</code>.</p>
+            <h3>Next, compare the clean proposal with transparent change</h3>
+            <div class="command-card"><div class="command-header"><span>DIFFERENTIAL SNAPSHOT CHECK</span><button class="copy-button" type="button" data-copy-target="docs-diff">Copy ↗</button></div><pre id="docs-diff" tabindex="0" aria-label="Compare two proposal snapshots"><code>cargo run --locked -p shieldspec-cli -- \
+  diff --baseline fixtures/shielded-payment.json \
+  --candidate fixtures/transparent-change.json \
+  --policy standard --format human</code></pre></div>
+            <p class="docs-outcome"><strong>Expected:</strong> <code>SS003_TRANSPARENT_CHANGE</code> and exit <code>2</code>. This deliberately failing fixture teaches you what a regression report looks like; it is not a newly discovered Zcash flaw.</p>
+          </section>
+
+          <section class="docs-section" id="real-sdk">
+            <div class="docs-step-label">PATH 02 / REAL WALLET PROPOSAL MACHINERY</div>
+            <h2>Execute a controlled Zcash SDK campaign</h2>
+            <p>The SDK runner creates synthetic in-memory wallet state, uses the actual Zcash proposal-construction code, then normalizes the result. Here we compare the <em>same runner against itself</em>, so it is a negative control: it demonstrates plumbing and policy observations, not cross-version compatibility.</p>
+            <div class="command-card"><div class="command-header"><span>BUILD AND RUN A TWO-CASE CONTROL</span><button class="copy-button" type="button" data-copy-target="docs-sdk-basic">Copy ↗</button></div><pre id="docs-sdk-basic" tabindex="0" aria-label="Run real SDK negative control"><code>cargo build --locked -p shieldspec-zcash-runner --bins
+target/debug/shieldspec-fuzz fuzz \
+  --baseline-runner target/debug/shieldspec-zcash-runner \
+  --candidate-runner target/debug/shieldspec-zcash-runner \
+  --seed 148 --cases 2 --format human</code></pre></div>
+            <p class="docs-outcome"><strong>Expected:</strong> <code>no_regression_found</code>, exit <code>0</code>. Wallet-policy counts are zero unless you explicitly enable a named spend policy.</p>
+            <h3>Observe four real Orchard-only spend-policy decisions</h3>
+            <p>This campaign covers Orchard or Sapling funding, before or at NU6.3 activation. The same named SDK policy is observed on both sides. Two Orchard-funded scenarios are accepted; two Sapling-funded scenarios are rejected—equivalent verdicts across identical runners.</p>
+            <div class="command-card"><div class="command-header"><span>NU6.3 FOUR-CASE POLICY CONTROL</span><button class="copy-button" type="button" data-copy-target="docs-sdk-ironwood">Copy ↗</button></div><pre id="docs-sdk-ironwood" tabindex="0" aria-label="Run four-case Ironwood wallet policy control"><code>target/debug/shieldspec-fuzz fuzz \
+  --baseline-runner target/debug/shieldspec-zcash-runner \
+  --candidate-runner target/debug/shieldspec-zcash-runner \
+  --baseline-arg=--wallet-spend-policy --baseline-arg=orchard-only \
+  --candidate-arg=--wallet-spend-policy --candidate-arg=orchard-only \
+  --scenario-family ironwood --seed 2026 --cases 4 --format json</code></pre></div>
+            <p class="docs-outcome"><strong>Expected:</strong> <code>status: no_regression_found</code>, <code>cases_executed: 4</code>, and baseline, candidate, and comparable policy observation counts of <code>4</code>. The named <code>zcash_spend_orchard_only_v1</code> spend-source policy is <strong>different</strong> from historical Zallet <code>FullPrivacy</code>.</p>
+          </section>
+
+          <section class="docs-section" id="compare-builds">
+            <div class="docs-step-label">PATH 03 / INDEPENDENT VERSIONS</div>
+            <h2>Compare your own wallet builds and replay a difference</h2>
+            <p>For actual regression detection, compile <strong>two independent, protocol-compatible runner executables</strong> against the versions you intend to compare. Supply the same scenarios and the same explicitly implemented policy name on both sides. Do not infer a wallet's policy decision solely from a snapshot warning.</p>
+            <div class="command-card"><div class="command-header"><span>TEMPLATE — REPLACE BOTH RUNNER PATHS</span><button class="copy-button" type="button" data-copy-target="docs-independent">Copy ↗</button></div><pre id="docs-independent" tabindex="0" aria-label="Compare two independent wallet builds"><code>target/debug/shieldspec-fuzz fuzz \
+  --baseline-runner /path/to/baseline-runner \
+  --candidate-runner /path/to/candidate-runner \
+  --seed 148 --cases 25 --policy standard \
+  --save /path/to/discovery.json --format json</code></pre></div>
+            <p class="docs-outcome"><strong>Important:</strong> This is a template, not a runnable copy-paste command until you replace the executable paths. A discovery file is created <em>only if</em> the engine finds a stable differential and revalidates its minimized case.</p>
+            <div class="command-card"><div class="command-header"><span>REPLAY A SAVED DIFFERENCE</span><button class="copy-button" type="button" data-copy-target="docs-replay">Copy ↗</button></div><pre id="docs-replay" tabindex="0" aria-label="Replay a saved differential discovery"><code>target/debug/shieldspec-fuzz replay \
+  --input /path/to/discovery.json --format json</code></pre></div>
+            <p>A saved discovery records the original and minimized scenarios, executable hashes, runner arguments, and observed differences. Replay checks that provenance before reporting whether the same result was reproduced. A changed binary or missing policy observation is an <strong>operational error</strong>, not proof of privacy.</p>
+          </section>
+
+          <section class="docs-section" id="zallet-proof">
+            <div class="docs-step-label">VERIFIED UPSTREAM HISTORY</div>
+            <h2>Reproduce the historical Zallet #677 case</h2>
+            <p>ShieldSpec's general fuzzer automatically detected a <em>real historical FullPrivacy decision difference</em> by invoking two independently compiled, pinned versions of Zallet. The affected code accepted an Ironwood-to-Sapling proposal; the corrected code rejected it. The fuzzer minimized and replayed that difference. It was already <a href="https://github.com/zcash/zallet/pull/677" target="_blank" rel="noopener noreferrer">documented and fixed upstream</a>—this is a proven regression-test capability, <strong>not a new vulnerability disclosure</strong>.</p>
+            <p>This heavier optional path needs Python 3, Git, Rust 1.95.0, network access, native build dependencies, and extra disk space for upstream compilation. From the repo root:</p>
+            <div class="command-card"><div class="command-header"><span>BUILD PINNED ZALLET POLICY RUNNERS &amp; VERIFY</span><button class="copy-button" type="button" data-copy-target="docs-zallet">Copy ↗</button></div><pre id="docs-zallet" tabindex="0" aria-label="Reproduce pinned Zallet automatic discovery"><code>python3 scripts/build_zallet_policy_runners.py \
+  --output-dir /tmp/shieldspec-zallet-auto \
+  --manifest /tmp/shieldspec-zallet-auto/manifest.json \
+  --cargo-target-dir /tmp/shieldspec-zallet-auto-cargo
+
+python3 scripts/make_zallet_immutable_launchers.py \
+  --manifest /tmp/shieldspec-zallet-auto/manifest.json \
+  --output-dir /tmp/shieldspec-zallet-auto/launchers
+
+cargo build --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz
+
+python3 scripts/verify_zallet_auto_discovery.py \
+  --fuzzer target/debug/shieldspec-fuzz \
+  --manifest /tmp/shieldspec-zallet-auto/manifest.json \
+  --output-dir /tmp/shieldspec-zallet-auto/evidence</code></pre></div>
+            <p class="docs-outcome"><strong>Expected:</strong> Two agreeing controls, then a genuine historical verdict difference automatically found in the third case, with minimized evidence and verified replay. Inspect the committed <a href="https://github.com/Ay-obami/ShieldSpec/blob/main/docs/zallet-auto-discovery.md" target="_blank" rel="noopener noreferrer">full reproduction guide</a> and the <a href="https://github.com/Ay-obami/ShieldSpec/actions/runs/40616469538" target="_blank" rel="noopener noreferrer">successful CI run</a>.</p>
+          </section>
+
+          <section class="docs-section" id="ci-integration">
+            <div class="docs-step-label">AUTOMATION</div>
+            <h2>Gate snapshot changes in GitHub Actions</h2>
+            <p>Add the lightweight action to a job <strong>after checking out your repository</strong>. This checks your own normalized proposal fixtures; it does not build or fuzz an SDK wallet. Replace the example baseline/candidate paths with your repository's generated snapshot files.</p>
+            <div class="command-card"><div class="command-header"><span>GITHUB ACTIONS JOB STEPS</span><button class="copy-button" type="button" data-copy-target="docs-ci">Copy ↗</button></div><pre id="docs-ci" tabindex="0" aria-label="ShieldSpec GitHub Actions example"><code>- uses: actions/checkout@v4
+- name: Check proposal privacy regression
+  uses: Ay-obami/ShieldSpec@6abf7995bbf629e1f66219c4322e252b1dc70b3b
+  with:
+    baseline: fixtures/shielded-payment.json
+    candidate: fixtures/transparent-change.json
+    policy: standard
+    format: sarif</code></pre></div>
+            <p class="docs-outcome"><strong>Heads-up:</strong> The sample candidate intentionally contains transparent change, so this example fails with exit <code>2</code>. For a real CI gate, use your own approved baseline and current candidate snapshot. See the <a href="https://github.com/Ay-obami/ShieldSpec/blob/main/docs/ci-integration.md" target="_blank" rel="noopener noreferrer">complete integration guide</a>.</p>
+          </section>
+
+          <section class="docs-section" id="exit-codes">
+            <div class="docs-step-label">INTERPRETING RESULTS</div>
+            <h2>Exit codes and evidence</h2>
+            <div class="control-table-wrap docs-table-wrap" role="region" aria-label="ShieldSpec exit codes" tabindex="0"><table class="control-table"><thead><tr><th scope="col">Exit</th><th scope="col">Meaning</th><th scope="col">What to do</th></tr></thead><tbody><tr><th scope="row">0</th><td>No configured failing finding or comparable difference</td><td>Review coverage and policy names before treating this as a clean result.</td></tr><tr><th scope="row">1</th><td>Input, runner, protocol, or operational error</td><td>Fix the environment or command. This is not a wallet privacy verdict.</td></tr><tr><th scope="row">2</th><td>Privacy-rule finding or actual named wallet-policy difference</td><td>Inspect both verdicts, policy names, minimized case, and replay. Not every difference is a leak.</td></tr></tbody></table></div>
+            <p>ShieldSpec cannot prove that a transaction is anonymous. It tests only the configured properties of the proposals and wallet-policy decisions your campaign exercised.</p>
+          </section>
+
+          <section class="docs-section" id="troubleshooting">
+            <div class="docs-step-label">WHEN THINGS DO NOT MATCH</div>
+            <h2>Troubleshooting</h2>
+            <div class="docs-faq"><details><summary>I get exit 2 on the introductory fixture.</summary><p>That is expected for <code>fixtures/transparent-change.json</code>. The fixture intentionally introduces transparent change; use the first known-good <code>check</code> command to confirm a passing run.</p></details><details><summary>I see zero comparable wallet-policy cases.</summary><p>You may be running snapshot-only mode. Both runners need an actual observed policy with the same name; enable the opt-in <code>--wallet-spend-policy orchard-only</code> arguments on both runners when exercising the SDK control.</p></details><details><summary>My saved discovery will not replay.</summary><p>Replay verifies executable hashes and recorded arguments. Restore the original compatible runner binaries, check the saved JSON path, and use the matching scenario family. A changed binary is an error, not a clean privacy result.</p></details><details><summary>Do I need a wallet, funds, or network access to test?</summary><p>No funded wallet or private key is required. The runner builds synthetic test state. Network access is needed to fetch Rust dependencies and historical source versions during setup, not to sign or broadcast transactions.</p></details></div>
+            <p class="docs-end-links"><a class="text-link" href="https://github.com/Ay-obami/ShieldSpec/blob/main/docs/privacy-model.md" target="_blank" rel="noopener noreferrer">Privacy model ↗</a><a class="text-link" href="https://github.com/Ay-obami/ShieldSpec/blob/main/docs/wallet-policy-observations.md" target="_blank" rel="noopener noreferrer">Runner protocol ↗</a><a class="text-link" href="https://github.com/Ay-obami/ShieldSpec/issues" target="_blank" rel="noopener noreferrer">Report an issue ↗</a></p>
+          </section>
+          <p id="copy-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
+        </div>
+      </div>
+    </main>
+    <footer class="site-footer"><div class="container footer-inner"><span class="footer-mark">shield<span>spec</span>/</span><span>Open-source Zcash developer tooling.</span><div><a href="./index.html">Home</a><a href="https://github.com/Ay-obami/ShieldSpec">GitHub</a><a href="#main">Back to top ↑</a></div></div></footer>
+  </div>
+</body>
+</html>

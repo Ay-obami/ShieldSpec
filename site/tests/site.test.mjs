@@ -9,6 +9,29 @@ const css = () => read("styles.css");
 const js = () => read("app.js");
 const cases = () => JSON.parse(read("data/cases.json"));
 
+test("developer docs link opens a complete on-site, copyable CLI guide", () => {
+  assert.match(html(), /href="\.\/docs\.html"/);
+  const guide = read("docs.html");
+  assert.match(guide, /<main\b/);
+  assert.match(guide, /Rust 1\.95\.0/);
+  assert.match(guide, /cargo run --locked -p shieldspec-cli/);
+  assert.match(guide, /shieldspec-fuzz fuzz/);
+  assert.match(guide, /shieldspec-fuzz replay/);
+  assert.match(guide, /zcash\/zallet\/pull\/677/);
+  assert.match(guide, /actions\/checkout@/);
+  assert.match(guide, /Exit codes/);
+  assert.match(guide, /expected.*exit.*2|exit.*2.*expected/i);
+  assert.match(guide, /<script src="\.\/app\.js\?/);
+  assert.match(guide, /href="\.\/styles\.css\?v=clarity-20261028"/);
+  const ids = new Set([...guide.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]));
+  const targets = [...guide.matchAll(/data-copy-target="([^"]+)"/g)].map((match) => match[1]);
+  assert.ok(targets.length >= 3, "The guide needs multiple directly copyable workflows");
+  for (const target of targets) assert.ok(ids.has(target), `Broken docs copy target: ${target}`);
+  for (const [, anchor] of guide.matchAll(/href="#([^"]+)"/g)) {
+    assert.ok(ids.has(anchor), `Broken docs section link: #${anchor}`);
+  }
+});
+
 test("a real public product page has metadata, main landmark, and working section ids", () => {
   const page = html();
   for (const token of ["<title>ShieldSpec", 'name="description"', 'name="viewport"', "<main", 'id="how-it-works"', 'id="findings"', 'id="quickstart"', 'id="integrations"', 'id="roadmap"']) {
@@ -45,8 +68,8 @@ test("the redesign uses flat gold and charcoal instead of green surfaces or grad
 
 test("published site requests versioned CSS and JS to avoid mixing the new markup with cached old assets", () => {
   const page = html();
-  assert.match(page, /href="\.\/styles\.css\?v=gold-20261028"/);
-  assert.match(page, /src="\.\/app\.js\?v=gold-20261028"/);
+  assert.match(page, /href="\.\/styles\.css\?v=clarity-20261028"/);
+  assert.match(page, /src="\.\/app\.js\?v=clarity-20261028"/);
 });
 
 test("sparse hero presents real historical policy comparison with a path to proof", () => {
@@ -59,6 +82,41 @@ test("sparse hero presents real historical policy comparison with a path to proo
   assert.match(hero, /REJECTED/);
   assert.match(hero, /#findings/);
   assert.doesNotMatch(hero, /injected-fault demo|hero-footnote|hero-bottom|hero-glow/);
+});
+
+test("first-time visitor can identify the input, comparison, and actionable output from the homepage", () => {
+  const page = html();
+  const hero = page.split('class="hero section"')[1].split('class="section problem-section"')[0];
+  assert.match(hero, /transaction proposals/i);
+  assert.match(hero, /baseline/i);
+  assert.match(hero, /candidate/i);
+  assert.match(hero, /privacy-policy/i);
+  assert.match(hero, /replay/i);
+  assert.match(page, /What ShieldSpec checks/);
+  assert.match(page, /transparent change/i);
+  assert.match(page, /cross-pool/i);
+  assert.match(page, /receiver/i);
+  assert.match(page, /named wallet-policy verdict/i);
+  assert.match(page, /runner (?:hashes|provenance)/i);
+});
+
+test("important site copy and controls never fall below readable type sizes", () => {
+  const styles = css();
+  const selectors = [
+    ".nav-links a", ".hero-lede", ".terminal-body", ".terminal-row code",
+    ".problem-card p", ".workflow-step p", ".detail-note", ".section-description",
+    ".case-tab", ".case-panel > p", ".case-meta b", ".compare-panel code",
+    ".provenance", ".policy-proof p", ".text-link", ".command-card pre",
+    ".command-caption", ".roadmap-list p", ".faq-list p", ".copy-button"
+  ];
+  for (const selector of selectors) {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const rules = [...styles.matchAll(new RegExp(`(?:^|\\n)[^\\n{}]*${escaped}[^{}]*\\{([^}]*)\\}`, "g"))];
+    assert.ok(rules.length, `Missing critical selector: ${selector}`);
+    const sizes = rules.flatMap((rule) => [...rule[1].matchAll(/(?:font-size:\s*|font:\s*(?:\d+\s+)?)(\d+)px/g)].map((match) => Number(match[1])));
+    assert.ok(sizes.length, `Missing explicit font size: ${selector}`);
+    assert.ok(sizes.every((size) => size >= 14), `Too-small critical text in ${selector}: ${sizes.join(", ")}`);
+  }
 });
 
 test("accessible native controls and fail-honest demo copy", () => {
