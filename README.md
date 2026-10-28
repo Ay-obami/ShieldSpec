@@ -182,7 +182,7 @@ The Action runs the snapshot CLI only; it does **not** build or fuzz a wallet. I
 
 `v0.2.0` is the source tag for the expanded differential fuzzer and four published crates.io packages (`shieldspec-core`, `shieldspec-testkit`, `shieldspec-cli`, and `shieldspec-zcash`), but its composite Action still runs **only** the snapshot check. Build the fuzzer from source following [CI integration](docs/ci-integration.md). The older `v0.1.0` tag predates these additions; neither tag tracks the moving `main` branch.
 
-The **`v0.3.0` GitHub Action/source release** adds opt-in differential CI while keeping snapshot mode as the default. It provides a first-party `zcash-sdk` **negative-control** preset for quick exploration and `custom` runners built by wallet developers for actual implementation comparisons:
+The **`v0.3.0` GitHub Action/source release** adds opt-in differential CI while keeping snapshot mode as the default. For a compact installation guide and accurate feature boundaries, see [GitHub Action setup](docs/github-action.md). It provides a first-party `zcash-sdk` **negative-control** preset for quick exploration and `custom` runners built by wallet developers for actual implementation comparisons:
 
 ```yaml
 - name: Explore ShieldSpec SDK differential CI
