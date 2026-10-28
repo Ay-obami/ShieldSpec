@@ -133,6 +133,63 @@ jobs:
           policy: standard
           format: human
 
+  action-differential:
+    name: Differential Action consumer smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        # actions/checkout v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Built-in Zcash SDK negative control
+        id: preset
+        uses: ./
+        with:
+          mode: differential
+          preset: zcash-sdk
+          seed: '148'
+          cases: '2'
+          artifact-name: shieldspec-action-sdk-control
+
+      - name: Check the built-in report
+        shell: bash
+        env:
+          CAMPAIGN_STATUS: ${{ steps.preset.outputs.status }}
+          CAMPAIGN_REPORT: ${{ steps.preset.outputs.report-path }}
+        run: |
+          test "$CAMPAIGN_STATUS" = 0
+          python3 -m json.tool "$CAMPAIGN_REPORT" > /dev/null
+
+      - name: Controlled custom runner differential
+        id: custom
+        continue-on-error: true
+        uses: ./
+        with:
+          mode: differential
+          preset: custom
+          baseline-runner: target/debug/shieldspec-fuzz
+          candidate-runner: target/debug/shieldspec-fuzz
+          baseline-args: runner
+          candidate-args: |
+            runner
+            --demo-regression
+            transparent-change
+          cases: '1'
+          seed: '148'
+          artifact-name: shieldspec-action-custom-difference
+
+      - name: Verify custom evidence and result
+        if: always()
+        shell: bash
+        env:
+          CAMPAIGN_STATUS: ${{ steps.custom.outputs.status }}
+          CAMPAIGN_REPORT: ${{ steps.custom.outputs.report-path }}
+          CAMPAIGN_DISCOVERY: ${{ steps.custom.outputs.discovery-path }}
+        run: |
+          test "$CAMPAIGN_STATUS" = 2
+          python3 -m json.tool "$CAMPAIGN_REPORT" > /dev/null
+          python3 -m json.tool "$CAMPAIGN_DISCOVERY" > /dev/null
+
 
   real-proposal-runner:
     name: Real Zcash proposal runner

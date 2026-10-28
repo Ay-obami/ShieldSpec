@@ -1,6 +1,6 @@
 # Developer integration and CI
 
-Start with the [quickstart](getting-started.md). These examples target `main` after PRs #42 and #43, not necessarily the older `v0.1.0` release. Pin the reviewed commit you actually test when adopting the Action. The checked-in composite `action.yml` is the same as at `v0.1.0`: it runs **only** snapshot `check`/`diff`, even when referenced from current `main`. See [release readiness](release-readiness.md) before treating newer source features as released.
+Start with the [quickstart](getting-started.md). The immutable `v0.2.0` Action remains snapshot-only. The opt-in differential Action described below is available on this feature branch until its own reviewed release is tagged; pin its exact reviewed commit to adopt it. See [release readiness](release-readiness.md) before treating a moving branch as a release.
 
 ## Rust integration: inspect before signing
 
@@ -37,7 +37,7 @@ jobs:
           format: human
 ```
 
-Set `baseline` to compare rather than assess one snapshot. Paths are relative to the caller's `GITHUB_WORKSPACE` (absolute paths also work). `policy` accepts `standard` or `strict`; `format` accepts `human`, `json`, or `sarif`. The Action installs Rust 1.95.0 and compiles the snapshot CLI with `--locked`; it does not build a wallet, generate proposals, or run fuzzing. Its `status` output is `0` for pass, `1` for an operational error, or `2` for a configured privacy failure. Nonzero status fails the step.
+Set `baseline` to compare rather than assess one snapshot. Paths are relative to the caller's `GITHUB_WORKSPACE` (absolute paths also work). `policy` accepts `standard` or `strict`; snapshot `format` accepts `human`, `json`, or `sarif`. Default `mode: snapshot` installs Rust 1.95.0 and compiles the snapshot CLI with `--locked`. Its `status` output is `0` for pass, `1` for an operational error, or `2` for a configured privacy failure. Nonzero status fails the step.
 
 For an intentionally failing regression and an assertion on `steps.regression.outputs.status`, copy the repository's [Action demo workflow](../.github/workflows/shieldspec-demo.yml). Do not use `continue-on-error` on your production gate unless another step explicitly enforces the result.
 
@@ -59,7 +59,43 @@ exit "$status"
 
 This known candidate exits `2`. In a multi-step CI job, use `if: always()` for report preservation, and keep the original gate's failure. An optional code-scanning upload requires a separately configured uploader, the relevant repository support, and its permissions; generating SARIF alone does not publish alerts.
 
-## Differential campaigns are a separate gate
+## Differential Action: first-party SDK exploration
+
+On the reviewed differential Action commit (not `v0.2.0`), developers can try the SDK runner without writing an adapter:
+
+```yaml
+- name: ShieldSpec SDK differential control
+  uses: Ay-obami/ShieldSpec@<reviewed-full-commit-sha>
+  with:
+    mode: differential
+    preset: zcash-sdk
+    seed: '148'
+    cases: '2'
+```
+
+The Action builds the pinned ShieldSpec SDK runner and compares **the same implementation against itself**. This is a deterministic *negative control* and onboarding check—not a test of the caller's wallet, a cross-version comparison, or a discovered privacy defect. Its machine-readable campaign report is uploaded as a `shieldspec-differential` artifact. Choose a unique `artifact-name` when invoking the Action more than once per job.
+
+## Differential Action: custom wallet runners
+
+Compile two [protocol-compatible runners](runner-protocol-contract.md) in preceding CI steps, then reference their executable paths relative to the caller workspace:
+
+```yaml
+- name: ShieldSpec wallet differential
+  uses: Ay-obami/ShieldSpec@<reviewed-full-commit-sha>
+  with:
+    mode: differential
+    preset: custom
+    baseline-runner: target/baseline/wallet-runner
+    candidate-runner: target/candidate/wallet-runner
+    scenario-family: legacy
+    seed: '2026'
+    cases: '25'
+    artifact-name: shieldspec-wallet-differential
+```
+
+Optional `baseline-args` and `candidate-args` accept **one argument per line**, preserving spaces without shell interpretation. The Action produces a JSON report and uploads a minimized `discovery.json` when a stable difference is found; its `report-path`, `discovery-path` and `status` outputs are available to downstream steps. Exit `2` fails the gate after artifact preservation. This is a behavioral difference requiring review, not automatically a vulnerability. The Action does not build third-party wallet source or run wallet signing/broadcasting itself; runners supplied by a caller remain that caller's responsibility.
+
+## Differential campaigns from source
 
 Build `cargo build --locked -p shieldspec-zcash-runner --bins`, then follow the [campaign and replay commands](getting-started.md#2-run-a-real-sdk-differential-campaign). Use independently compiled, protocol-compatible baseline and candidate runners for an actual revision comparison; identical binaries are only a control. Keep their bytes, exact arguments, build revisions and lockfiles with the result. `--baseline-sdk` and `--candidate-sdk` are declared labels, not source verification.
 
