@@ -58,7 +58,7 @@ fn zallet_privacy_probe_wire_schema_is_strict_and_balanced() {
     let unknown_field = r#"{"kind":"zallet_privacy_probe","params":{"input_pool":"ironwood","change_pool":"sapling","input_zat":20000,"fee_zat":10000,"verdict":"accepted"}}"#;
     assert!(serde_json::from_str::<Scenario>(unknown_field).is_err());
     for (input_zat, fee_zat) in [
-        (0, 0),
+        (0u64, 0u64),
         (10, 0),
         (10, 10),
         (10, 11),
