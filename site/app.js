@@ -27,13 +27,12 @@
     setText("after-sha", example.after.revision.slice(0, 12));
     setVerdict("before-verdict", example.before.verdict);
     setVerdict("after-verdict", example.after.verdict);
-    setText(
-      "case-provenance",
-      "This is a " + example.kind + " using previously documented upstream behavior. " +
-      (example.discoveredByShieldSpec
-        ? "See reproduction evidence and exact runner provenance."
-        : "It was not a new vulnerability or automatically discovered by ShieldSpec's general fuzzer.")
-    );
+    setText("case-provenance", example.discoveredByShieldSpec
+      ? "Automatically rediscovered with real pinned Zallet policy runners by ShieldSpec's general fuzzer; " +
+        "minimized and replay verified. Previously documented and fixed upstream—not a new vulnerability. " +
+        (example.minimizedCase || "")
+      : "Independent historical control: both real pinned Zallet revisions agreed on this verdict. " +
+        "The original issue was already documented and fixed upstream—not a new vulnerability.");
     for (const tab of tabs) {
       const selected = tab.dataset.caseId === example.id;
       tab.setAttribute("aria-selected", String(selected));
