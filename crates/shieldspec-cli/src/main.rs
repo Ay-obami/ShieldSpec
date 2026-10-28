@@ -1,6 +1,7 @@
 mod reporter;
 
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command as ProcessCommand, ExitCode};
 
@@ -29,10 +30,21 @@ struct Cli {
 enum Command {
     /// Run a built-in snapshot example (not a test of your wallet).
     Try,
+    /// Initialize a runnable snapshot negative control in the current directory.
+    Init,
+    /// Replay a saved discovery with the provenance-verifying differential engine.
+    Replay {
+        input: PathBuf,
+        #[arg(long, default_value = "shieldspec.toml")]
+        config: PathBuf,
+    },
     /// Test a project using its shieldspec.toml configuration.
     Test {
         #[arg(long, default_value = "shieldspec.toml")]
         config: PathBuf,
+        /// Require a configured differential comparison of compatible wallet runners.
+        #[arg(long)]
+        compare: bool,
     },
     /// Check one proposal snapshot against a privacy policy.
     Check {
@@ -140,7 +152,9 @@ fn execute(command: Command) -> Result<ExitCode, String> {
             println!("next: create shieldspec.toml and run `shieldspec test`.");
             Ok(privacy_exit(result.passes))
         }
-        Command::Test { config } => execute_project_test(&config),
+        Command::Init => execute_init(),
+        Command::Replay { input, config } => execute_replay(&input, &config),
+        Command::Test { config, compare } => execute_project_test(&config, compare),
         Command::Check {
             input,
             policy,
@@ -202,7 +216,7 @@ struct ProjectTesting {
     scenario_family: Option<String>,
 }
 
-fn execute_project_test(config_path: &Path) -> Result<ExitCode, String> {
+fn execute_project_test(config_path: &Path, require_compare: bool) -> Result<ExitCode, String> {
     let contents = fs::read_to_string(config_path)
         .map_err(|error| format!("could not read config {}: {error}", config_path.display()))?;
     let config: ProjectConfig = toml::from_str(&contents)
@@ -224,6 +238,9 @@ fn execute_project_test(config_path: &Path) -> Result<ExitCode, String> {
             base.join(path)
         }
     };
+    if require_compare && config.comparison.mode.as_deref() != Some("differential") {
+        return Err("--compare requires comparison.mode = \"differential\" with baseline_runner and candidate_runner in shieldspec.toml; no wallet runners are generated automatically".to_owned());
+    }
     if config.comparison.mode.as_deref() == Some("differential") {
         return run_configured_fuzzer(config, base);
     }
@@ -326,6 +343,91 @@ fn run_configured_fuzzer(config: ProjectConfig, base: &Path) -> Result<ExitCode,
         2 => Ok(ExitCode::from(2)),
         _ => Ok(ExitCode::from(1)),
     }
+}
+
+fn execute_replay(input: &Path, config_path: &Path) -> Result<ExitCode, String> {
+    let fuzzer = if config_path.exists() {
+        let contents = fs::read_to_string(config_path)
+            .map_err(|error| format!("could not read config {}: {error}", config_path.display()))?;
+        let config: ProjectConfig = toml::from_str(&contents)
+            .map_err(|error| format!("invalid config {}: {error}", config_path.display()))?;
+        let binary = config
+            .comparison
+            .fuzzer_binary
+            .unwrap_or_else(|| PathBuf::from("shieldspec-fuzz"));
+        if binary.components().count() == 1 || binary.is_absolute() {
+            binary
+        } else {
+            config_path
+                .parent()
+                .unwrap_or_else(|| Path::new("."))
+                .join(binary)
+        }
+    } else {
+        PathBuf::from("shieldspec-fuzz")
+    };
+    let output = ProcessCommand::new(&fuzzer)
+        .arg("replay")
+        .arg("--input")
+        .arg(input)
+        .output()
+        .map_err(|error| format!(
+            "could not launch fuzzer {}: {error}; build shieldspec-fuzz or set comparison.fuzzer_binary in shieldspec.toml",
+            fuzzer.display()
+        ))?;
+    print!("{}", String::from_utf8_lossy(&output.stdout));
+    eprint!("{}", String::from_utf8_lossy(&output.stderr));
+    match output.status.code().unwrap_or(1) {
+        0 => Ok(ExitCode::SUCCESS),
+        2 => Ok(ExitCode::from(2)),
+        _ => Ok(ExitCode::from(1)),
+    }
+}
+
+fn execute_init() -> Result<ExitCode, String> {
+    let filenames = ["shieldspec.toml", "baseline.json", "candidate.json"];
+    for name in filenames {
+        if Path::new(name).exists() {
+            return Err(format!(
+                "cannot initialize: {name} already exists; ShieldSpec will not overwrite project files"
+            ));
+        }
+    }
+
+    let snapshot = shieldspec_testkit::fixture("shielded-payment")
+        .ok_or_else(|| "built-in fixture unavailable".to_owned())?;
+    let mut json = serde_json::to_string_pretty(&snapshot)
+        .map_err(|error| format!("could not serialize built-in snapshot: {error}"))?;
+    json.push('\n');
+    let config = "# ShieldSpec snapshot negative control; replace the JSON files with your own data.\n# This example does not exercise a wallet or verify anonymity.\n[comparison]\nmode = \"snapshot\"\nbaseline = \"baseline.json\"\ncandidate = \"candidate.json\"\n\n[testing]\npolicy = \"standard\"\n";
+    let mut created = Vec::new();
+    for (name, contents) in [
+        ("shieldspec.toml", config),
+        ("baseline.json", json.as_str()),
+        ("candidate.json", json.as_str()),
+    ] {
+        let result = (|| {
+            let mut file = OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(name)
+                .map_err(|error| format!("cannot create {name} without overwriting: {error}"))?;
+            created.push(name);
+            file.write_all(contents.as_bytes())
+                .map_err(|error| format!("cannot write {name}: {error}"))
+        })();
+        if let Err(error) = result {
+            for path in created {
+                let _ = fs::remove_file(path);
+            }
+            return Err(error);
+        }
+    }
+    println!("Initialized ShieldSpec snapshot example in the current directory.");
+    println!("next: run `shieldspec test` to check the bundled negative control.");
+    println!("note: this is a self-control snapshot check, not your wallet; it does not run differential fuzzing or prove anonymity.");
+    println!("for real wallet comparisons, configure two independent compatible runner executables and run `shieldspec test --compare`.");
+    Ok(ExitCode::SUCCESS)
 }
 
 fn execute_fixture(command: FixtureCommand) -> Result<ExitCode, String> {

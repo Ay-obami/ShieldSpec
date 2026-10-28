@@ -41,11 +41,11 @@
         <div class="docs-content">
           <section class="docs-section" id="quick-try">
             <div class="docs-step-label">FASTEST PATH</div>
-            <h2>Try ShieldSpec with one command</h2>
-            <p>Install the published CLI v0.4.0 and run the quickstart. It uses a bundled, known-good <strong>snapshot fixture</strong>, not your wallet or a live differential campaign.</p>
+            <h2>Start with a few short commands</h2>
+            <p><strong>v0.5 preview:</strong> project initialization, comparison, and short replay are still under development on the feature branch; the published CLI v0.4.0 currently offers <code>try</code> and configured <code>test</code>. Build the v0.5 branch from source to use the new commands. The bundled example is a <strong>snapshot negative control</strong>, not your wallet or a live differential campaign.</p>
             <div class="command-card"><div class="command-header"><span>BUILT-IN SNAPSHOT CONTROL</span><button class="copy-button" type="button" data-copy-target="docs-quick-try">Copy ↗</button></div><pre id="docs-quick-try" tabindex="0" aria-label="Run ShieldSpec built-in snapshot example"><code>cargo install shieldspec-cli --version 0.4.0 --locked
 shieldspec try</code></pre></div>
-            <p class="docs-outcome"><strong>Expected:</strong> <code>status: PASS</code> and <code>findings: 0</code>. For a reusable one-command project check, see <a href="https://github.com/Ay-obami/ShieldSpec/blob/main/docs/simple-workflows.md" target="_blank" rel="noopener noreferrer">snapshot and differential configuration examples</a> using <code>shieldspec test</code>.</p>
+            <p class="docs-outcome"><strong>Expected:</strong> <code>status: PASS</code> and <code>findings: 0</code>. In the v0.5 preview, run <code>shieldspec init</code> followed by <code>shieldspec test</code> to create and check an explicitly synthetic project control. For a reusable project check, see <a href="https://github.com/Ay-obami/ShieldSpec/blob/main/docs/simple-workflows.md" target="_blank" rel="noopener noreferrer">snapshot and differential configuration examples</a> using <code>shieldspec test</code>.</p>
           </section>
 
           <section class="docs-section" id="prerequisites">
@@ -55,59 +55,42 @@ shieldspec try</code></pre></div>
             <div class="command-card"><div class="command-header"><span>CLONE AND VERIFY</span><button class="copy-button" type="button" data-copy-target="docs-clone">Copy ↗</button></div><pre id="docs-clone" tabindex="0" aria-label="Clone ShieldSpec and verify Rust"><code>git clone https://github.com/Ay-obami/ShieldSpec.git
 cd ShieldSpec
 rustc --version</code></pre></div>
-            <p class="docs-note">Run the commands below from the repository root. Keep <code>--locked</code> so your dependency graph matches the committed lockfile.</p>
+            <p class="docs-note">For the v0.5 preview, build the CLI with <code>cargo build --locked -p shieldspec-cli</code> and invoke <code>target/debug/shieldspec</code> where these examples say <code>shieldspec</code>. The fuzzer and SDK runners need a separate source build. Use <code>--locked</code> for reproducible dependency resolution.</p>
           </section>
 
           <section class="docs-section" id="snapshot-check">
             <div class="docs-step-label">PATH 01 / FASTEST START</div>
             <h2>Check a snapshot, then compare two</h2>
             <p>A <strong>proposal snapshot</strong> describes observable facts about a proposed transaction—for example, whether change would go to a transparent address. ShieldSpec's lightweight CLI checks those facts against configured rules. It does not need a live wallet.</p>
-            <h3>First, verify a known-good fixture</h3>
-            <div class="command-card"><div class="command-header"><span>SNAPSHOT CHECK</span><button class="copy-button" type="button" data-copy-target="docs-check">Copy ↗</button></div><pre id="docs-check" tabindex="0" aria-label="Check a known-good proposal"><code>cargo run --locked -p shieldspec-cli -- \
-  check --input fixtures/shielded-payment.json \
-  --policy standard --format human</code></pre></div>
-            <p class="docs-outcome"><strong>Expected:</strong> The fixture passes the configured privacy rules and exits <code>0</code>.</p>
-            <h3>Next, compare the clean proposal with transparent change</h3>
-            <div class="command-card"><div class="command-header"><span>DIFFERENTIAL SNAPSHOT CHECK</span><button class="copy-button" type="button" data-copy-target="docs-diff">Copy ↗</button></div><pre id="docs-diff" tabindex="0" aria-label="Compare two proposal snapshots"><code>cargo run --locked -p shieldspec-cli -- \
-  diff --baseline fixtures/shielded-payment.json \
-  --candidate fixtures/transparent-change.json \
-  --policy standard --format human</code></pre></div>
-            <p class="docs-outcome"><strong>Expected:</strong> <code>SS003_TRANSPARENT_CHANGE</code> and exit <code>2</code>. This deliberately failing fixture teaches you what a regression report looks like; it is not a newly discovered Zcash flaw.</p>
+            <h3>First, create a starter project</h3>
+            <div class="command-card"><div class="command-header"><span>SNAPSHOT CHECK</span><button class="copy-button" type="button" data-copy-target="docs-check">Copy ↗</button></div><pre id="docs-check" tabindex="0" aria-label="Check a known-good proposal"><code>shieldspec init
+shieldspec test</code></pre></div>
+            <p class="docs-outcome"><strong>Expected:</strong> Initial <code>PASS</code>, exit <code>0</code>. The files created by <code>init</code> are identical test fixtures, <strong>not data from your wallet</strong>. Replace them with real normalized proposals to check your own project.</p>
+            <h3>Next, compare your project snapshots</h3>
+            <div class="command-card"><div class="command-header"><span>DIFFERENTIAL SNAPSHOT CHECK</span><button class="copy-button" type="button" data-copy-target="docs-diff">Copy ↗</button></div><pre id="docs-diff" tabindex="0" aria-label="Compare two proposal snapshots"><code>shieldspec test</code></pre></div>
+            <p class="docs-outcome"><strong>Expected:</strong> A clean snapshot comparison exits <code>0</code>. If your candidate adds transparent change, ShieldSpec reports <code>SS003_TRANSPARENT_CHANGE</code> and exits <code>2</code>. The known intentionally failing fixture remains in the <a href="https://github.com/Ay-obami/ShieldSpec/blob/main/docs/getting-started.md" target="_blank" rel="noopener noreferrer">advanced guide</a>.</p>
           </section>
 
           <section class="docs-section" id="real-sdk">
             <div class="docs-step-label">PATH 02 / REAL WALLET PROPOSAL MACHINERY</div>
             <h2>Execute a controlled Zcash SDK campaign</h2>
-            <p>The SDK runner creates synthetic in-memory wallet state, uses the actual Zcash proposal-construction code, then normalizes the result. Here we compare the <em>same runner against itself</em>, so it is a negative control: it demonstrates plumbing and policy observations, not cross-version compatibility.</p>
+            <p>The SDK runner creates synthetic in-memory wallet state, uses the actual Zcash proposal-construction code, then normalizes the result. Build the runner and fuzzer from source, then set <code>mode = "differential"</code>, <code>fuzzer_binary</code>, <code>baseline_runner</code>, and <code>candidate_runner</code> in <code>shieldspec.toml</code>; see the <a href="https://github.com/Ay-obami/ShieldSpec/blob/main/docs/simple-workflows.md" target="_blank" rel="noopener noreferrer">sample config</a>. Comparing the <em>same runner against itself</em> is a negative control, not proof of cross-version compatibility.</p>
             <div class="command-card"><div class="command-header"><span>BUILD AND RUN A TWO-CASE CONTROL</span><button class="copy-button" type="button" data-copy-target="docs-sdk-basic">Copy ↗</button></div><pre id="docs-sdk-basic" tabindex="0" aria-label="Run real SDK negative control"><code>cargo build --locked -p shieldspec-zcash-runner --bins
-target/debug/shieldspec-fuzz fuzz \
-  --baseline-runner target/debug/shieldspec-zcash-runner \
-  --candidate-runner target/debug/shieldspec-zcash-runner \
-  --seed 148 --cases 2 --format human</code></pre></div>
+shieldspec test --compare</code></pre></div>
             <p class="docs-outcome"><strong>Expected:</strong> <code>no_regression_found</code>, exit <code>0</code>. Wallet-policy counts are zero unless you explicitly enable a named spend policy.</p>
             <h3>Observe four real Orchard-only spend-policy decisions</h3>
-            <p>This campaign covers Orchard or Sapling funding, before or at NU6.3 activation. The same named SDK policy is observed on both sides. Two Orchard-funded scenarios are accepted; two Sapling-funded scenarios are rejected—equivalent verdicts across identical runners.</p>
-            <div class="command-card"><div class="command-header"><span>NU6.3 FOUR-CASE POLICY CONTROL</span><button class="copy-button" type="button" data-copy-target="docs-sdk-ironwood">Copy ↗</button></div><pre id="docs-sdk-ironwood" tabindex="0" aria-label="Run four-case Ironwood wallet policy control"><code>target/debug/shieldspec-fuzz fuzz \
-  --baseline-runner target/debug/shieldspec-zcash-runner \
-  --candidate-runner target/debug/shieldspec-zcash-runner \
-  --baseline-arg=--wallet-spend-policy --baseline-arg=orchard-only \
-  --candidate-arg=--wallet-spend-policy --candidate-arg=orchard-only \
-  --scenario-family ironwood --seed 2026 --cases 4 --format json</code></pre></div>
+            <p>Configure <code>scenario_family = "ironwood"</code>, <code>cases = 4</code>, <code>seed = 2026</code>, and the <code>orchard-only</code> policy runner arguments using the <a href="https://github.com/Ay-obami/ShieldSpec/blob/main/docs/simple-workflows.md" target="_blank" rel="noopener noreferrer">sample TOML</a>. This campaign covers Orchard or Sapling funding around NU6.3 activation. Two Orchard-funded scenarios are accepted and two Sapling-funded scenarios rejected—equivalent verdicts across identical runners.</p>
+            <div class="command-card"><div class="command-header"><span>NU6.3 FOUR-CASE POLICY CONTROL</span><button class="copy-button" type="button" data-copy-target="docs-sdk-ironwood">Copy ↗</button></div><pre id="docs-sdk-ironwood" tabindex="0" aria-label="Run four-case Ironwood wallet policy control"><code>shieldspec test --compare</code></pre></div>
             <p class="docs-outcome"><strong>Expected:</strong> <code>status: no_regression_found</code>, <code>cases_executed: 4</code>, and baseline, candidate, and comparable policy observation counts of <code>4</code>. The named <code>zcash_spend_orchard_only_v1</code> spend-source policy is <strong>different</strong> from historical Zallet <code>FullPrivacy</code>.</p>
           </section>
 
           <section class="docs-section" id="compare-builds">
             <div class="docs-step-label">PATH 03 / INDEPENDENT VERSIONS</div>
             <h2>Compare your own wallet builds and replay a difference</h2>
-            <p>For actual regression detection, compile <strong>two independent, protocol-compatible runner executables</strong> against the versions you intend to compare. Supply the same scenarios and the same explicitly implemented policy name on both sides. Do not infer a wallet's policy decision solely from a snapshot warning.</p>
-            <div class="command-card"><div class="command-header"><span>TEMPLATE — REPLACE BOTH RUNNER PATHS</span><button class="copy-button" type="button" data-copy-target="docs-independent">Copy ↗</button></div><pre id="docs-independent" tabindex="0" aria-label="Compare two independent wallet builds"><code>target/debug/shieldspec-fuzz fuzz \
-  --baseline-runner /path/to/baseline-runner \
-  --candidate-runner /path/to/candidate-runner \
-  --seed 148 --cases 25 --policy standard \
-  --save /path/to/discovery.json --format json</code></pre></div>
-            <p class="docs-outcome"><strong>Important:</strong> This is a template, not a runnable copy-paste command until you replace the executable paths. A discovery file is created <em>only if</em> the engine finds a stable differential and revalidates its minimized case.</p>
-            <div class="command-card"><div class="command-header"><span>REPLAY A SAVED DIFFERENCE</span><button class="copy-button" type="button" data-copy-target="docs-replay">Copy ↗</button></div><pre id="docs-replay" tabindex="0" aria-label="Replay a saved differential discovery"><code>target/debug/shieldspec-fuzz replay \
-  --input /path/to/discovery.json --format json</code></pre></div>
+            <p>For actual regression detection, compile <strong>two independent, protocol-compatible runner executables</strong> against the versions you intend to compare, then put their paths in <code>shieldspec.toml</code>. The fuzzer binary must also be available; ShieldSpec does not generate wallet adapters. Supply the same scenarios and explicitly implemented policy on both sides. Do not infer a wallet's policy decision solely from a snapshot warning.</p>
+            <div class="command-card"><div class="command-header"><span>TEMPLATE — REPLACE BOTH RUNNER PATHS</span><button class="copy-button" type="button" data-copy-target="docs-independent">Copy ↗</button></div><pre id="docs-independent" tabindex="0" aria-label="Compare two independent wallet builds"><code>shieldspec test --compare</code></pre></div>
+            <p class="docs-outcome"><strong>Important:</strong> Configure real runner paths and any required arguments first. This command is not a wallet audit until both compatible runners are integrated. A discovery file is created <em>only if</em> the engine finds a stable differential and revalidates its minimized case; use the <a href="https://github.com/Ay-obami/ShieldSpec/blob/main/docs/getting-started.md" target="_blank" rel="noopener noreferrer">advanced CLI</a> when you need explicit save paths or generator options.</p>
+            <div class="command-card"><div class="command-header"><span>REPLAY A SAVED DIFFERENCE</span><button class="copy-button" type="button" data-copy-target="docs-replay">Copy ↗</button></div><pre id="docs-replay" tabindex="0" aria-label="Replay a saved differential discovery"><code>shieldspec replay discovery.json</code></pre></div>
             <p>A saved discovery records the original and minimized scenarios, executable hashes, runner arguments, and observed differences. Replay checks that provenance before reporting whether the same result was reproduced. A changed binary or missing policy observation is an <strong>operational error</strong>, not proof of privacy.</p>
           </section>
 

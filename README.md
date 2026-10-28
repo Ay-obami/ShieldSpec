@@ -4,7 +4,7 @@
 
 ShieldSpec is developer tooling, not a wallet, anonymity score, signer, or transaction broadcaster. A passing check means only that the configured properties held for the inputs exercised.
 
-- [Simple workflows](docs/simple-workflows.md): install CLI v0.4.0 and run `shieldspec try` or config-driven `shieldspec test` for snapshots and differential runners
+- [Simple workflows](docs/simple-workflows.md): short v0.5 CLI onboarding (`init`, `test`, `test --compare`, and verified `replay`); **unreleased—source build required**
 - [On-site developer guide](https://ay-obami.github.io/ShieldSpec/docs.html): guided installation, copyable commands, expected results, real SDK comparisons, historical Zallet reproduction, and CI setup
 - [Get started in the repository](docs/getting-started.md): detailed commands, expected outputs, exit codes, and CI integration
 - [Privacy model](docs/privacy-model.md): what snapshots and actual wallet-policy verdicts do—and do not—establish
@@ -20,41 +20,23 @@ Choose the workflow that fits your integration:
 
 | Need | Entry point | What it tests |
 | --- | --- | --- |
-| Check a proposal snapshot or CI fixture | `shieldspec-cli check` / `diff` or the GitHub Action | Explicit invariants on normalized proposal facts |
-| Exercise real SDK proposals locally | `shieldspec-fuzz fuzz` with `shieldspec-zcash-runner` | Deterministic synthetic wallet states and proposal construction |
-| Compare wallet/SDK revisions | `shieldspec-fuzz fuzz` with **two independently built** compatible runners | New/worsened findings and comparable named wallet-policy decisions |
-| Audit a recorded difference | `shieldspec-fuzz replay --input <discovery.json>` | Saved scenario, runner hashes, arguments, and observed result |
+| Check proposal snapshots or CI fixtures | `shieldspec init`, then `shieldspec test` (v0.5 preview); or the GitHub Action | Explicit invariants on normalized proposal facts |
+| Exercise real SDK proposals locally | `shieldspec test --compare` with configured SDK runners (v0.5 preview) | Deterministic synthetic wallet states and proposal construction |
+| Compare wallet/SDK revisions | `shieldspec test --compare` with **two independently built** compatible runners | New/worsened findings and comparable named wallet-policy decisions |
+| Audit a recorded difference | `shieldspec replay discovery.json` (v0.5 preview) | Saved scenario, runner hashes, arguments, and observed result |
 
-For fewer flags, start with the published [CLI v0.4.0 `shieldspec try` and configured `shieldspec test` workflows](docs/simple-workflows.md). The advanced `check`, `diff`, and `fixture` commands remain available. The examples below remain the stable advanced interface; consult the [getting-started guide](docs/getting-started.md) for real-runner setup.
+For fewer flags, see [simple workflows](docs/simple-workflows.md). The v0.5 shortcuts below are **under development** and are not in the published CLI 0.4.0; use a source build of the feature branch while validating the upgrade. Advanced `check`, `diff`, `fixture`, and direct fuzzer commands remain available and documented in the [technical getting-started guide](docs/getting-started.md).
 
-## Quickstart: the snapshot privacy gate
+## Quickstart: initialize a project (v0.5 preview)
 
-For the published CLI (Rust 1.95+), install version `0.4.0` from crates.io:
-
-```bash
-cargo install shieldspec-cli --version 0.4.0 --locked
-shieldspec try
-```
-
-The installed executable is `shieldspec`. `shieldspec try` runs a bundled snapshot negative control (not a wallet test); `shieldspec test` reads `shieldspec.toml`. The commands below demonstrate the advanced interface against pinned repository fixtures.
-
-With Git, Rust 1.95.0 (pinned in `rust-toolchain.toml`), and the repository cloned:
+**Published stable CLI:** With Rust 1.95+, `cargo install shieldspec-cli --version 0.4.0 --locked` followed by `shieldspec try` runs a known-good snapshot control. **v0.5 is not published yet:** build the new CLI from the feature branch as described in [simple workflows](docs/simple-workflows.md) before trying these new commands.
 
 ```bash
-git clone https://github.com/Ay-obami/ShieldSpec.git
-cd ShieldSpec
-
-cargo run --locked -p shieldspec-cli -- \
-  check --input fixtures/shielded-payment.json \
-  --policy standard --format human
-
-cargo run --locked -p shieldspec-cli -- \
-  diff --baseline fixtures/shielded-payment.json \
-  --candidate fixtures/transparent-change.json \
-  --policy standard --format human
+shieldspec init
+shieldspec test
 ```
 
-The first command passes. The second reports `SS003_TRANSPARENT_CHANGE` and **intentionally exits 2**. The lightweight CLI also supports JSON and SARIF; use `--policy strict` for stricter snapshot invariants.
+`init` creates a starter `shieldspec.toml` and two identical sample snapshots. The initial PASS is a **snapshot-only negative control**, not an analysis of your wallet. Replace the sample inputs with your own normalized proposals to test real project snapshots. The older explicit `check` / `diff` commands and intentionally failing transparent-change fixture are documented in the [advanced guide](docs/getting-started.md).
 
 Exit statuses for the CLI and differential fuzzer:
 
@@ -66,36 +48,28 @@ Exit statuses for the CLI and differential fuzzer:
 
 A code 2 from a **wallet-policy decision difference** does not automatically mean a privacy regression; inspect the named policy and both verdicts.
 
-## Quickstart: real SDK differential fuzzing (on `main`)
+## Real SDK differential testing (v0.5 preview)
 
-From the same clone, build the two real-wallet binaries. No PR checkout or historical reproduction setup is required:
+First, build the fuzzer and SDK runner from source; the CLI does **not** generate arbitrary wallet adapters. Configure runner paths and matching policy arguments in `shieldspec.toml` (see [sample differential configuration](docs/simple-workflows.md#2-compare-wallet-builds)). This first-party self-comparison is a **negative control**, not a test of your wallet. From a source checkout:
 
 ```bash
 cargo build --locked -p shieldspec-zcash-runner --bins
 ```
 
-These commands exercise deterministic wallet state through the pinned Zcash SDK in local synthetic chains. A runner compared with itself is a **negative control**, not evidence that two wallet implementations agree or that a privacy defect has been found.
+These configured campaigns exercise deterministic wallet state through the pinned Zcash SDK in local synthetic chains. A runner compared with itself is a **negative control**, not evidence that two wallet implementations agree or that a privacy defect has been found.
 
-A snapshot-only real-wallet self-comparison (the runner is **not** instrumented for a wallet-policy verdict in this mode):
+For a snapshot-only self-comparison, configure both runner paths to the same executable without spend-policy arguments, then run:
 
 ```bash
-target/debug/shieldspec-fuzz fuzz \
-  --baseline-runner target/debug/shieldspec-zcash-runner \
-  --candidate-runner target/debug/shieldspec-zcash-runner \
-  --seed 148 --cases 2 --format human
+shieldspec test --compare
 ```
 
 Expect `no_regression_found`. In JSON output, all wallet-policy observation counts are `0` because neither runner was started with `--wallet-spend-policy`. This verifies only a snapshot differential control, not wallet-policy agreement.
 
-To exercise **four real SDK NU6.3 proposals** and both sides' real Orchard-only spend-policy observations:
+To exercise **four real SDK NU6.3 proposals** and both sides' Orchard-only spend-policy observations, select the `ironwood` family, `cases = 4`, `seed = 2026`, and identical `orchard-only` runner arguments in the [project config](docs/simple-workflows.md#2-compare-wallet-builds):
 
 ```bash
-target/debug/shieldspec-fuzz fuzz \
-  --baseline-runner target/debug/shieldspec-zcash-runner \
-  --candidate-runner target/debug/shieldspec-zcash-runner \
-  --baseline-arg=--wallet-spend-policy --baseline-arg=orchard-only \
-  --candidate-arg=--wallet-spend-policy --candidate-arg=orchard-only \
-  --scenario-family ironwood --seed 2026 --cases 4 --format json
+shieldspec test --compare
 ```
 
 The four ordinals cover:
@@ -109,26 +83,13 @@ The four ordinals cover:
 
 For identical runners, the expected campaign status is `no_regression_found` with all three wallet-policy observation counts (`baseline`, `candidate`, `comparable`) equal to `4`. This does **not** mean there were no per-proposal warnings: at-activation proposals can contain actual Orchard→Ironwood or Sapling→Ironwood cross-pool value balances flagged by `SS006_CROSS_SHIELDED_POOL_VALUE_BALANCE` on *both* sides. The real SDK `zcash_spend_orchard_only_v1` policy **restricts spend-source pools**; it is not Zallet `FullPrivacy`.
 
-Inspect an individual case with the same runner settings:
+For an individual seed/ordinal case or other specialized fuzzer controls, use the [advanced command reference](docs/getting-started.md#2-run-a-real-sdk-differential-campaign). For a **saved discovery**, the short verified-replay interface is:
 
 ```bash
-target/debug/shieldspec-fuzz replay \
-  --scenario-family ironwood --seed 2026 --ordinal 2 \
-  --baseline-runner target/debug/shieldspec-zcash-runner \
-  --candidate-runner target/debug/shieldspec-zcash-runner \
-  --baseline-arg=--wallet-spend-policy --baseline-arg=orchard-only \
-  --candidate-arg=--wallet-spend-policy --candidate-arg=orchard-only \
-  --format json
+shieldspec replay discovery.json
 ```
 
-PR #43 also adds real Sapling-recipient proposals, mixed Unified Address receiver selection, transparent-UTXO-funded shielded payments, fee and change accounting, fragmented-note selection, and mixed Sapling/Orchard input selection. These are **SDK-backed scenario and test coverage**, not claimed newly discovered privacy vulnerabilities. The ordinary generator retains its established replay sequence; transparent-funding cases are opt-in:
-
-```bash
-target/debug/shieldspec-fuzz fuzz \
-  --baseline-runner target/debug/shieldspec-zcash-runner \
-  --candidate-runner target/debug/shieldspec-zcash-runner \
-  --transparent-funding --seed 7523070 --cases 48 --format json
-```
+PR #43 also adds real Sapling-recipient proposals, mixed Unified Address receiver selection, transparent-UTXO-funded shielded payments, fee and change accounting, fragmented-note selection, and mixed Sapling/Orchard input selection. These are **SDK-backed scenario and test coverage**, not claimed newly discovered privacy vulnerabilities. The ordinary generator retains its established replay sequence; transparent-funding cases remain opt-in through the [advanced fuzzer reference](docs/wallet-policy-observations.md). `shieldspec test --compare` by itself uses its configured scenario family and does **not** enable `--transparent-funding`.
 
 For a seed/ordinal replay from that opt-in stream, use `replay --transparent-funding --seed ... --ordinal ...` with the same runner options. Do not combine `--transparent-funding` with `--scenario-family ironwood`; those are distinct generators. Test the real-wallet paths with:
 

@@ -1,6 +1,8 @@
-# Zecathon demo storyboard
+# Historical demo storyboard and reproducibility
 
-For supporting narration and scene timing, see [the submission notes](submission.md) and [current browser-first script](demo-video-script.md). This technical storyboard uses runnable commands from merged `main`; it does not depend on a hosted video. The [developer website](https://ay-obami.github.io/ShieldSpec/) and its [hands-on guide](https://ay-obami.github.io/ShieldSpec/docs.html) explain the tool and display committed evidence, but the browser does not run a wallet or a live fuzzing service.
+**Developer quickstart (v0.5 preview):** Use [`shieldspec init` → `shieldspec test` → `shieldspec test --compare` → `shieldspec replay discovery.json`](simple-workflows.md) for routine workflows. The new commands are unreleased and require a feature-branch source build. The long commands below are **the exact historical recording/reproduction recipes**, not the recommended everyday CLI and not interchangeable with an unconfigured shortcut.
+
+For supporting narration and scene timing, see [the submission notes](submission.md) and [historical browser-first script](demo-video-script.md). This technical storyboard preserves the demonstrated commands from the relevant source revisions; it does not depend on a hosted video. The [developer website](https://ay-obami.github.io/ShieldSpec/) and its [hands-on guide](https://ay-obami.github.io/ShieldSpec/docs.html) explain the tool and display committed evidence, but the browser does not run a wallet or a live fuzzing service.
 
 Keep three demonstrations distinct: (1) the **historical Zallet automatic rediscovery** runs independently compiled, pinned upstream `FullPrivacy` implementations through ShieldSpec's general fuzzer; (2) the **controlled injected fault** deterministically proves the generic detection, minimization and replay path; and (3) the **real SDK self-comparison** proves that the runner executes genuine Orchard-only wallet input selection. None is a newly discovered upstream vulnerability.
 
@@ -89,9 +91,9 @@ cargo run --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz -- \
 
 It should again exit `2` and report the same new/worsened privacy rules.
 
-## 60-second real SDK control: Orchard-only spend policy
+## Advanced real SDK control: Orchard-only spend policy
 
-Build the real-wallet runner and generic differential fuzzer from `main`:
+For a new v0.5 session, configure [both runner paths and the four-case scenario in `shieldspec.toml`](simple-workflows.md#2-compare-wallet-builds), build the real-wallet runner and fuzzer, and use `shieldspec test --compare`. The exact command recorded in the historical demonstration is retained below for reproducibility. Build the real-wallet runner and generic differential fuzzer from the corresponding source revision:
 
 ```bash
 cargo build --locked -p shieldspec-zcash-runner --bins
@@ -106,7 +108,7 @@ target/debug/shieldspec-fuzz fuzz \
 
 Expect `status: "no_regression_found"` and `baseline_wallet_policy_observations`, `candidate_wallet_policy_observations`, and `comparable_wallet_policy_cases` all equal to `4`. This is a **same-runner negative control**: it observes the real pinned SDK's `zcash_spend_orchard_only_v1` verdict on both sides, not a disagreement between independently built SDK versions.
 
-Inspect the actual Sapling-funded rejection in ordinal 2:
+Inspect the actual Sapling-funded rejection in ordinal 2 with the historical seed/ordinal command below. The v0.5 `shieldspec replay discovery.json` shorthand instead replays a **saved discovery** and is not an equivalent seed/ordinal invocation:
 
 ```bash
 target/debug/shieldspec-fuzz replay \

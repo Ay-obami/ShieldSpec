@@ -365,6 +365,147 @@ fn test_rejects_missing_config_without_a_success_verdict() {
     assert!(output.stdout.is_empty());
 }
 
+fn fresh_project_directory(label: &str) -> PathBuf {
+    let dir = temp_file(label);
+    fs::create_dir(&dir).expect("create test project directory");
+    dir
+}
+
+fn run_from(dir: &Path, args: &[&str]) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_shieldspec"))
+        .current_dir(dir)
+        .args(args)
+        .output()
+        .expect("run shieldspec in project directory")
+}
+
+#[test]
+fn init_bootstraps_a_safe_self_control_and_test_runs_without_extra_flags() {
+    let dir = fresh_project_directory("init-project");
+    let initialized = run_from(&dir, &["init"]);
+    assert_eq!(
+        code(&initialized),
+        0,
+        "{}",
+        String::from_utf8_lossy(&initialized.stderr)
+    );
+    assert!(
+        stdout(&initialized).contains("not your wallet")
+            || stdout(&initialized).contains("self-control")
+    );
+    for filename in ["shieldspec.toml", "baseline.json", "candidate.json"] {
+        assert!(dir.join(filename).is_file(), "missing {filename}");
+    }
+    let config = fs::read_to_string(dir.join("shieldspec.toml")).unwrap();
+    assert!(config.contains("baseline.json"));
+    assert!(config.contains("candidate.json"));
+    let check = run_from(&dir, &["test"]);
+    assert_eq!(
+        code(&check),
+        0,
+        "{}",
+        String::from_utf8_lossy(&check.stderr)
+    );
+    assert!(stdout(&check).contains("snapshot"));
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn init_refuses_to_overwrite_existing_project_data() {
+    let dir = fresh_project_directory("init-existing");
+    fs::write(dir.join("baseline.json"), "owner data").unwrap();
+    let initialized = run_from(&dir, &["init"]);
+    assert_eq!(code(&initialized), 1);
+    assert_eq!(
+        fs::read_to_string(dir.join("baseline.json")).unwrap(),
+        "owner data"
+    );
+    assert!(!dir.join("shieldspec.toml").exists());
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn compare_flag_rejects_snapshot_configuration_instead_of_silently_running_it() {
+    let dir = fresh_project_directory("compare-snapshot");
+    let initialized = run_from(&dir, &["init"]);
+    assert_eq!(code(&initialized), 0);
+    let compared = run_from(&dir, &["test", "--compare"]);
+    assert_eq!(code(&compared), 1);
+    assert!(String::from_utf8_lossy(&compared.stderr).contains("differential"));
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn compare_flag_preserves_operational_failure_for_missing_differential_fuzzer() {
+    let dir = fresh_project_directory("compare-fuzzer");
+    fs::write(dir.join("shieldspec.toml"), "[comparison]\nmode = \"differential\"\nbaseline_runner = \"baseline\"\ncandidate_runner = \"candidate\"\nfuzzer_binary = \"nonexistent-shieldspec-fuzz-executable\"\n[testing]\ncases = 2\nseed = 2026\n").unwrap();
+    let compared = run_from(&dir, &["test", "--compare"]);
+    assert_eq!(code(&compared), 1);
+    assert!(String::from_utf8_lossy(&compared.stderr).contains("fuzzer"));
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn compare_flag_runs_configured_differential_fuzzer_and_forwards_runner_arguments() {
+    let dir = fresh_project_directory("compare-forward");
+    fs::write(dir.join("shieldspec.toml"),
+        "[comparison]\nmode = \"differential\"\nfuzzer_binary = \"/bin/echo\"\nbaseline_runner = \"baseline-wallet\"\ncandidate_runner = \"candidate-wallet\"\nbaseline_args = [\"--wallet-spend-policy\", \"orchard-only\"]\ncandidate_args = [\"--wallet-spend-policy\", \"orchard-only\"]\n[testing]\nscenario_family = \"ironwood\"\nseed = 2026\ncases = 4\n").unwrap();
+    let compared = run_from(&dir, &["test", "--compare"]);
+    assert_eq!(
+        code(&compared),
+        0,
+        "{}",
+        String::from_utf8_lossy(&compared.stderr)
+    );
+    let text = stdout(&compared);
+    assert!(text.contains("fuzz --baseline-runner"), "{text}");
+    assert!(text.contains("--candidate-runner"), "{text}");
+    assert!(text.contains("--scenario-family ironwood"), "{text}");
+    assert!(
+        text.contains("--baseline-arg=--wallet-spend-policy"),
+        "{text}"
+    );
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn replay_forwards_the_input_to_the_configured_fuzzer_without_changing_verification_mode() {
+    let dir = fresh_project_directory("replay-forward");
+    fs::write(
+        dir.join("shieldspec.toml"),
+        "[comparison]\nmode = \"differential\"\nfuzzer_binary = \"/bin/echo\"\n",
+    )
+    .unwrap();
+    fs::write(dir.join("discovery.json"), "{}").unwrap();
+    let replayed = run_from(&dir, &["replay", "discovery.json"]);
+    assert_eq!(
+        code(&replayed),
+        0,
+        "{}",
+        String::from_utf8_lossy(&replayed.stderr)
+    );
+    assert!(
+        stdout(&replayed).contains("replay --input discovery.json"),
+        "{}",
+        stdout(&replayed)
+    );
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn replay_reports_missing_fuzzer_as_an_operational_error() {
+    let dir = fresh_project_directory("replay-missing-fuzzer");
+    fs::write(
+        dir.join("shieldspec.toml"),
+        "[comparison]\nmode = \"differential\"\nfuzzer_binary = \"nonexistent-shieldspec-fuzz-executable\"\n",
+    ).unwrap();
+    fs::write(dir.join("discovery.json"), "{}").unwrap();
+    let replayed = run_from(&dir, &["replay", "discovery.json"]);
+    assert_eq!(code(&replayed), 1);
+    assert!(String::from_utf8_lossy(&replayed.stderr).contains("fuzzer"));
+    fs::remove_dir_all(dir).unwrap();
+}
+
 #[test]
 fn differential_project_config_reports_missing_fuzzer_as_an_operational_error() {
     let config = temp_file("differential.toml");
