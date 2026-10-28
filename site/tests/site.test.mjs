@@ -43,6 +43,12 @@ test("the redesign uses flat gold and charcoal instead of green surfaces or grad
   assert.match(styles, /prefers-reduced-motion/);
 });
 
+test("published site requests versioned CSS and JS to avoid mixing the new markup with cached old assets", () => {
+  const page = html();
+  assert.match(page, /href="\.\/styles\.css\?v=gold-20261028"/);
+  assert.match(page, /src="\.\/app\.js\?v=gold-20261028"/);
+});
+
 test("sparse hero presents real historical policy comparison with a path to proof", () => {
   const page = html();
   const hero = page.split('class="hero section"')[1].split('class="section problem-section"')[0];
