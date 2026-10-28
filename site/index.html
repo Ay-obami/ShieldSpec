@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="ShieldSpec is open-source privacy differential fuzzing for Zcash wallet developers. Find proposal privacy regressions, minimize them, and replay them deterministically.">
-  <meta name="theme-color" content="#080e0d">
+  <meta name="theme-color" content="#f8f9fb">
   <meta property="og:type" content="website">
   <meta property="og:title" content="ShieldSpec — Privacy regression testing for Zcash">
-  <meta property="og:description" content="Catch privacy regressions before they reach production. Real Zcash proposals, differential tests, minimized replays.">
-  <title>ShieldSpec — Catch privacy regressions before production</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath fill='%23080e0d' d='M0 0h64v64H0z'/%3E%3Cpath d='M32 6l23 9v17c0 15-10 23-23 27C19 55 9 47 9 32V15z' fill='none' stroke='%2377e7a9' stroke-width='4'/%3E%3Cpath d='M20 33l8 8 17-20' fill='none' stroke='%2377e7a9' stroke-width='5'/%3E%3C/svg%3E">
+  <meta property="og:description" content="Catch privacy regressions before they ship. Independently execute historical Zallet privacy-policy runners, detect real differences, minimize and replay evidence.">
+  <title>ShieldSpec — Catch privacy regressions before they ship</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath fill='%23f8f9fb' d='M0 0h64v64H0z'/%3E%3Cpath d='M32 6l23 9v17c0 15-10 23-23 27C19 55 9 47 9 32V15z' fill='none' stroke='%2317191f' stroke-width='4'/%3E%3Cpath d='M20 33l8 8 17-20' fill='none' stroke='%23c49336' stroke-width='5'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="./styles.css">
   <script src="./app.js" defer></script>
 </head>
@@ -24,44 +24,34 @@
         </a>
         <nav class="nav-links" aria-label="Main navigation">
           <a href="#how-it-works">How it works</a>
-          <a href="#findings">Real evidence</a>
-          <a href="#integrations">Integrations</a>
-          <a href="#roadmap">Roadmap</a>
+          <a href="#findings">Evidence</a>
+          <a href="#quickstart">Docs</a>
         </nav>
-        <a class="header-action" href="https://github.com/Ay-obami/ShieldSpec" target="_blank" rel="noopener noreferrer">View on GitHub <span aria-hidden="true">↗</span></a>
+        <a class="header-action" href="https://github.com/Ay-obami/ShieldSpec" target="_blank" rel="noopener noreferrer">GitHub <span aria-hidden="true">↗</span></a>
       </div>
     </header>
 
     <main id="main">
       <section class="hero section" id="top" aria-labelledby="hero-title">
-        <div class="hero-glow" aria-hidden="true"></div>
         <div class="container hero-grid">
           <div class="hero-copy">
-            <div class="eyebrow"><span class="pulse-dot"></span> OPEN SOURCE <span class="eyebrow-divider">/</span> ZCASH DEVELOPER TOOLING</div>
-            <h1 id="hero-title">Catch privacy regressions <em>before</em> they reach production.</h1>
-            <p class="hero-lede">A transaction can still be valid while exposing something it shouldn't. ShieldSpec tests the privacy behavior of Zcash wallet proposals across implementations—and makes differences reproducible.</p>
+            <h1 id="hero-title">Catch privacy regressions before they ship.</h1>
+            <p class="hero-lede">Differential testing for Zcash wallets.<br>Find privacy-policy changes before they reach users.</p>
             <div class="hero-actions">
-              <a class="button primary" href="#quickstart">Get started <span aria-hidden="true">↗</span></a>
-              <a class="button secondary" href="#findings">Explore a real finding <span aria-hidden="true">→</span></a>
+              <a class="button primary" href="#findings">Explore the evidence</a>
+              <a class="button text-action" href="https://github.com/Ay-obami/ShieldSpec" target="_blank" rel="noopener noreferrer">GitHub <span aria-hidden="true">↗</span></a>
             </div>
-            <p class="hero-footnote"><span class="check" aria-hidden="true">✓</span> Open-source Rust tooling <span class="dot-sep">·</span> CLI + library + GitHub Action</p>
           </div>
-          <div class="hero-demo" aria-label="Example ShieldSpec differential comparison">
-            <div class="terminal-bar"><div class="terminal-dots" aria-hidden="true"><i></i><i></i><i></i></div><span>shieldspec / injected-fault demo</span><span class="terminal-status">● example</span></div>
+          <div class="hero-demo" aria-label="Verified historical Zallet FullPrivacy differential result">
+            <div class="terminal-bar"><span>Zallet FullPrivacy · #677</span><a href="https://github.com/Ay-obami/ShieldSpec/actions/runs/40616469538" target="_blank" rel="noopener noreferrer" aria-label="View verified historical Zallet CI run">↗</a></div>
             <div class="terminal-body">
-              <p class="prompt"><span class="prompt-dollar">$</span> shieldspec-fuzz <span class="muted">demo --format human</span></p>
-              <div class="terminal-rule"></div>
-              <p><span class="line-no">01</span> <span class="term-dim">baseline</span> <span class="term-value">privacy-preserving</span></p>
-              <p><span class="line-no">02</span> <span class="term-dim">candidate</span> <span class="term-warn">transparent change introduced</span></p>
-              <p><span class="line-no">03</span> <span class="term-dim">rule</span> <span class="term-value">SS003_TRANSPARENT_CHANGE</span></p>
-              <div class="terminal-rule"></div>
-              <div class="terminal-result"><span class="result-dot"></span> PRIVACY REGRESSION DETECTED <span class="result-count">01 / 01</span></div>
-              <div class="terminal-meta"><span>Seed <b>148</b></span><span>Minimized <b>✓</b></span><span>Replay <b>ready</b></span></div>
+              <div class="terminal-row"><span class="term-dim">Affected</span><code>f496c9b</code><span class="terminal-verdict accepted">ACCEPTED</span></div>
+              <div class="terminal-row"><span class="term-dim">Corrected</span><code>e966780</code><span class="terminal-verdict rejected">REJECTED</span></div>
+              <div class="terminal-result"><span class="terminal-result-icon" aria-hidden="true">!</span> Policy difference detected</div>
+              <p class="terminal-meta">Minimized <span aria-hidden="true">·</span> Replayed <span aria-hidden="true">·</span> Verified</p>
             </div>
-            <p class="terminal-disclaimer">Demonstration: intentionally injected regression, not an upstream vulnerability discovery.</p>
           </div>
         </div>
-        <div class="container hero-bottom" aria-hidden="true"><span>ENGINEERED FOR PRIVACY INVARIANTS</span><span class="horizontal-trace"></span><span>01 / PROBLEM</span></div>
       </section>
 
       <section class="section problem-section" id="problem" aria-labelledby="problem-title">
@@ -96,7 +86,7 @@
       <section class="section evidence-section" id="findings" aria-labelledby="findings-title">
         <div class="container">
           <div class="section-kicker"><span>03</span> / EVIDENCE, NOT CLAIMS</div>
-          <div class="evidence-header"><div><h2 id="findings-title">Inspect the difference.</h2><p class="section-description">A previously documented Zallet FullPrivacy policy issue—reproduced against pinned historical code, separate from the current SDK spend-policy runner. Choose a control to inspect its before/after verdict.</p></div><a class="text-link" href="https://github.com/zcash/zallet/pull/677" target="_blank" rel="noopener noreferrer">Upstream zallet#677 ↗</a></div>
+          <div class="evidence-header"><div><h2 id="findings-title">Inspect the difference.</h2><p class="section-description">The general ShieldSpec fuzzer automatically rediscovered the previously documented Zallet FullPrivacy policy difference by executing two independently compiled, pinned upstream revisions. Choose a control to inspect the observed verdicts.</p></div><a class="text-link" href="https://github.com/Ay-obami/ShieldSpec/pull/45" target="_blank" rel="noopener noreferrer">Verified implementation ↗</a></div>
           <div class="case-explorer">
             <div class="case-tabs" id="case-tabs" role="tablist" aria-label="Historical test cases">
               <button class="case-tab is-active" id="case-tab-zallet-677" role="tab" type="button" aria-selected="true" aria-controls="case-panel" tabindex="0" data-case-id="zallet-677">Privacy-policy difference</button>
@@ -112,9 +102,10 @@
                 <div class="compare-panel"><span class="compare-label">AFFECTED HISTORICAL VERSION</span><code id="before-sha">f496c9b</code><div class="verdict is-accepted" id="before-verdict"><span aria-hidden="true">●</span> Accepted</div></div>
                 <div class="compare-panel corrected"><span class="compare-label">CORRECTED VERSION</span><code id="after-sha">e966780</code><div class="verdict is-rejected" id="after-verdict"><span aria-hidden="true">●</span> Rejected</div></div>
               </div>
-              <div class="provenance"><span>↳</span><p id="case-provenance">Historical reproduction of a documented, fixed issue. Not a newly discovered vulnerability; not an automatic general-fuzzer discovery.</p></div>
+              <div class="provenance"><span>↳</span><p id="case-provenance">Automatically rediscovered by ShieldSpec's general fuzzer using real Zallet policy runners. Minimized and replayed with pinned provenance. This is a documented, previously fixed issue, not a new vulnerability.</p></div>
             </div>
           </div>
+          <p class="evidence-links"><a class="text-link" href="https://github.com/Ay-obami/ShieldSpec/actions/runs/40616469538" target="_blank" rel="noopener noreferrer">Inspect the successful independent CI reproduction ↗</a><a class="text-link" href="https://github.com/zcash/zallet/pull/677" target="_blank" rel="noopener noreferrer">Original upstream fix ↗</a></p>
           <div class="sdk-evidence" aria-labelledby="sdk-evidence-title">
             <div class="sdk-evidence-heading">
               <div>
@@ -192,7 +183,7 @@ target/debug/shieldspec-fuzz fuzz \
           <ol class="roadmap-list">
             <li><span class="roadmap-step complete">✓</span><div><span class="roadmap-state">AVAILABLE</span><h3>Snapshot privacy regression gate</h3><p>CLI, Rust core, fixtures, GitHub Action, real proposal harness.</p></div></li>
             <li><span class="roadmap-step complete">✓</span><div><span class="roadmap-state">AVAILABLE · OPT-IN</span><h3>Observed SDK policy + expanded real-wallet coverage</h3><p>Real Orchard spend decisions, Sapling and Unified Address receiver paths, transparent shielding, shielded change, fee and note-selection cases, semantic shrinking, and replay—all merged on main.</p></div></li>
-            <li><span class="roadmap-step active">↗</span><div><span class="roadmap-state">IN PROGRESS</span><h3>Historical wallet-policy integrations</h3><p>Automatic general-fuzzer reproduction of the pinned Zallet FullPrivacy difference still requires its own policy-enabled wallet runner.</p></div></li>
+            <li><span class="roadmap-step complete">✓</span><div><span class="roadmap-state">AVAILABLE · VERIFIED IN CI</span><h3>Historical Zallet FullPrivacy discovery</h3><p>Independent pinned historical policy runners, automatic differential discovery, semantic shrinking, and reproducible replay are merged on main. The successful CI run provides the executable and evidence archive.</p></div></li>
             <li><span class="roadmap-step">04</span><div><span class="roadmap-state">PLANNED</span><h3>More independent wallet-policy adapters</h3><p>Beyond the merged SDK proposal coverage: additional independently behaving wallet-policy implementations, a maintained regression corpus, and contributor-friendly releases.</p></div></li>
           </ol>
         </div>
@@ -204,7 +195,7 @@ target/debug/shieldspec-fuzz fuzz \
           <h2 id="faq-title">A few important details.</h2>
           <div class="faq-list">
             <details><summary>Does ShieldSpec prove a transaction is private?</summary><p>No. It assesses configured privacy properties of observable transaction proposals and reports differences. Passing tests do not guarantee anonymity, metadata protection, or safety across all scenarios.</p></details>
-            <details><summary>Does the historical example represent a new vulnerability?</summary><p>No. Zallet's documented upstream issue was previously fixed. Its pinned before/after FullPrivacy reproduction is independent of the general fuzzer. The shipped Orchard-only SDK observation is a different spend policy; it does not claim to rediscover this bug.</p></details>
+            <details><summary>Does the historical example represent a new vulnerability?</summary><p>No. Zallet's documented upstream issue was previously fixed. ShieldSpec now automatically rediscovers that historical difference through the general fuzzer by running two real pinned Zallet revisions; it does not claim to find a previously unknown vulnerability. The Orchard-only SDK observation remains a distinct spend policy.</p></details>
             <details><summary>Does the website run live fuzzing in my browser?</summary><p>No. The historical explorer and NU6.3 control matrix are static explanations. Run actual proposal generation, SDK policy observation, comparison, shrinking, and replay with the Rust binaries on your own machine or in CI.</p></details>
             <details><summary>Does it submit transactions or handle wallet funds?</summary><p>No. ShieldSpec's current Zcash proposal harness uses synthetic in-memory test state. It does not sign or broadcast transactions.</p></details>
           </div>

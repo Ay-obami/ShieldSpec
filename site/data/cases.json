@@ -1,8 +1,9 @@
 {
   "meta": {
     "source": "https://github.com/zcash/zallet/pull/677",
-    "proof": "https://github.com/Ay-obami/ShieldSpec/tree/feat/historical-sdk-proof/evidence/historical-zallet-677",
-    "notice": "Historical reproduction of a documented, previously fixed upstream privacy-policy issue. Not a new vulnerability or a finding automatically discovered by the present general fuzzer."
+    "proof": "https://github.com/Ay-obami/ShieldSpec/pull/45",
+    "ciEvidence": "https://github.com/Ay-obami/ShieldSpec/actions/runs/40616469538",
+    "notice": "Automatically rediscovered by ShieldSpec's general differential fuzzer through independent pinned historical Zallet policy runners. Previously documented and fixed upstream; not a new vulnerability."
   },
   "findings": [
     {
@@ -14,7 +15,9 @@
       "scenario": "Ironwood → Sapling",
       "policy": "FullPrivacy",
       "publicBalance": "10,000 zat",
-      "seed": "Deterministic test-only wallet fixture",
+      "seed": "2026 (general differential fuzzer)",
+      "minimizedCase": "Input amount 2 zat; fee 1 zat",
+      "replay": "wallet_policy_difference_reproduced",
       "expected": "rejected",
       "before": {
         "label": "Affected Zallet wallet-core",
@@ -27,7 +30,7 @@
         "verdict": "rejected"
       },
       "provenance": "https://github.com/zcash/zallet/pull/677",
-      "discoveredByShieldSpec": false,
+      "discoveredByShieldSpec": true,
       "newVulnerability": false
     },
     {

@@ -14,10 +14,10 @@ test("a real public product page has metadata, main landmark, and working sectio
   for (const token of ["<title>ShieldSpec", 'name="description"', 'name="viewport"', "<main", 'id="how-it-works"', 'id="findings"', 'id="quickstart"', 'id="integrations"', 'id="roadmap"']) {
     assert.ok(page.includes(token), `Missing: ${token}`);
   }
-  assert.match(page, /Catch privacy regressions before they reach production\./);
+  assert.match(page, /Catch privacy regressions before they ship\./);
 });
 
-test("the finding explorer identifies the documented historical behavior without a novel discovery claim", () => {
+test("the finding explorer identifies automatically rediscovered historical behavior without a novel vulnerability claim", () => {
   const all = cases();
   assert.equal(all.findings.length >= 3, true);
   const historical = all.findings.find((f) => f.id === "zallet-677");
@@ -25,8 +25,34 @@ test("the finding explorer identifies the documented historical behavior without
   assert.equal(historical.before.verdict, "accepted");
   assert.equal(historical.after.verdict, "rejected");
   assert.match(historical.provenance, /zcash\/zallet\/pull\/677/);
-  assert.equal(historical.discoveredByShieldSpec, false);
+  assert.equal(historical.discoveredByShieldSpec, true);
   assert.equal(historical.newVulnerability, false);
+  assert.equal(historical.before.revision, "f496c9b6b2c6ebb0065b329c11bda4a5fdf73568");
+  assert.equal(historical.after.revision, "e966780216b7a86b0a1a6618f2fde5b574da7171");
+  assert.match(all.meta.proof, /ShieldSpec\/pull\/45/);
+  assert.match(all.meta.notice, /automatically/i);
+});
+
+test("the redesign uses flat gold and charcoal instead of green surfaces or gradients", () => {
+  const styles = css();
+  assert.match(styles, /--bg:\s*#f8f9fb/i);
+  assert.match(styles, /--accent:\s*#c49336/i);
+  assert.match(styles, /--terminal:\s*#15171c/i);
+  assert.doesNotMatch(styles, /(?:linear|radial|conic)-gradient\s*\(/i);
+  assert.doesNotMatch(styles, /--green|#8de6ab|#abfac4|#080e0d/i);
+  assert.match(styles, /prefers-reduced-motion/);
+});
+
+test("sparse hero presents real historical policy comparison with a path to proof", () => {
+  const page = html();
+  const hero = page.split('class="hero section"')[1].split('class="section problem-section"')[0];
+  assert.match(hero, /Zallet FullPrivacy/);
+  assert.match(hero, /f496c9b/);
+  assert.match(hero, /e966780/);
+  assert.match(hero, /ACCEPTED/);
+  assert.match(hero, /REJECTED/);
+  assert.match(hero, /#findings/);
+  assert.doesNotMatch(hero, /injected-fault demo|hero-footnote|hero-bottom|hero-glow/);
 });
 
 test("accessible native controls and fail-honest demo copy", () => {
@@ -35,7 +61,7 @@ test("accessible native controls and fail-honest demo copy", () => {
   assert.match(page, /aria-selected="true"/);
   assert.match(page, /aria-live="polite"/);
   assert.match(page, /Historical reproduction/);
-  assert.match(page, /not a newly discovered vulnerability/i);
+  assert.match(page, /not a new vulnerability/i);
   assert.match(js(), /textContent/);
   assert.match(js(), /aria-selected/);
 });
