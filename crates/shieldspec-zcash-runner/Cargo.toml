@@ -1,6 +1,6 @@
 [package]
 name = "shieldspec-zcash-runner"
-version = "0.1.0"
+version = "0.2.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -13,9 +13,9 @@ description = "Real-wallet librustzcash proposal harness for ShieldSpec differen
 clap.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-shieldspec-core = { version = "0.1.0", path = "../shieldspec-core" }
-shieldspec-fuzz = { version = "0.1.0", path = "../shieldspec-fuzz" }
-shieldspec-zcash = { version = "0.1.0", path = "../shieldspec-zcash" }
+shieldspec-core = { version = "0.2.0", path = "../shieldspec-core" }
+shieldspec-fuzz = { version = "0.2.0", path = "../shieldspec-fuzz" }
+shieldspec-zcash = { version = "0.2.0", path = "../shieldspec-zcash" }
 zcash_client_backend = { version = "=0.25.0-pre.2", features = ["orchard", "transparent-inputs", "test-dependencies"] }
 zcash_client_sqlite = { version = "=0.23.0-pre.2", features = ["orchard", "transparent-inputs", "test-dependencies"] }
 zcash_keys = "=0.17.0-pre.2"

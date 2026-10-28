@@ -1,5 +1,7 @@
 # ShieldSpec release-readiness audit — October 28, 2026
 
+> **Release follow-up (October 28):** A separate `v0.2.0` source-only release candidate aligns all six Cargo package versions and matching internal dependency versions. The earlier audit below records the pre-release `v0.1.0` state at its original commit and remains historical. On an isolated laptop checkout with Rust 1.95.0, `cargo package --list` enumerated core (15 files), testkit (18), CLI (16) and Zcash (8). `cargo publish --dry-run --locked -p shieldspec-core` passed for the original v0.1.0 manifest. Dry-runs of testkit, CLI and Zcash failed because unpublished `shieldspec-core` cannot be resolved in crates.io. This is **not** authorization for crate publication; the v0.2.0 distribution is GitHub source only. See [changelog](../CHANGELOG.md).
+
 This is an evidence-bound audit of the standalone developer tool, not a release announcement. The audited fresh clone was at `5e2f82eb09d6d4ae089b6ec156528937d144301d` on `main`. Record a new full commit SHA for any later verification; `main` is mutable.
 
 ## Verification and reproduction

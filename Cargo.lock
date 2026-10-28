@@ -2148,7 +2148,7 @@ dependencies = [
 
 [[package]]
 name = "shieldspec-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "clap",
  "serde",
@@ -2159,7 +2159,7 @@ dependencies = [
 
 [[package]]
 name = "shieldspec-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2167,7 +2167,7 @@ dependencies = [
 
 [[package]]
 name = "shieldspec-fuzz"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2178,7 +2178,7 @@ dependencies = [
 
 [[package]]
 name = "shieldspec-testkit"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "proptest",
  "serde_json",
@@ -2187,7 +2187,7 @@ dependencies = [
 
 [[package]]
 name = "shieldspec-zcash"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "nonempty",
  "shieldspec-core",
@@ -2200,7 +2200,7 @@ dependencies = [
 
 [[package]]
 name = "shieldspec-zcash-runner"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "clap",
  "serde",
