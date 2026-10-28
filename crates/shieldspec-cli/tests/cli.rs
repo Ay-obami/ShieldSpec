@@ -329,3 +329,51 @@ fn cross_network_diff_is_an_operational_error() {
         .contains("network"));
     fs::remove_file(candidate).unwrap();
 }
+
+#[test]
+fn try_runs_a_safe_builtin_control_and_explains_its_scope() {
+    let output = run(&["try"]);
+    assert_eq!(code(&output), 0, "{}", stdout(&output));
+    assert!(stdout(&output).contains("built-in snapshot"));
+    assert!(stdout(&output).contains("not your wallet"));
+}
+
+#[test]
+fn test_reads_a_project_config_and_preserves_failure_exit_codes() {
+    let baseline = fixture("shielded-payment");
+    let candidate = fixture("transparent-change");
+    let config = temp_file("project.toml");
+    fs::write(
+        &config,
+        format!(
+            "[comparison]\nbaseline = {:?}\ncandidate = {:?}\n[testing]\npolicy = \"standard\"\n",
+            baseline.to_str().unwrap(),
+            candidate.to_str().unwrap()
+        ),
+    )
+    .unwrap();
+    let output = run(&["test", "--config", config.to_str().unwrap()]);
+    assert_eq!(code(&output), 2, "{}", stdout(&output));
+    assert!(stdout(&output).contains("SS003_TRANSPARENT_CHANGE"));
+    fs::remove_file(config).unwrap();
+}
+
+#[test]
+fn test_rejects_missing_config_without_a_success_verdict() {
+    let output = run(&["test", "--config", "missing-shieldspec.toml"]);
+    assert_eq!(code(&output), 1);
+    assert!(output.stdout.is_empty());
+}
+
+#[test]
+fn differential_project_config_reports_missing_fuzzer_as_an_operational_error() {
+    let config = temp_file("differential.toml");
+    fs::write(&config,
+        "[comparison]\nmode = \"differential\"\nbaseline_runner = \"baseline\"\ncandidate_runner = \"candidate\"\nfuzzer_binary = \"nonexistent-shieldspec-fuzz-executable\"\n[testing]\ncases = 2\nseed = 2026\n"
+    ).unwrap();
+    let output = run(&["test", "--config", config.to_str().unwrap()]);
+    assert_eq!(code(&output), 1);
+    assert!(output.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("fuzzer"));
+    fs::remove_file(config).unwrap();
+}

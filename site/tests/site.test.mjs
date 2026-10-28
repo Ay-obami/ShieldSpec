@@ -319,3 +319,11 @@ test("public site documents the published v0.3.0 Action and honest runner bounda
   assert.ok(guide.includes("examples/runner-adapter/README.md"));
   assert.ok(guide.includes("Level 3 automatic wallet-runner generation remains deferred"));
 });
+
+test("new CLI onboarding is discoverable without implying the built-in control tests a wallet", () => {
+  const guide = read("docs.html");
+  assert.match(guide, /id="quick-try"/);
+  assert.match(guide, /cargo run --locked -p shieldspec-cli -- try/);
+  assert.match(guide, /not your wallet or a live differential campaign/);
+  assert.match(guide, /docs\/simple-workflows\.md/);
+});

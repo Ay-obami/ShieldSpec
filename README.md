@@ -4,6 +4,7 @@
 
 ShieldSpec is developer tooling, not a wallet, anonymity score, signer, or transaction broadcaster. A passing check means only that the configured properties held for the inputs exercised.
 
+- [Simple workflows (source build)](docs/simple-workflows.md): `shieldspec try` and config-driven `shieldspec test` for snapshots or differential runners; not yet in the published 0.2.0 CLI
 - [On-site developer guide](https://ay-obami.github.io/ShieldSpec/docs.html): guided installation, copyable commands, expected results, real SDK comparisons, historical Zallet reproduction, and CI setup
 - [Get started in the repository](docs/getting-started.md): detailed commands, expected outputs, exit codes, and CI integration
 - [Privacy model](docs/privacy-model.md): what snapshots and actual wallet-policy verdicts do—and do not—establish
@@ -24,7 +25,7 @@ Choose the workflow that fits your integration:
 | Compare wallet/SDK revisions | `shieldspec-fuzz fuzz` with **two independently built** compatible runners | New/worsened findings and comparable named wallet-policy decisions |
 | Audit a recorded difference | `shieldspec-fuzz replay --input <discovery.json>` | Saved scenario, runner hashes, arguments, and observed result |
 
-Start with the lightweight snapshot gate below, then follow the [getting-started guide](docs/getting-started.md) for real-runner setup and integration details.
+For fewer flags, start with the new [source-build `shieldspec try` and configured `shieldspec test` workflows](docs/simple-workflows.md). The published CLI 0.2.0 still exposes `check`, `diff`, and `fixture`. The examples below remain the stable advanced interface; consult the [getting-started guide](docs/getting-started.md) for real-runner setup.
 
 ## Quickstart: the snapshot privacy gate
 
