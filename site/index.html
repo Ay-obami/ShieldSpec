@@ -10,8 +10,8 @@
   <meta property="og:description" content="Catch privacy regressions before they ship. Independently execute historical Zallet privacy-policy runners, detect real differences, minimize and replay evidence.">
   <title>ShieldSpec — Catch privacy regressions before they ship</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath fill='%23f8f9fb' d='M0 0h64v64H0z'/%3E%3Cpath d='M32 6l23 9v17c0 15-10 23-23 27C19 55 9 47 9 32V15z' fill='none' stroke='%2317191f' stroke-width='4'/%3E%3Cpath d='M20 33l8 8 17-20' fill='none' stroke='%23c49336' stroke-width='5'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="./styles.css?v=clarity-20261028">
-  <script src="./app.js?v=clarity-20261028" defer></script>
+  <link rel="stylesheet" href="./styles.css?v=cohesive-20261028">
+  <script src="./app.js?v=cohesive-20261028" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -114,9 +114,22 @@
               <h3 id="case-title">Cross-pool FullPrivacy policy bypass</h3>
               <p id="case-description">An Ironwood input with Sapling change exposes a public value balance. The historical wallet policy accepted this; corrected policy rejects it.</p>
               <div class="case-meta"><span><small>SCENARIO</small><b id="case-scenario">Ironwood → Sapling</b></span><span><small>OBSERVATION</small><b id="case-balance">10,000 zat public balance</b></span></div>
+              <p class="case-proposal" id="case-proposal">One identical test-only wallet proposal is evaluated against independently compiled historical Zallet revisions. Each runner executes its original FullPrivacy policy function without modifying the production policy body.</p>
               <div class="compare-grid">
-                <div class="compare-panel"><span class="compare-label">AFFECTED HISTORICAL VERSION</span><code id="before-sha">f496c9b</code><div class="verdict is-accepted" id="before-verdict"><span aria-hidden="true">●</span> Accepted</div></div>
-                <div class="compare-panel corrected"><span class="compare-label">CORRECTED VERSION</span><code id="after-sha">e966780</code><div class="verdict is-rejected" id="after-verdict"><span aria-hidden="true">●</span> Rejected</div></div>
+                <div class="compare-panel">
+                  <span class="compare-label">AFFECTED · BEFORE UPSTREAM FIX</span>
+                  <code class="revision-hash" id="before-sha">f496c9b6b2c6ebb0065b329c11bda4a5fdf73568</code>
+                  <div class="verdict is-accepted" id="before-verdict"><span aria-hidden="true">●</span> Accepted</div>
+                  <p class="compare-summary" id="before-summary">The historical FullPrivacy check allowed Ironwood-funded Sapling change despite its observable cross-pool value balance.</p>
+                  <a class="compare-source" id="before-source" href="https://github.com/zcash/zallet/commit/f496c9b6b2c6ebb0065b329c11bda4a5fdf73568" target="_blank" rel="noopener noreferrer">Inspect the actual source revision ↗</a>
+                </div>
+                <div class="compare-panel corrected">
+                  <span class="compare-label">CORRECTED · AFTER UPSTREAM FIX</span>
+                  <code class="revision-hash" id="after-sha">e966780216b7a86b0a1a6618f2fde5b574da7171</code>
+                  <div class="verdict is-rejected" id="after-verdict"><span aria-hidden="true">●</span> Rejected</div>
+                  <p class="compare-summary" id="after-summary">The identical proposal was rejected by the corrected FullPrivacy policy.</p>
+                  <a class="compare-source" id="after-source" href="https://github.com/zcash/zallet/commit/e966780216b7a86b0a1a6618f2fde5b574da7171" target="_blank" rel="noopener noreferrer">Inspect the actual source revision ↗</a>
+                </div>
               </div>
               <div class="provenance"><span>↳</span><p id="case-provenance">Automatically rediscovered by ShieldSpec's general fuzzer using real Zallet policy runners. Minimized and replayed with pinned provenance. This is a documented, previously fixed issue, not a new vulnerability.</p></div>
             </div>
