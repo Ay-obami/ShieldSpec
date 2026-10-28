@@ -25,6 +25,8 @@ node --check site/app.js
 
 The `site/` folder may be deployed directly to any static hosting provider. Configure the web/public root to `site/`. No Node build step, account, wallet, secrets, or backend required.
 
+`index.html` introduces ShieldSpec, its verified historical evidence, and the use cases; `docs.html` is the stand-alone developer guide with prerequisites, real runnable commands, expected results, replay, CI, and troubleshooting. Both load the shared stylesheet and copy-button script. Publish both pages and the `data/` directory together.
+
 A tested [GitHub Pages workflow](../.github/workflows/site.yml) uploads **only** `site/` whenever a reviewed change reaches `main` (or when manually dispatched). The repository's Pages setting is in GitHub Actions mode, and the public URL is `https://ay-obami.github.io/ShieldSpec/`. Verify the deployment run and live HTTP response after merging site changes. Do not publish repository evidence logs as browser data.
 
 ## Evidence integrity
