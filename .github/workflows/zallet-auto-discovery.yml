@@ -1,0 +1,78 @@
+name: ShieldSpec historical Zallet FullPrivacy automatic discovery
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "scripts/zallet_policy_runner.py"
+      - "scripts/build_zallet_policy_runners.py"
+      - "scripts/verify_zallet_auto_discovery.py"
+      - "scripts/make_zallet_immutable_launchers.py"
+      - "scripts/tests/test_zallet_*"
+      - "evidence/historical-zallet-677/shieldspec_dynamic_policy_probe.rs"
+      - "crates/shieldspec-zcash-runner/**"
+      - ".github/workflows/zallet-auto-discovery.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  historical-automatic-discovery:
+    name: Independently compile and fuzz both pinned Zallet revisions
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      CARGO_INCREMENTAL: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      CARGO_BUILD_JOBS: "2"
+      CARGO_TARGET_DIR: ${{ github.workspace }}/.cargo-target-zallet
+      RUST_BACKTRACE: "1"
+
+    steps:
+      - name: Check out ShieldSpec source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Install the pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@035fceb3c12fb0c6a9461b52775e16473133e591
+        with:
+          toolchain: "1.95.0"
+
+      - name: Verify the adapter, source-injection and discovery validation tests
+        run: python3 -m unittest discover -s scripts/tests -p "test_zallet_*.py" -v
+
+      - name: Compile the general differential fuzzer
+        run: cargo build --locked -p shieldspec-zcash-runner --bin shieldspec-fuzz
+
+      - name: Compile both historical Zallet source revisions as independent test binaries
+        run: >-
+          python3 scripts/build_zallet_policy_runners.py
+          --output-dir "$RUNNER_TEMP/shieldspec-zallet-runners"
+          --manifest "$RUNNER_TEMP/shieldspec-zallet-runners/manifest.json"
+          --cargo-target-dir "$CARGO_TARGET_DIR"
+
+      - name: Create executable SHA-linked wrappers for immutable differential replay
+        run: >-
+          python3 scripts/make_zallet_immutable_launchers.py
+          --manifest "$RUNNER_TEMP/shieldspec-zallet-runners/manifest.json"
+          --output-dir "$RUNNER_TEMP/shieldspec-zallet-runners/launchers"
+
+      - name: Verify real FullPrivacy controls, automatic discovery and immutable replay
+        run: >-
+          python3 scripts/verify_zallet_auto_discovery.py
+          --fuzzer "$CARGO_TARGET_DIR/debug/shieldspec-fuzz"
+          --manifest "$RUNNER_TEMP/shieldspec-zallet-runners/manifest.json"
+          --output-dir "$RUNNER_TEMP/shieldspec-zallet-evidence"
+
+      - name: Upload actual policies, runner identities, campaign and replay
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: historical-zallet-auto-discovery
+          path: |
+            ${{ runner.temp }}/shieldspec-zallet-runners/manifest.json
+            ${{ runner.temp }}/shieldspec-zallet-runners/zallet-core-before
+            ${{ runner.temp }}/shieldspec-zallet-runners/zallet-core-after
+            ${{ runner.temp }}/shieldspec-zallet-runners/*cargo.stderr.log
+            ${{ runner.temp }}/shieldspec-zallet-runners/launchers/
+            ${{ runner.temp }}/shieldspec-zallet-evidence/
+          if-no-files-found: warn

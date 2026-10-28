@@ -146,6 +146,7 @@ enum ScenarioFamily {
     Legacy,
     Ironwood,
     Transparent,
+    ZalletPrivacy,
 }
 
 impl ScenarioFamily {
@@ -154,6 +155,7 @@ impl ScenarioFamily {
             Self::Legacy => "legacy",
             Self::Ironwood => "ironwood",
             Self::Transparent => "transparent",
+            Self::ZalletPrivacy => "zallet-privacy",
         }
     }
 
@@ -162,6 +164,7 @@ impl ScenarioFamily {
             Self::Legacy => "",
             Self::Ironwood => " --scenario-family ironwood",
             Self::Transparent => " --transparent-funding",
+            Self::ZalletPrivacy => " --scenario-family zallet-privacy",
         }
     }
 
@@ -174,6 +177,7 @@ impl ScenarioFamily {
                 ordinal,
                 scenario: ScenarioGenerator::nu63_scenario_at(seed, ordinal),
             },
+            Self::ZalletPrivacy => ScenarioGenerator::zallet_privacy_case_at(seed, ordinal),
         }
     }
 }
@@ -183,8 +187,8 @@ fn effective_scenario_family(
     transparent_funding: bool,
 ) -> Result<ScenarioFamily, String> {
     match (scenario_family, transparent_funding) {
-        (ScenarioFamily::Ironwood, true) => Err(
-            "--transparent-funding cannot be combined with --scenario-family ironwood".to_owned(),
+        (ScenarioFamily::Ironwood | ScenarioFamily::ZalletPrivacy, true) => Err(
+            "--transparent-funding cannot be combined with --scenario-family ironwood or zallet-privacy".to_owned(),
         ),
         (ScenarioFamily::Legacy, true) => Ok(ScenarioFamily::Transparent),
         (family, _) => Ok(family),
@@ -363,7 +367,9 @@ fn run_campaign(
     };
     let mut legacy_generator = match scenario_family {
         ScenarioFamily::Transparent => ScenarioGenerator::new_with_transparent_funding(seed),
-        ScenarioFamily::Legacy | ScenarioFamily::Ironwood => ScenarioGenerator::new(seed),
+        ScenarioFamily::Legacy | ScenarioFamily::Ironwood | ScenarioFamily::ZalletPrivacy => {
+            ScenarioGenerator::new(seed)
+        }
     };
     let mut baseline_wallet_policy_observations = 0;
     let mut candidate_wallet_policy_observations = 0;
@@ -372,7 +378,9 @@ fn run_campaign(
     for case_number in 1..=cases {
         let generated = match scenario_family {
             ScenarioFamily::Legacy | ScenarioFamily::Transparent => legacy_generator.next_case(),
-            ScenarioFamily::Ironwood => scenario_family.generated_case(seed, case_number - 1),
+            ScenarioFamily::Ironwood | ScenarioFamily::ZalletPrivacy => {
+                scenario_family.generated_case(seed, case_number - 1)
+            }
         };
         let scenario_json =
             serde_json::to_value(&generated.scenario).map_err(|error| error.to_string())?;
@@ -391,6 +399,14 @@ fn run_campaign(
         }
         if report.baseline_wallet_policy.is_some() && report.candidate_wallet_policy.is_some() {
             comparable_wallet_policy_cases += 1;
+        }
+        if scenario_family == ScenarioFamily::ZalletPrivacy
+            && (report.baseline_wallet_policy.is_none() || report.candidate_wallet_policy.is_none())
+        {
+            return Err(format!(
+                "case {}: zallet-privacy requires comparable wallet-policy observations from both runners",
+                case_number
+            ));
         }
 
         if report.has_difference() {
@@ -536,6 +552,7 @@ fn replay(
                 .map_err(|error| format!("could not parse {}: {error}", path.display()))?;
             let inferred_family = match &discovery.original {
                 Scenario::Nu63OrchardPayment(_) => ScenarioFamily::Ironwood,
+                Scenario::ZalletPrivacyProbe(_) => ScenarioFamily::ZalletPrivacy,
                 Scenario::TransparentFundedPayment(_) => ScenarioFamily::Transparent,
                 Scenario::OrchardPayment(_)
                 | Scenario::TexPayment(_)
@@ -545,6 +562,7 @@ fn replay(
                 None => inferred_family,
                 Some("legacy") => ScenarioFamily::Legacy,
                 Some("ironwood") => ScenarioFamily::Ironwood,
+                Some("zallet-privacy") => ScenarioFamily::ZalletPrivacy,
                 Some("transparent") => ScenarioFamily::Transparent,
                 Some(other) => {
                     return Err(format!("unsupported recorded scenario family: {other}"))

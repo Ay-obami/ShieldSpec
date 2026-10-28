@@ -159,7 +159,7 @@ python3 scripts/reproduce_zallet_677.py \
   --output evidence/historical-zallet-677/results
 ```
 
-This pinned historical policy comparison is **not yet automatic** in the general fuzzer. Generic verdict detection is available on `main`; a real Zallet `FullPrivacy` runner pair and general automatic historical discovery remain future integration work. The [separate librustzcash #2614 case](../evidence/historical-2614/README.md) is SDK correctness history, not a proven privacy leak.
+The fixed historical witness remains available, and a **separate, real automated integration is now verified**: two independently compiled Zallet `FullPrivacy` binaries run behind ShieldSpec's general `--scenario-family zallet-privacy` campaign. Seed 2026 covers two agreeing controls, detects the actual historical policy difference on the third case, saves its minimized scenario, and replays it with SHA-linked provenance. [Build the runners and reproduce the complete campaign](zallet-auto-discovery.md). The [separate librustzcash #2614 case](../evidence/historical-2614/README.md) is SDK correctness history, not a proven privacy leak.
 
 - An **intentionally injected** transparent-change demo remains available for checking detection/minimization/replay without claiming an upstream discovery:
 

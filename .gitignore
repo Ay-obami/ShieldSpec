@@ -5,3 +5,5 @@ target/
 __pycache__/
 *.pyc
 demo-artifacts/
+
+.zallet-verified-artifacts/
