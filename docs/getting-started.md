@@ -1,6 +1,6 @@
 # Get started with ShieldSpec
 
-**Want fewer flags?** Start with [simple workflows](simple-workflows.md): `shieldspec try` for a bundled snapshot control, or `shieldspec test` with `shieldspec.toml` for snapshot or differential projects. These new commands currently require a source build; published crates.io CLI 0.2.0 remains unchanged.
+**Want fewer flags?** Start with [simple workflows](simple-workflows.md): `shieldspec try` for a bundled snapshot control, or `shieldspec test` with `shieldspec.toml` for snapshot or differential projects. These commands are published in `shieldspec-cli 0.4.0`: install with `cargo install shieldspec-cli --version 0.4.0 --locked`. Differential runner executables still require separate setup.
 
 ShieldSpec is a local, pre-signing privacy-regression tool for Zcash proposal snapshots. The snapshot CLI, real-wallet policy-verdict comparison, four-case NU6.3 generator, and expanded transparent-funding scenarios are available on `main`. The `v0.3.0` GitHub Action supports snapshot gates and opt-in differential CI; see [GitHub Action setup](github-action.md). The Rust runner starter and preflight validator were merged to `main` in PR #55 and are not part of the older `v0.3.0` tag.
 

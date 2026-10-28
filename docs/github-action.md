@@ -1,6 +1,6 @@
 # ShieldSpec GitHub Action — install and use
 
-ShieldSpec is a pre-signing Zcash proposal privacy-regression tool. Its composite GitHub Action is published as source at [`Ay-obami/ShieldSpec@v0.3.0`](https://github.com/Ay-obami/ShieldSpec/releases/tag/v0.3.0). The four crates.io packages are separately versioned at `0.2.0`. The newer Rust runner-adapter starter is on `main`, **not** in the immutable `v0.3.0` tag.
+ShieldSpec is a pre-signing Zcash proposal privacy-regression tool. Its composite GitHub Action is published as source at [`Ay-obami/ShieldSpec@v0.3.0`](https://github.com/Ay-obami/ShieldSpec/releases/tag/v0.3.0). The `shieldspec-cli` package is now at `0.4.0`, while the library crates remain at `0.2.0`. The newer Rust runner-adapter starter is on `main` and in source tag `v0.4.0`, **not** in the immutable `v0.3.0` tag.
 
 ## Quick start: snapshot privacy gate
 
