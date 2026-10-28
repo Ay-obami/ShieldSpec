@@ -10,6 +10,7 @@ ShieldSpec is developer tooling, not a wallet, anonymity score, signer, or trans
 - [Wallet-policy observations](docs/wallet-policy-observations.md): runner protocol, real SDK Orchard-only mode, and NU6.3 campaign
 - [Historical Zallet automatic rediscovery](docs/zallet-auto-discovery.md): build pinned independent FullPrivacy runners, run a real three-case differential campaign, and replay its minimized discovery
 - [Roadmap](docs/roadmap.md): shipped features versus integration and future work
+- [Release readiness](docs/release-readiness.md): verification evidence, tagged-Action scope, and next-version checklist
 - [Live developer website](https://ay-obami.github.io/ShieldSpec/) · [site source and local preview](site/README.md)
 
 The [developer website](https://ay-obami.github.io/ShieldSpec/) explains the privacy problem, checked properties, comparison workflow, reproducible result artifacts, and historical evidence. Its [step-by-step guide](https://ay-obami.github.io/ShieldSpec/docs.html) provides actual CLI commands and expected outcomes. The browser is a **read-only explainer and evidence explorer**; it does not run a wallet or a live fuzzing campaign. The website source (`site/`) and historical evidence (`evidence/historical-zallet-677/`) are included in `main`.
@@ -169,6 +170,8 @@ In a consumer repository with normalized snapshot fixtures:
 ```
 
 The Action runs the snapshot CLI only; it does **not** build or fuzz a wallet. It exits with the same 0/1/2 statuses and exposes a `status` output. This example intentionally fails on the committed transparent-change fixture; use your own expected baseline/candidate files.
+
+`v0.1.0` is the existing snapshot-Action release, **not** a release of the expanded fuzzer. For features on `main`, pin the exact reviewed commit and follow [CI integration](docs/ci-integration.md). Do not assume `v0.1.0` tracks the moving `main` branch.
 
 ## Project layout and development
 

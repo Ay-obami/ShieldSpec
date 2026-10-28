@@ -23,7 +23,8 @@ class ProductDocumentationTests(unittest.TestCase):
     def test_roadmap_documents_verified_historical_auto_discovery_and_remaining_limits(self):
         text = (ROOT / "docs/roadmap.md").read_text()
         self.assertIn("Available", text)
-        self.assertIn("In progress", text)
+        self.assertIn("Completed sprint issues and current integration gaps", text)
+        self.assertIn("release-readiness.md", text)
         self.assertIn("Planned", text)
         self.assertIn("zallet-auto-discovery.md", text)
         self.assertIn("independently compiled Zallet revisions", text)

@@ -1,6 +1,6 @@
 # Developer integration and CI
 
-Start with the [quickstart](getting-started.md). These examples target `main` after PRs #42 and #43, not necessarily the older `v0.1.0` release. Pin the reviewed commit you actually test when adopting the Action.
+Start with the [quickstart](getting-started.md). These examples target `main` after PRs #42 and #43, not necessarily the older `v0.1.0` release. Pin the reviewed commit you actually test when adopting the Action. The checked-in composite `action.yml` is the same as at `v0.1.0`: it runs **only** snapshot `check`/`diff`, even when referenced from current `main`. See [release readiness](release-readiness.md) before treating newer source features as released.
 
 ## Rust integration: inspect before signing
 

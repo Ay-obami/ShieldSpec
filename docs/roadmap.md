@@ -35,14 +35,18 @@ None of these tools proves wallet anonymity. Historical upstream behavior must n
 
 The observed decision-difference engine is **generic** and the Orchard-only SDK restriction remains separate from `FullPrivacy`. The new dedicated Zallet historical adapter closes [#40](https://github.com/Ay-obami/ShieldSpec/issues/40)'s technical discovery gap: a verified local run compared three genuine policy observations from independently compiled Zallet revisions, detected the documented historical difference, minimized it, and replayed the same verdict direction. This is not a new upstream vulnerability, and no live wallet funds or network broadcasts were involved.
 
-## In progress / integration gaps
+## Completed sprint issues and current integration gaps
 
-- [#36 — wallet policy input and provenance](https://github.com/Ay-obami/ShieldSpec/issues/36) and [#37 — cross-pool oracle](https://github.com/Ay-obami/ShieldSpec/issues/37): generic runner protocol, observed SDK policy, cross-pool rules and replay are implemented; adapting additional independent wallet policies remains work.
-- [#35 — realistic cross-pool scenarios](https://github.com/Ay-obami/ShieldSpec/issues/35): activation-boundary and broader PR #43 real-wallet cases are available; more wallets and policy configurations remain to be covered.
-- [#39 — onboarding/docs](https://github.com/Ay-obami/ShieldSpec/issues/39): maintain correct commands for current `main`, explicit exit semantics, CI examples and limitations.
-- [#41 — sprint integration](https://github.com/Ay-obami/ShieldSpec/issues/41): PRs #42 and #43 have merged; verify release/tag readiness separately rather than assuming the expanded fuzzer is already shipped as `v0.1.0`.
+The original implementation and release-presentation tickets [#35](https://github.com/Ay-obami/ShieldSpec/issues/35), [#36](https://github.com/Ay-obami/ShieldSpec/issues/36), [#37](https://github.com/Ay-obami/ShieldSpec/issues/37), and [#41](https://github.com/Ay-obami/ShieldSpec/issues/41) were audited and closed on October 28, 2026, with code and CI evidence linked in their closing comments. The onboarding [#39](https://github.com/Ay-obami/ShieldSpec/issues/39) and initial site [#38](https://github.com/Ay-obami/ShieldSpec/issues/38) are also closed. No currently open issue should be inferred from these historical links.
 
-The [#38 developer-first website](https://github.com/Ay-obami/ShieldSpec/issues/38) is publicly reachable; future content or uptime work should not be confused with initial deployment verification.
+The remaining work is **new integration and release work**, not unfinished acceptance criteria of those tickets:
+
+- **Independent adoption:** Have a wallet/SDK integrator execute the documented commands on a clean environment and provide actionable feedback.
+- **New wallet-policy adapters:** Extend beyond the pinned Zallet historical `FullPrivacy` adapter and SDK Orchard-only spend restriction; do not synthesize policy verdicts from static snapshot findings.
+- **Broader differential coverage:** Compare truly different compatible SDK/wallet builds and add replayable regression cases for verified differences.
+- **Release readiness:** Review the post-`v0.1.0` API/protocol changes, crate packaging and consumer compatibility before publishing another tag; see [release-readiness audit](release-readiness.md).
+
+The [developer website](https://ay-obami.github.io/ShieldSpec/) is already published. Its content and uptime remain ongoing maintenance rather than an uncompleted initial deployment.
 
 ## Planned after integration
 
