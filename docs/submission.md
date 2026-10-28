@@ -22,10 +22,11 @@ These issues provide context, not the centerpiece. ShieldSpec does not claim to 
 ## What actually works
 
 1. **Real SDK proposal execution:** isolated wallet state; Sapling/Orchard funding; synthetic block scanning; genuine `librustzcash` proposals.
-2. **Privacy-aware differential:** compare identical scenarios across separate executable builds; report only new or worsened policy findings.
-3. **Minimization and replay:** save original and reduced scenario, seed, ordinal, policy, runner arguments and binary SHA-256; verify executable identity at replay.
-4. **ZIP-320 correctness:** recognize legitimate ephemeral transparent bridge outputs in real shielded-to-TEX proposals.
-5. **Developer integration:** Rust libraries, CLI, SARIF/JSON/human reporters, composite GitHub Action and CI tests.
+2. **Broad real-wallet coverage:** Sapling recipients, mixed Unified Address receiver preference, shielded change, wallet-owned transparent-UTXO shielding, ZIP-317 fees, note/input selection and NU6.3/Ironwood boundaries (merged [PR #43](https://github.com/Ay-obami/ShieldSpec/pull/43)).
+3. **Privacy-aware differential:** compare identical scenarios across separate executable builds; compare normalized findings and matching observed wallet-policy verdicts while separating execution errors from policy decisions.
+4. **Minimization and replay:** save original and reduced scenario, seed, ordinal, policy, runner arguments and binary SHA-256; verify executable identity at replay.
+5. **ZIP-320 correctness:** recognize legitimate ephemeral transparent bridge outputs in real shielded-to-TEX proposals.
+6. **Developer integration:** Rust libraries, CLI, SARIF/JSON/human reporters, composite GitHub Action and CI tests. The extended real-wallet feature branch passed 87 workspace tests before merge.
 
 ## Genuine historical Zcash privacy-policy difference
 
@@ -40,7 +41,7 @@ An identical test-only witness creates a real Zcash wallet proposal and calls Za
 
 The [pinned source, exact full revisions, test SHA-256, reproducibility command, raw logs and verdict](../evidence/historical-zallet-677/README.md) are supplied. **This is an independently reproduced, previously disclosed and fixed Zcash wallet-core bug**, not a newly discovered flaw and not a claim that the general ShieldSpec fuzzer automatically found it. No production code was patched in either checkout.
 
-Separately, the [librustzcash#2614 historical SDK test](../evidence/historical-2614/README.md) reproduces a transparent send-max **correctness**, rather than privacy, difference (`PaymentPoolsMismatch` before fix; passing afterward). We retain it as additional engineering context, not the privacy proof.
+Separately, the [librustzcash#2614 historical SDK test](../evidence/historical-2614/README.md) reproduces a transparent send-max **correctness**, rather than privacy, difference (`PaymentPoolsMismatch` before fix; passing afterward). The expanded corpus also exercises the documented [librustzcash#3133](https://github.com/zcash/librustzcash/issues/3133) mixed Sapling/Orchard input-selection case as an availability/correctness regression, **not** a newly discovered privacy leak. These are supporting engineering context, not the historical Zallet privacy proof.
 
 ## ShieldSpec's privacy-differential demo
 
@@ -79,4 +80,6 @@ The last two commands compile pinned upstream wallet/SDK checkouts and therefore
 
 ## Final delivery
 
-A [captioned 1920×1080 demo video](media/shieldspec-zecathon-captioned-demo.mp4) is generated from checked before/after Zallet privacy-policy logs and executed ShieldSpec CLI output. It is approximately 2:20 long, **without voiceover**, and it explicitly separates the genuine historical wallet-policy privacy difference from the deliberately injected ShieldSpec CLI fault. Regenerate using `python3 scripts/render_demo_video.py` after `cargo build --locked -p shieldspec-zcash-runner --bins` (requires Pillow and ffmpeg). Captured output and a SHA-256 manifest are written to ignored `demo-artifacts/`. For a narrated screen recording, use the [voiceover and shot list](demo-video-script.md). Before external submission, confirm a public video URL, check that CI is green and submit on the hackathon website; repository publication alone is not an accepted entry.
+An earlier [captioned 1920×1080 silent demo](media/shieldspec-zecathon-captioned-demo.mp4) remains committed as reproducible evidence of the historical Zallet comparison and deliberately injected ShieldSpec CLI fault. Regenerate it using `python3 scripts/render_demo_video.py` after `cargo build --locked -p shieldspec-zcash-runner --bins` (requires Pillow and ffmpeg); captured output and a SHA-256 manifest go to ignored `demo-artifacts/`.
+
+A **new female-voiced walkthrough** was produced locally from genuine browser interaction—not a stitched screenshot slideshow—and independently muxed into `/home/ayobami/Videos/ShieldSpec-Zecathon-2026-Voiced-Demo-20261028.mp4` (H.264/AAC, about 109.7 seconds). It starts on the public landing page, interacts with historical evidence tabs and developer sections, shows real GitHub PR/code context, and opens upstream Zcash issues #677, #693, #2614 and #2775. This MP4 is **local only** as of this update: no public video URL or hackathon upload is confirmed. Before external submission, verify the final audio/video playback, publish an accessible video link, check CI, and submit via the hackathon form; publishing source alone is not an accepted entry.

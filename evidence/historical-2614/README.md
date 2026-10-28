@@ -39,3 +39,5 @@ It can also run as an on-demand GitHub Actions job, `Historical librustzcash #26
 ## Evidence boundary
 
 This is a real, documented **correctness regression** in the SDK's `propose_send_max_transfer` proposal path. It is not a privacy regression, and it is not the main ShieldSpec fuzzing demo. It illustrates why generating realistic wallet states and running actual SDK proposal logic matters. ShieldSpec's privacy-specific detection is demonstrated separately via its clearly labeled injected change-pool fault, seed-based minimization and replay, and ZIP-320 semantics test.
+
+Another independent, **correctness/availability** example is [librustzcash #3133](https://github.com/zcash/librustzcash/issues/3133), which ShieldSpec now reproduces with a pinned real SDK mixed-Sapling/Orchard input-selection case and a successful control in [`tests/mixed_pool.rs`](../../crates/shieldspec-zcash-runner/tests/mixed_pool.rs), merged via [ShieldSpec PR #43](https://github.com/Ay-obami/ShieldSpec/pull/43). Neither #2614 nor #3133 should be described as an upstream privacy leak.

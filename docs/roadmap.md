@@ -1,6 +1,6 @@
 # ShieldSpec product roadmap
 
-ShieldSpec is **reusable privacy-regression infrastructure for Zcash wallet developers**, not a one-off vulnerability claim. This page distinguishes the stable snapshot gate, features implemented in the open development PR, and work that still needs real wallet integration. The [public issue tracker](https://github.com/Ay-obami/ShieldSpec/issues) and linked PRs hold review details; "implemented" here does not imply every feature has been released to `main`.
+ShieldSpec is **reusable privacy-regression infrastructure for Zcash wallet developers**, not a one-off vulnerability claim. This page distinguishes code already merged into `main` from features needing further wallet integration. The [public issue tracker](https://github.com/Ay-obami/ShieldSpec/issues) and linked PRs hold review details; merged implementation does not mean every feature is included in the separately tagged `v0.1.0` GitHub Action.
 
 ## Available on main
 
@@ -11,13 +11,13 @@ ShieldSpec is **reusable privacy-regression infrastructure for Zcash wallet deve
 | GitHub Action (`v0.1.0`) | Baseline-versus-candidate snapshot privacy check; does **not** spin up a wallet |
 | Deterministic real proposal harness and controlled demo | Isolated synthetic chain and wallet state; real Zcash SDK proposal construction, baseline/candidate processes, replay and deliberate fault injection |
 
-The independently published [GitHub Pages site](https://ay-obami.github.io/ShieldSpec/) returned **HTTP 200 on 2026-10-27**, but the local `main` Git tree does **not yet contain** `site/` or the Zallet historical evidence files. Their source is available in the current feature branch. Public URL reachability and a merge to `main` are separate facts.
+The [GitHub Pages site](https://ay-obami.github.io/ShieldSpec/) is publicly reachable and its `site/` source plus historical Zallet evidence are now in `main`. The site is an **interactive read-only explorer**, not a browser-hosted SDK fuzzer. New site copy will only become public after the corresponding GitHub Pages deployment succeeds.
 
 None of these tools proves wallet anonymity. Historical upstream behavior must not be described as a ShieldSpec-discovered zero-day.
 
-## Implemented in the current feature branch — pending merge
+## Merged on `main` — generic policy comparison and broader real-wallet coverage
 
-[PR #42 — generic wallet-policy difference and Ironwood scenarios](https://github.com/Ay-obami/ShieldSpec/pull/42) remains **open/unmerged as of 2026-10-27**. These capabilities can be run on that PR head but should not be described as released on `main`:
+[PR #42 — observed wallet-policy decisions and Ironwood scenarios](https://github.com/Ay-obami/ShieldSpec/pull/42) and [PR #43 — broader real-wallet privacy-policy coverage](https://github.com/Ay-obami/ShieldSpec/pull/43) are merged. These capabilities can be built and tested from a fresh `main` clone. The `v0.1.0` GitHub Action still runs only the lightweight snapshot gate:
 
 | Capability | Verified scope and limits |
 | --- | --- |
@@ -27,18 +27,20 @@ None of these tools proves wallet anonymity. Historical upstream behavior must n
 | Real SDK spend-policy observation | Opt-in `--wallet-spend-policy orchard-only` invokes actual pinned SDK Orchard-only source restriction; it is **not Zallet FullPrivacy** |
 | Activation-aware scenario family | `--scenario-family ironwood --cases 4` covers Orchard/Sapling funding before/at NU6.3, including real Orchard→Ironwood and Sapling→Ironwood proposals |
 | Provenance and replay safeguards | Runner SHA-256 and exact args verified on saved replay; SDK labels are user-declared, not hash-to-source proof |
-| Zallet historical source witness | Pinned before/after `FullPrivacy` test and controls for [zallet#677](https://github.com/zcash/zallet/pull/677), independent of generic fuzzing; source/evidence not yet on `main` |
-| Static site source | `site/` includes the developer landing and read-only explorer; public Pages is live, but the source directory is not yet in local `main` |
+| Expanded real-wallet proposal cases (PR #43) | Real Sapling recipient proposals, mixed Unified Address receiver preference, shielded change behavior, wallet-owned transparent UTXO shielding, ZIP-317 fees and input/note selection |
+| Published SDK correctness control | Pinned mixed Sapling/Orchard input-selection regression from [librustzcash#3133](https://github.com/zcash/librustzcash/issues/3133), classified as an availability/correctness defect rather than a discovered privacy leak |
+| Zallet historical source witness | Pinned before/after `FullPrivacy` test and controls for [zallet#677](https://github.com/zcash/zallet/pull/677), independent of generic fuzzing; evidence is present in `main` |
+| Static site source | `site/` provides the landing page and read-only historical-evidence explorer; it does not execute wallet fuzzing in a browser |
 
 The observed decision-difference engine is **generic**: tests prove detection, shrinking, and replay with controlled policy changes. The real Orchard-only adapter proves an actual SDK decision is obtainable. These two facts must not be combined into a claim of automatically discovering Zallet's historical bypass.
 
 ## In progress / integration gaps
 
 - [#40 — automatic discovery and replay integration](https://github.com/Ay-obami/ShieldSpec/issues/40): a general campaign that independently builds affected/corrected wallet runners, runs the **actual Zallet FullPrivacy policy**, discovers its historical verdict difference, and saves/replays the same minimized finding is **not yet automatic**. The pinned [historical witness](../evidence/historical-zallet-677/README.md) remains separate.
-- [#36 — wallet policy input and provenance](https://github.com/Ay-obami/ShieldSpec/issues/36) and [#37 — cross-pool oracle](https://github.com/Ay-obami/ShieldSpec/issues/37): the generic protocol, real SDK Orchard-only mode, cross-pool rule and coverage reporting exist on PR #42; additional wallet adapters and review/merge/release remain.
-- [#35 — realistic cross-pool scenarios](https://github.com/Ay-obami/ShieldSpec/issues/35): the four activation-boundary cases are implemented on PR #42. Extend beyond this deliberately small matrix after baseline coverage is established.
-- [#39 — onboarding/docs](https://github.com/Ay-obami/ShieldSpec/issues/39): maintain copy-paste commands for `main` versus the feature preview, explicit exit semantics, CI example, and limits.
-- [#41 — sprint integration](https://github.com/Ay-obami/ShieldSpec/issues/41): review compatibility, verify tests and merge order, then document a release/tag only after it exists.
+- [#36 — wallet policy input and provenance](https://github.com/Ay-obami/ShieldSpec/issues/36) and [#37 — cross-pool oracle](https://github.com/Ay-obami/ShieldSpec/issues/37): generic runner protocol, observed SDK policy, cross-pool rules and replay are implemented; adapting additional independent wallet policies remains work.
+- [#35 — realistic cross-pool scenarios](https://github.com/Ay-obami/ShieldSpec/issues/35): activation-boundary and broader PR #43 real-wallet cases are available; more wallets and policy configurations remain to be covered.
+- [#39 — onboarding/docs](https://github.com/Ay-obami/ShieldSpec/issues/39): maintain correct commands for current `main`, explicit exit semantics, CI examples and limitations.
+- [#41 — sprint integration](https://github.com/Ay-obami/ShieldSpec/issues/41): PRs #42 and #43 have merged; verify release/tag readiness separately rather than assuming the expanded fuzzer is already shipped as `v0.1.0`.
 
 The [#38 developer-first website](https://github.com/Ay-obami/ShieldSpec/issues/38) is publicly reachable; future content or uptime work should not be confused with initial deployment verification.
 

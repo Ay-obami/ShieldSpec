@@ -1,6 +1,14 @@
-# ShieldSpec — ready-to-film 2:30 technical demo
+# ShieldSpec — narrated walkthrough and technical demo scripts
 
-**Presentation:** 1920×1080, terminal-first, readable fonts and a voiceover. The actual command output and historic logs must be shown; no simulated discovered vulnerability. A separate [automatically generated captioned video](media/shieldspec-zecathon-captioned-demo.mp4) already exists (about 2:20; no voiceover). This 2:30 storyboard is the optional stronger narrated/live-terminal recording.
+## Current recorded walkthrough (28 October 2026)
+
+A **109.7-second voiced walkthrough has been recorded** from an actual interactive Brave browser session at 1600×900, 15 fps, with female narration and AAC audio. It starts on the [live ShieldSpec landing page](https://ay-obami.github.io/ShieldSpec/), navigates and scrolls the site, interacts with its evidence explorer, visits the upstream Zcash references and shows the repository's real-wallet coverage. This is continuous captured website interaction, **not a slideshow**. The verified local export is named `ShieldSpec-Zecathon-2026-Voiced-Demo-20261028.mp4`; **a publicly hosted video URL has not yet been verified**. Do not publish a placeholder URL. The recording predates the merge of [PR #43](https://github.com/Ay-obami/ShieldSpec/pull/43); the expanded coverage is now on `main`.
+
+The site is a **static evidence viewer**, not a browser-based fuzzer. The narration distinguishes the historical, already-fixed Zallet #677 reproduction from ShieldSpec's intentionally injected, deterministic fuzzer demonstration. It does **not** claim a newly discovered Zcash vulnerability, nor that the generic fuzzer automatically found the historical Zallet bug.
+
+## Optional second recording — 2:30 terminal-first technical walkthrough
+
+**Presentation:** 1920×1080, terminal-first, readable fonts and voiceover. Show actual command output and historical logs, with no simulated upstream discovery. An older [automatically generated captioned video](media/shieldspec-zecathon-captioned-demo.mp4) exists (about 2:20, without voiceover). The table below is an **alternative technical storyboard**, not the sequence of the completed browser-first film.
 
 | Time | Screen | Spoken narration |
 | --- | --- | --- |

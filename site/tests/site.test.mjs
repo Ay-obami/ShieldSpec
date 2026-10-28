@@ -182,15 +182,18 @@ test("historical tab navigation moves the panel's accessible name with selection
   assert.equal(panel.attributes["aria-labelledby"], "case-tab-orchard-sapling");
 });
 
-test("the copyable four-case campaign checks out the PR containing its flags", () => {
+test("the copyable four-case campaign runs from merged main without detached PR checkout", () => {
   const match = html().match(/<pre id="sdk-command"[^>]*><code>([\s\S]*?)<\/code><\/pre>/);
   assert.ok(match, "Missing copyable SDK campaign commands");
   const command = match[1];
-  const fetch = command.indexOf("git fetch origin pull/42/head");
-  const checkout = command.indexOf("git switch --detach FETCH_HEAD");
-  const build = command.indexOf("cargo build --locked -p shieldspec-zcash-runner --bins");
-  assert.ok(fetch >= 0 && checkout > fetch && build > checkout,
-    "A fresh main clone must check out PR #42 before building the Ironwood runner");
+  assert.ok(command.includes("cargo build --locked -p shieldspec-zcash-runner --bins"),
+    "Main-branch quickstart must build the actual Zcash runner");
+  assert.ok(command.includes("--scenario-family ironwood") && command.includes("--cases 4"),
+    "Quickstart must exercise the real four-case NU6.3 campaign");
+  assert.equal(command.includes("git fetch origin pull/42/head"), false,
+    "PR #42 is merged; its detached checkout instructions are obsolete");
+  assert.equal(command.includes("git switch --detach FETCH_HEAD"), false,
+    "Main users must not be instructed to switch to a detached feature head");
 });
 
 test("the NU6.3 runner evidence links to a pinned source revision, not stale main", () => {

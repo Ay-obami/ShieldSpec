@@ -25,7 +25,7 @@ node --check site/app.js
 
 The `site/` folder may be deployed directly to any static hosting provider. Configure the web/public root to `site/`. No Node build step, account, wallet, secrets, or backend required.
 
-A tested [GitHub Pages workflow](../.github/workflows/site.yml) uploads **only** `site/` whenever a reviewed change reaches `main` (or when manually dispatched). The repository's Pages setting is in GitHub Actions mode, and the public URL is `https://ay-obami.github.io/ShieldSpec/`. An HTTP 200 response was observed from the authorized Ubuntu machine on 2026-10-27. That confirms the existing site is reachable—not that changes on this feature branch have been deployed. Only a successful reviewed `main` deployment makes new site edits public. Do not publish repository evidence logs as browser data.
+A tested [GitHub Pages workflow](../.github/workflows/site.yml) uploads **only** `site/` whenever a reviewed change reaches `main` (or when manually dispatched). The repository's Pages setting is in GitHub Actions mode, and the public URL is `https://ay-obami.github.io/ShieldSpec/`. An HTTP 200 response was observed from the authorized Ubuntu machine on 2026-10-27. PRs #42 and #43 have since merged to `main`, but new site copy in this working branch is **not public** until reviewed, merged and successfully deployed. Do not publish repository evidence logs as browser data.
 
 ## Evidence integrity
 
@@ -35,7 +35,8 @@ A tested [GitHub Pages workflow](../.github/workflows/site.yml) uploads **only**
 - This is a previously documented and fixed upstream issue, **not** a newly discovered vulnerability or an automatic historical-policy finding by the current generalized ShieldSpec fuzzer.
 - The hero terminal illustrates the built-in injected-fault demo, not the historical upstream policy failure.
 - The separate NU6.3 table lists four generator ordinals for `--scenario-family ironwood --cases 4`: Orchard/Sapling funding before/at activation. Real SDK proposals can cross into Ironwood at activation; `SS006` is a snapshot warning, not a wallet policy verdict.
-- The current runner's opt-in `--wallet-spend-policy orchard-only` invokes pinned SDK `SpendPolicy::shielded_pools([Orchard])`, reporting `zcash_spend_orchard_only_v1` decisions. It is **not** the historical Zallet FullPrivacy policy. The shown four-case same-runner command is a negative control; confirm `comparable_wallet_policy_cases` before interpreting a clean result.
+- The runner's opt-in `--wallet-spend-policy orchard-only` invokes pinned SDK `SpendPolicy::shielded_pools([Orchard])`, reporting `zcash_spend_orchard_only_v1` decisions. It is **not** the historical Zallet FullPrivacy policy. The shown four-case same-runner command is a negative control; confirm `comparable_wallet_policy_cases` before interpreting a clean result.
+- [PR #43](https://github.com/Ay-obami/ShieldSpec/pull/43) additionally merged real Sapling recipient proposals, mixed Unified Address receiver-choice cases, wallet-owned transparent UTXO shielding, shielded change, ZIP-317 fees and note-selection tests. The pinned [librustzcash#3133](https://github.com/zcash/librustzcash/issues/3133) mixed-pool regression is a **correctness/availability** case, not a discovered privacy vulnerability.
 - A passing ShieldSpec campaign never guarantees privacy or anonymity outside its configured invariants and tested scenarios.
 
 ## Update discipline
