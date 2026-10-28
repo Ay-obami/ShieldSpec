@@ -1,6 +1,6 @@
 [package]
 name = "shieldspec-fuzz"
-version = "0.1.0"
+version = "0.2.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -13,7 +13,7 @@ description = "SDK-independent differential fuzz orchestration for ShieldSpec"
 serde.workspace = true
 serde_json.workspace = true
 sha2 = "0.10"
-shieldspec-core = { version = "0.1.0", path = "../shieldspec-core" }
+shieldspec-core = { version = "0.2.0", path = "../shieldspec-core" }
 
 [dev-dependencies]
-shieldspec-testkit = { version = "0.1.0", path = "../shieldspec-testkit" }
+shieldspec-testkit = { version = "0.2.0", path = "../shieldspec-testkit" }

@@ -1,6 +1,6 @@
 # ShieldSpec product roadmap
 
-ShieldSpec is **reusable privacy-regression infrastructure for Zcash wallet developers**, not a one-off vulnerability claim. This page distinguishes code already merged into `main` from features needing further wallet integration. The [public issue tracker](https://github.com/Ay-obami/ShieldSpec/issues) and linked PRs hold review details; merged implementation does not mean every feature is included in the separately tagged `v0.1.0` GitHub Action.
+ShieldSpec is **reusable privacy-regression infrastructure for Zcash wallet developers**, not a one-off vulnerability claim. This page distinguishes code already merged into `main` from features needing further wallet integration. The [public issue tracker](https://github.com/Ay-obami/ShieldSpec/issues) and linked PRs hold review details; the historical `v0.1.0` tag predates the expanded fuzzer; the `v0.2.0` source release includes it, while the composite GitHub Action remains snapshot-only.
 
 ## Available on main
 
@@ -8,7 +8,7 @@ ShieldSpec is **reusable privacy-regression infrastructure for Zcash wallet deve
 | --- | --- |
 | Privacy policy core and normalized proposal model | Explicit proposal-level transparent exposure, routing and related invariants |
 | Snapshot CLI | `check`, `diff`, human/JSON/SARIF and 0/1/2 exit status |
-| GitHub Action (`v0.1.0`) | Baseline-versus-candidate snapshot privacy check; does **not** spin up a wallet |
+| GitHub Action (`v0.2.0`; older `v0.1.0`) | Baseline-versus-candidate snapshot privacy check; does **not** spin up a wallet |
 | Deterministic real proposal harness and controlled demo | Isolated synthetic chain and wallet state; real Zcash SDK proposal construction, baseline/candidate processes, replay and deliberate fault injection |
 
 The [GitHub Pages site](https://ay-obami.github.io/ShieldSpec/) is publicly reachable and its `site/` source plus historical Zallet evidence are now in `main`. The site is an **interactive read-only explorer**, not a browser-hosted SDK fuzzer. New site copy will only become public after the corresponding GitHub Pages deployment succeeds.
@@ -17,7 +17,7 @@ None of these tools proves wallet anonymity. Historical upstream behavior must n
 
 ## Merged on `main` — generic policy comparison and broader real-wallet coverage
 
-[PR #42 — observed wallet-policy decisions and Ironwood scenarios](https://github.com/Ay-obami/ShieldSpec/pull/42) and [PR #43 — broader real-wallet privacy-policy coverage](https://github.com/Ay-obami/ShieldSpec/pull/43) are merged. These capabilities can be built and tested from a fresh `main` clone. The `v0.1.0` GitHub Action still runs only the lightweight snapshot gate:
+[PR #42 — observed wallet-policy decisions and Ironwood scenarios](https://github.com/Ay-obami/ShieldSpec/pull/42) and [PR #43 — broader real-wallet privacy-policy coverage](https://github.com/Ay-obami/ShieldSpec/pull/43) are merged. These capabilities can be built and tested from a fresh `main` clone. The `v0.2.0` GitHub Action still runs only the lightweight snapshot gate:
 
 | Capability | Verified scope and limits |
 | --- | --- |

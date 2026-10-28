@@ -161,7 +161,7 @@ In a consumer repository with normalized snapshot fixtures:
 
 ```yaml
 - name: Check proposal privacy regression
-  uses: Ay-obami/ShieldSpec@v0.1.0
+  uses: Ay-obami/ShieldSpec@v0.2.0
   with:
     baseline: fixtures/shielded-payment.json
     candidate: fixtures/transparent-change.json
@@ -171,7 +171,7 @@ In a consumer repository with normalized snapshot fixtures:
 
 The Action runs the snapshot CLI only; it does **not** build or fuzz a wallet. It exits with the same 0/1/2 statuses and exposes a `status` output. This example intentionally fails on the committed transparent-change fixture; use your own expected baseline/candidate files.
 
-`v0.1.0` is the existing snapshot-Action release, **not** a release of the expanded fuzzer. For features on `main`, pin the exact reviewed commit and follow [CI integration](docs/ci-integration.md). Do not assume `v0.1.0` tracks the moving `main` branch.
+`v0.2.0` is a source-only release that includes the expanded differential fuzzer, but its composite Action still runs **only** the snapshot check. Build the fuzzer from source following [CI integration](docs/ci-integration.md). The older `v0.1.0` tag predates these additions; neither tag tracks the moving `main` branch.
 
 ## Project layout and development
 
