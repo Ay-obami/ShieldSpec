@@ -77,7 +77,7 @@ The Action builds the pinned ShieldSpec SDK runner and compares **the same imple
 
 ## Differential Action: custom wallet runners
 
-Compile two [protocol-compatible runners](runner-protocol-contract.md) in preceding CI steps, then reference their executable paths relative to the caller workspace:
+Start with the [Rust runner-adapter starter](../examples/runner-adapter/README.md) and its [workflow recipe](../examples/runner-adapter/.github/workflows/differential.yml) if you need boilerplate (adapt the source-checkout paths for your wallet repository). The starter's synthetic `--demo` mode and preflight validate wiring, **not wallet behavior**. Replace the adapter implementation and build two independent [protocol-compatible runners](runner-protocol-contract.md) in preceding CI steps, then reference their executable paths relative to the caller workspace:
 
 ```yaml
 - name: ShieldSpec wallet differential

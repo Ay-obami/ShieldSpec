@@ -1,0 +1,34 @@
+# Workflow recipe for a ShieldSpec source checkout; adapt checkout/build paths in your repo.
+# The example validator is source-built; v0.3.0 references the released Action only.
+# Replace both synthetic runners with independently built wallet revisions.
+name: ShieldSpec differential integration example
+on: [workflow_dispatch]
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Set up Rust
+        run: rustup toolchain install 1.95.0 --profile minimal
+      - name: Build synthetic starter
+        run: cargo +1.95.0 build --locked --release --manifest-path examples/runner-adapter/Cargo.toml
+      - name: Preflight starter protocol (synthetic only)
+        run: |
+          cargo +1.95.0 run --locked -p shieldspec-fuzz --bin shieldspec-validate-runner -- \
+            examples/runner-adapter/target/release/runner-adapter \
+            examples/runner-adapter/fixtures/scenario.json --demo
+      - name: Run synthetic differential control
+        uses: Ay-obami/ShieldSpec@v0.3.0
+        with:
+          mode: differential
+          preset: custom
+          baseline-runner: examples/runner-adapter/target/release/runner-adapter
+          candidate-runner: examples/runner-adapter/target/release/runner-adapter
+          baseline-args: --demo
+          candidate-args: --demo
+          cases: '2'
+          seed: '148'
+          artifact-name: shieldspec-starter-control

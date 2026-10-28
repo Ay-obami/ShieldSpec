@@ -1,0 +1,13 @@
+[package]
+name = "runner-adapter"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.95"
+publish = false
+
+[dependencies]
+serde_json = "1"
+shieldspec-core = { version = "0.2.0", path = "../../crates/shieldspec-core" }
+shieldspec-fuzz = { version = "0.2.0", path = "../../crates/shieldspec-fuzz" }
+
+[workspace]

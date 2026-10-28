@@ -194,7 +194,7 @@ The **`v0.3.0` GitHub Action/source release** adds opt-in differential CI while 
     cases: '2'
 ```
 
-This preset compares the same pinned SDK runner against itself; it is **not** a test of your wallet or a cross-version discovery. See [custom runner and artifact integration](docs/ci-integration.md#differential-action-custom-wallet-runners). The `v0.3.0` tag distributes GitHub source/Action functionality, not new crates.io packages (those remain `0.2.0`).
+This preset compares the same pinned SDK runner against itself; it is **not** a test of your wallet or a cross-version discovery. Teams adding their own wallet can begin with the [Rust runner-adapter starter](examples/runner-adapter/README.md), [protocol preflight](examples/runner-adapter/README.md#try-it), and [custom runner and artifact integration](docs/ci-integration.md#differential-action-custom-wallet-runners). The starter's `--demo` mode produces synthetic snapshots only. The `v0.3.0` tag distributes GitHub source/Action functionality, not new crates.io packages (those remain `0.2.0`).
 
 ## Project layout and development
 
