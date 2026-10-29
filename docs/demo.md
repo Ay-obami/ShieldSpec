@@ -1,6 +1,6 @@
 # Historical demo storyboard and reproducibility
 
-**Developer quickstart (v0.5 preview):** Use [`shieldspec init` → `shieldspec test` → `shieldspec test --compare` → `shieldspec replay discovery.json`](simple-workflows.md) for routine workflows. The new commands are unreleased and require a feature-branch source build. The long commands below are **the exact historical recording/reproduction recipes**, not the recommended everyday CLI and not interchangeable with an unconfigured shortcut.
+**Developer quickstart:** Use [`shieldspec init` → `shieldspec test` → `shieldspec test --compare` → `shieldspec replay discovery.json`](simple-workflows.md) for routine workflows. The new commands are published in `shieldspec-cli 0.5.0` (`cargo install shieldspec-cli --version 0.5.0 --locked`). The long commands below are **the exact historical recording/reproduction recipes**, not the recommended everyday CLI and not interchangeable with an unconfigured shortcut.
 
 For supporting narration and scene timing, see [the submission notes](submission.md) and [historical browser-first script](demo-video-script.md). This technical storyboard preserves the demonstrated commands from the relevant source revisions; it does not depend on a hosted video. The [developer website](https://ay-obami.github.io/ShieldSpec/) and its [hands-on guide](https://ay-obami.github.io/ShieldSpec/docs.html) explain the tool and display committed evidence, but the browser does not run a wallet or a live fuzzing service.
 

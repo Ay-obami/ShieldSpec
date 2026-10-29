@@ -1,6 +1,6 @@
 # Get started with ShieldSpec
 
-**Start here:** use [simple workflows](simple-workflows.md) for `shieldspec init`, `shieldspec test`, `shieldspec test --compare`, and `shieldspec replay discovery.json`. **These new shortcuts are v0.5 preview commands, not yet published on crates.io.** Build the feature branch's CLI from source; published CLI 0.4.0 supports `try` and config-driven `test`. Differential runner executables still require separate setup. This guide keeps exact advanced invocation details for reproduction and specialist work.
+**Start here:** use [simple workflows](simple-workflows.md) for `shieldspec init`, `shieldspec test`, `shieldspec test --compare`, and `shieldspec replay discovery.json`. **These shortcuts are published in `shieldspec-cli 0.5.0`.** Install with `cargo install shieldspec-cli --version 0.5.0 --locked`. Differential runner executables still require separate setup. This guide keeps exact advanced invocation details for reproduction and specialist work.
 
 ShieldSpec is a local, pre-signing privacy-regression tool for Zcash proposal snapshots. The snapshot CLI, real-wallet policy-verdict comparison, four-case NU6.3 generator, and expanded transparent-funding scenarios are available on `main`. The `v0.3.0` GitHub Action supports snapshot gates and opt-in differential CI; see [GitHub Action setup](github-action.md). The Rust runner starter and preflight validator were merged to `main` in PR #55 and are not part of the older `v0.3.0` tag.
 
@@ -23,7 +23,7 @@ All commands below target the default `main` checkout. Record `git rev-parse HEA
 
 ## 1. Initialize and check snapshots
 
-With the v0.5 source-built CLI on your path:
+With the installed v0.5 CLI on your path:
 
 ```bash
 shieldspec init
