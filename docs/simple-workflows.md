@@ -1,19 +1,16 @@
 # Simple ShieldSpec workflows
 
-> **v0.5.0 (unreleased)**: The `init`, `test --compare`, and short `replay` workflows below are under development on `feat/developer-experience-v050`. The published CLI is still **0.4.0**, which supports `try` and configuration-driven `test` but not the new commands. Build the feature branch's CLI to try the v0.5 interface; do not assume `cargo install shieldspec-cli` currently supplies it.
+> **v0.5.0 (published)**: The `init`, `test --compare`, and short verified `replay` workflows are available through the published `shieldspec-cli 0.5.0`. Differential runner binaries remain separate source builds.
 
 ## 1. Install and initialize
 
-To try v0.5 from source (Rust 1.95+):
+Install the published CLI (Rust 1.95+):
 
 ```sh
-git clone https://github.com/Ay-obami/ShieldSpec.git
-cd ShieldSpec
-git switch feat/developer-experience-v050
-cargo build --locked -p shieldspec-cli
+cargo install shieldspec-cli --version 0.5.0 --locked
 ```
 
-Use `target/debug/shieldspec` in place of `shieldspec` until the new CLI is published or installed from source. Then run:
+Then run:
 
 ```sh
 shieldspec init

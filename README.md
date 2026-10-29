@@ -4,7 +4,7 @@
 
 ShieldSpec is developer tooling, not a wallet, anonymity score, signer, or transaction broadcaster. A passing check means only that the configured properties held for the inputs exercised.
 
-- [Simple workflows](docs/simple-workflows.md): short v0.5 CLI onboarding (`init`, `test`, `test --compare`, and verified `replay`); **unreleased—source build required**
+- [Simple workflows](docs/simple-workflows.md): short v0.5 CLI onboarding (`init`, `test`, `test --compare`, and verified `replay`); published in `shieldspec-cli 0.5.0`
 - [On-site developer guide](https://ay-obami.github.io/ShieldSpec/docs.html): guided installation, copyable commands, expected results, real SDK comparisons, historical Zallet reproduction, and CI setup
 - [Get started in the repository](docs/getting-started.md): detailed commands, expected outputs, exit codes, and CI integration
 - [Privacy model](docs/privacy-model.md): what snapshots and actual wallet-policy verdicts do—and do not—establish
@@ -20,16 +20,22 @@ Choose the workflow that fits your integration:
 
 | Need | Entry point | What it tests |
 | --- | --- | --- |
-| Check proposal snapshots or CI fixtures | `shieldspec init`, then `shieldspec test` (v0.5 preview); or the GitHub Action | Explicit invariants on normalized proposal facts |
-| Exercise real SDK proposals locally | `shieldspec test --compare` with configured SDK runners (v0.5 preview) | Deterministic synthetic wallet states and proposal construction |
+| Check proposal snapshots or CI fixtures | `shieldspec init`, then `shieldspec test`; or the GitHub Action | Explicit invariants on normalized proposal facts |
+| Exercise real SDK proposals locally | `shieldspec test --compare` with configured SDK runners | Deterministic synthetic wallet states and proposal construction |
 | Compare wallet/SDK revisions | `shieldspec test --compare` with **two independently built** compatible runners | New/worsened findings and comparable named wallet-policy decisions |
-| Audit a recorded difference | `shieldspec replay discovery.json` (v0.5 preview) | Saved scenario, runner hashes, arguments, and observed result |
+| Audit a recorded difference | `shieldspec replay discovery.json` | Saved scenario, runner hashes, arguments, and observed result |
 
-For fewer flags, see [simple workflows](docs/simple-workflows.md). The v0.5 shortcuts below are **under development** and are not in the published CLI 0.4.0; use a source build of the feature branch while validating the upgrade. Advanced `check`, `diff`, `fixture`, and direct fuzzer commands remain available and documented in the [technical getting-started guide](docs/getting-started.md).
+For fewer flags, see [simple workflows](docs/simple-workflows.md). The v0.5 shortcuts below are published in `shieldspec-cli 0.5.0`; install the current CLI with `cargo install shieldspec-cli --version 0.5.0 --locked`. Advanced `check`, `diff`, `fixture`, and direct fuzzer commands remain available and documented in the [technical getting-started guide](docs/getting-started.md).
 
-## Quickstart: initialize a project (v0.5 preview)
+## Quickstart: initialize a project
 
-**Published stable CLI:** With Rust 1.95+, `cargo install shieldspec-cli --version 0.4.0 --locked` followed by `shieldspec try` runs a known-good snapshot control. **v0.5 is not published yet:** build the new CLI from the feature branch as described in [simple workflows](docs/simple-workflows.md) before trying these new commands.
+**Install the published CLI (Rust 1.95+):**
+
+```sh
+cargo install shieldspec-cli --version 0.5.0 --locked
+```
+
+Then run the commands below. `shieldspec try` also remains available as a bundled snapshot negative control.
 
 ```bash
 shieldspec init
@@ -48,7 +54,7 @@ Exit statuses for the CLI and differential fuzzer:
 
 A code 2 from a **wallet-policy decision difference** does not automatically mean a privacy regression; inspect the named policy and both verdicts.
 
-## Real SDK differential testing (v0.5 preview)
+## Real SDK differential testing
 
 First, build the fuzzer and SDK runner from source; the CLI does **not** generate arbitrary wallet adapters. Configure runner paths and matching policy arguments in `shieldspec.toml` (see [sample differential configuration](docs/simple-workflows.md#2-compare-wallet-builds)). This first-party self-comparison is a **negative control**, not a test of your wallet. From a source checkout:
 
@@ -156,7 +162,7 @@ The **`v0.3.0` GitHub Action/source release** adds opt-in differential CI while 
     cases: '2'
 ```
 
-This preset compares the same pinned SDK runner against itself; it is **not** a test of your wallet or a cross-version discovery. Teams adding their own wallet can begin with the [Rust runner-adapter starter](examples/runner-adapter/README.md), [protocol preflight](examples/runner-adapter/README.md#try-it), and [custom runner and artifact integration](docs/ci-integration.md#differential-action-custom-wallet-runners). The starter's `--demo` mode produces synthetic snapshots only. The `v0.3.0` tag introduced the differential GitHub Action. `shieldspec-cli` is now published at `0.4.0`; the separate library crates remain `0.2.0`.
+This preset compares the same pinned SDK runner against itself; it is **not** a test of your wallet or a cross-version discovery. Teams adding their own wallet can begin with the [Rust runner-adapter starter](examples/runner-adapter/README.md), [protocol preflight](examples/runner-adapter/README.md#try-it), and [custom runner and artifact integration](docs/ci-integration.md#differential-action-custom-wallet-runners). The starter's `--demo` mode produces synthetic snapshots only. The `v0.3.0` tag introduced the differential GitHub Action. `shieldspec-cli` is published at `0.5.0`; the separate library crates remain `0.2.0`.
 
 ## Project layout and development
 

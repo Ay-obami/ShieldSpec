@@ -42,10 +42,11 @@
           <section class="docs-section" id="quick-try">
             <div class="docs-step-label">FASTEST PATH</div>
             <h2>Start with a few short commands</h2>
-            <p><strong>v0.5 preview:</strong> project initialization, comparison, and short replay are still under development on the feature branch; the published CLI v0.4.0 currently offers <code>try</code> and configured <code>test</code>. Build the v0.5 branch from source to use the new commands. The bundled example is a <strong>snapshot negative control</strong>, not your wallet or a live differential campaign.</p>
-            <div class="command-card"><div class="command-header"><span>BUILT-IN SNAPSHOT CONTROL</span><button class="copy-button" type="button" data-copy-target="docs-quick-try">Copy ↗</button></div><pre id="docs-quick-try" tabindex="0" aria-label="Run ShieldSpec built-in snapshot example"><code>cargo install shieldspec-cli --version 0.4.0 --locked
-shieldspec try</code></pre></div>
-            <p class="docs-outcome"><strong>Expected:</strong> <code>status: PASS</code> and <code>findings: 0</code>. In the v0.5 preview, run <code>shieldspec init</code> followed by <code>shieldspec test</code> to create and check an explicitly synthetic project control. For a reusable project check, see <a href="https://github.com/Ay-obami/ShieldSpec/blob/main/docs/simple-workflows.md" target="_blank" rel="noopener noreferrer">snapshot and differential configuration examples</a> using <code>shieldspec test</code>.</p>
+            <p>The published CLI v0.5.0 includes project initialization, configured comparison, and verified replay. The bundled example is a <strong>snapshot negative control</strong>, not your wallet or a live differential campaign.</p>
+            <div class="command-card"><div class="command-header"><span>INSTALL & INITIALIZE SNAPSHOT CONTROL</span><button class="copy-button" type="button" data-copy-target="docs-quick-try">Copy ↗</button></div><pre id="docs-quick-try" tabindex="0" aria-label="Run ShieldSpec built-in snapshot example"><code>cargo install shieldspec-cli --version 0.5.0 --locked
+shieldspec init
+shieldspec test</code></pre></div>
+            <p class="docs-outcome"><strong>Expected:</strong> a passing synthetic snapshot negative control (exit <code>0</code>). Run <code>shieldspec init</code> followed by <code>shieldspec test</code> to create and check an explicitly synthetic project control. For a reusable project check, see <a href="https://github.com/Ay-obami/ShieldSpec/blob/main/docs/simple-workflows.md" target="_blank" rel="noopener noreferrer">snapshot and differential configuration examples</a> using <code>shieldspec test</code>.</p>
           </section>
 
           <section class="docs-section" id="prerequisites">
@@ -55,7 +56,7 @@ shieldspec try</code></pre></div>
             <div class="command-card"><div class="command-header"><span>CLONE AND VERIFY</span><button class="copy-button" type="button" data-copy-target="docs-clone">Copy ↗</button></div><pre id="docs-clone" tabindex="0" aria-label="Clone ShieldSpec and verify Rust"><code>git clone https://github.com/Ay-obami/ShieldSpec.git
 cd ShieldSpec
 rustc --version</code></pre></div>
-            <p class="docs-note">For the v0.5 preview, build the CLI with <code>cargo build --locked -p shieldspec-cli</code> and invoke <code>target/debug/shieldspec</code> where these examples say <code>shieldspec</code>. The fuzzer and SDK runners need a separate source build. Use <code>--locked</code> for reproducible dependency resolution.</p>
+            <p class="docs-note">Install the CLI with <code>cargo install shieldspec-cli --version 0.5.0 --locked</code>. The fuzzer and SDK runners still need a separate source build. Use <code>--locked</code> for reproducible dependency resolution.</p>
           </section>
 
           <section class="docs-section" id="snapshot-check">
