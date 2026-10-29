@@ -182,21 +182,12 @@
       <section class="section quickstart-section" id="quickstart" aria-labelledby="quickstart-title">
         <div class="container">
           <div class="section-kicker"><span>05</span> / GET STARTED</div>
-          <div class="split-heading"><h2 id="quickstart-title">Try it with<br><span class="accent-text">real commands.</span></h2><p>Start with a passing snapshot, then a known failing comparison. Move on to real SDK proposal controls or independently compiled wallet builds. The <a class="inline-link" href="./docs.html">developer guide</a> explains every option and expected result.</p></div>
-          <div class="command-card"><div class="command-header"><span>01 / CLONE & CHECK A SNAPSHOT</span><button class="copy-button" data-copy-target="start-command" type="button" aria-label="Copy getting started command">Copy ↗</button></div><pre id="start-command" tabindex="0" aria-label="Getting started shell commands"><code>git clone https://github.com/Ay-obami/ShieldSpec.git
-cd ShieldSpec
-cargo run --locked -p shieldspec-cli -- \
-  check --input fixtures/shielded-payment.json \
-  --policy standard --format human</code></pre></div>
-          <p class="command-caption"><strong>Expected:</strong> the known-good proposal passes and exits <code>0</code>. <a class="inline-link" href="./docs.html#snapshot-check">Next: compare it with an intentionally failing fixture →</a></p>
-          <div class="command-card" id="sdk-command-card"><div class="command-header"><span>02 / REAL SDK CONTROL · FOUR CASES</span><button class="copy-button" data-copy-target="sdk-command" type="button" aria-label="Copy NU6.3 four-case campaign command">Copy ↗</button></div><pre id="sdk-command" tabindex="0" aria-label="NU6.3 observed spend-policy campaign shell commands"><code>cargo build --locked -p shieldspec-zcash-runner --bins
-target/debug/shieldspec-fuzz fuzz \
-  --baseline-runner target/debug/shieldspec-zcash-runner \
-  --candidate-runner target/debug/shieldspec-zcash-runner \
-  --baseline-arg=--wallet-spend-policy --baseline-arg=orchard-only \
-  --candidate-arg=--wallet-spend-policy --candidate-arg=orchard-only \
-  --scenario-family ironwood --seed 148 --cases 4 --format human</code></pre></div>
-          <p class="command-caption"><strong>Expected:</strong> identical runners produce <code>no_regression_found</code> with four comparable policy observations. This is a negative control—not proof of a cross-version agreement.</p>
+          <div class="split-heading"><h2 id="quickstart-title">Start with<br><span class="accent-text">simple commands.</span></h2><p>The v0.5 CLI preview lets you initialize a project, test configured snapshots, then compare real SDK or independent wallet builds using short commands. <strong>v0.5 is not yet published:</strong> use the feature branch's source build. The <a class="inline-link" href="./docs.html">developer guide</a> explains the setup, expected results, and advanced controls.</p></div>
+          <div class="command-card"><div class="command-header"><span>01 / INITIALIZE & CHECK SNAPSHOTS</span><button class="copy-button" data-copy-target="start-command" type="button" aria-label="Copy getting started command">Copy ↗</button></div><pre id="start-command" tabindex="0" aria-label="Getting started shell commands"><code>shieldspec init
+shieldspec test</code></pre></div>
+          <p class="command-caption"><strong>Expected:</strong> a passing <em>sample snapshot negative control</em>, exit <code>0</code>. The generated baseline and candidate are identical and do not come from your wallet. <a class="inline-link" href="./docs.html#snapshot-check">Learn to replace them with actual project snapshots →</a></p>
+          <div class="command-card" id="sdk-command-card"><div class="command-header"><span>02 / REAL SDK CONTROL · FOUR CASES</span><button class="copy-button" data-copy-target="sdk-command" type="button" aria-label="Copy NU6.3 four-case campaign command">Copy ↗</button></div><pre id="sdk-command" tabindex="0" aria-label="NU6.3 observed spend-policy campaign shell commands"><code>shieldspec test --compare</code></pre></div>
+          <p class="command-caption"><strong>First:</strong> build the fuzzer and runner from source and configure both runner paths, scenario, and policy in <code>shieldspec.toml</code>. For identical runners, expect a <code>no_regression_found</code> negative control, not proof of cross-version agreement or a wallet audit.</p>
           <div class="command-card alt" id="ci-example"><div class="command-header"><span>03 / CI REGRESSION GATE</span><button class="copy-button" data-copy-target="ci-command" type="button" aria-label="Copy GitHub Action example">Copy ↗</button></div><pre id="ci-command" tabindex="0" aria-label="GitHub Actions YAML example"><code>- name: Check proposal privacy regression
   uses: Ay-obami/ShieldSpec@6abf7995bbf629e1f66219c4322e252b1dc70b3b
   with:

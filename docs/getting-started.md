@@ -1,6 +1,6 @@
 # Get started with ShieldSpec
 
-**Want fewer flags?** Start with [simple workflows](simple-workflows.md): `shieldspec try` for a bundled snapshot control, or `shieldspec test` with `shieldspec.toml` for snapshot or differential projects. These commands are published in `shieldspec-cli 0.4.0`: install with `cargo install shieldspec-cli --version 0.4.0 --locked`. Differential runner executables still require separate setup.
+**Start here:** use [simple workflows](simple-workflows.md) for `shieldspec init`, `shieldspec test`, `shieldspec test --compare`, and `shieldspec replay discovery.json`. **These new shortcuts are v0.5 preview commands, not yet published on crates.io.** Build the feature branch's CLI from source; published CLI 0.4.0 supports `try` and config-driven `test`. Differential runner executables still require separate setup. This guide keeps exact advanced invocation details for reproduction and specialist work.
 
 ShieldSpec is a local, pre-signing privacy-regression tool for Zcash proposal snapshots. The snapshot CLI, real-wallet policy-verdict comparison, four-case NU6.3 generator, and expanded transparent-funding scenarios are available on `main`. The `v0.3.0` GitHub Action supports snapshot gates and opt-in differential CI; see [GitHub Action setup](github-action.md). The Rust runner starter and preflight validator were merged to `main` in PR #55 and are not part of the older `v0.3.0` tag.
 
@@ -21,24 +21,16 @@ rustc --version
 
 All commands below target the default `main` checkout. Record `git rev-parse HEAD` alongside a result: a moving branch is not a reproducibility pin. Use `--locked` to preserve the committed dependency resolution.
 
-## 1. Check and compare snapshots
+## 1. Initialize and check snapshots
+
+With the v0.5 source-built CLI on your path:
 
 ```bash
-cargo run --locked -p shieldspec-cli -- \
-  check --input fixtures/shielded-payment.json \
-  --policy standard --format human
+shieldspec init
+shieldspec test
 ```
 
-The clean fixture produces a policy pass and exits `0`. Compare it with transparent change:
-
-```bash
-cargo run --locked -p shieldspec-cli -- \
-  diff --baseline fixtures/shielded-payment.json \
-  --candidate fixtures/transparent-change.json \
-  --policy standard --format human
-```
-
-Expect the new finding `SS003_TRANSPARENT_CHANGE` and exit `2`. This is a *known fixture*, not a new Zcash vulnerability. Select `--format json` or `--format sarif` for machine-readable snapshot reports.
+The first run creates `shieldspec.toml`, `baseline.json`, and `candidate.json`. The sample snapshots are **identical negative controls**, not your wallet's actual proposal data. Replace them with your own normalized snapshots to test project behavior. A policy pass exits `0`; a candidate with newly introduced transparent change reports `SS003_TRANSPARENT_CHANGE` and exits `2`. For explicit low-level `check` / `diff` flags and JSON/SARIF formatting, consult the CLI `--help` and [advanced CI integration](ci-integration.md).
 
 | Exit | Snapshot CLI | Differential fuzzer |
 | --- | --- | --- |
@@ -50,27 +42,19 @@ Expect the new finding `SS003_TRANSPARENT_CHANGE` and exit `2`. This is a *known
 
 ## 2. Run a real SDK differential campaign
 
-Build the runner and fuzzer from the same checkout:
+Build the runner and fuzzer from the same checkout and configure their paths in `shieldspec.toml` per [this example](simple-workflows.md#2-compare-wallet-builds):
 
 ```bash
 cargo build --locked -p shieldspec-zcash-runner --bins
-target/debug/shieldspec-fuzz fuzz \
-  --baseline-runner target/debug/shieldspec-zcash-runner \
-  --candidate-runner target/debug/shieldspec-zcash-runner \
-  --seed 148 --cases 2 --format human
+shieldspec test --compare
 ```
 
 Both runner paths are intentionally identical: this is a no-difference control, expected to exit `0`. The runner creates synthetic, isolated wallet state, scans compact blocks with the real SDK, executes real proposal construction, and emits a normalized `ProposalSnapshot`. There is no mainnet wallet or seed phrase.
 
-Now run the four-case **NU6.3/Ironwood** scenario family with opt-in real Orchard-only spend-policy observations:
+Now run the four-case **NU6.3/Ironwood** scenario family with opt-in real Orchard-only spend-policy observations. In `shieldspec.toml`, set `scenario_family = "ironwood"`, `seed = 2026`, `cases = 4`, and the `orchard-only` runner arguments on **both** sides, as shown in the [sample configuration](simple-workflows.md#2-compare-wallet-builds):
 
 ```bash
-target/debug/shieldspec-fuzz fuzz \
-  --baseline-runner target/debug/shieldspec-zcash-runner \
-  --candidate-runner target/debug/shieldspec-zcash-runner \
-  --baseline-arg=--wallet-spend-policy --baseline-arg=orchard-only \
-  --candidate-arg=--wallet-spend-policy --candidate-arg=orchard-only \
-  --scenario-family ironwood --seed 2026 --cases 4 --format json
+shieldspec test --compare
 ```
 
 The generator assigns funding/activation states by ordinal:
@@ -84,16 +68,10 @@ The generator assigns funding/activation states by ordinal:
 
 Because both runner executables and policy arguments match, expect `status: "no_regression_found"`, `cases_executed: 4`, and all three policy coverage counts at `4` (baseline, candidate, comparable). **Both sides agreeing on rejections is not an operational error.** These are *normal SDK spend-source policy rejections*.
 
-For one case and its actual verdicts, replay ordinal 2:
+To inspect a specific seed and ordinal (rather than a saved discovery), use the detailed [`shieldspec-fuzz replay` command reference](wallet-policy-observations.md). To replay a **saved discovery** with verified executable provenance, the v0.5 shorthand is:
 
 ```bash
-target/debug/shieldspec-fuzz replay \
-  --scenario-family ironwood --seed 2026 --ordinal 2 \
-  --baseline-runner target/debug/shieldspec-zcash-runner \
-  --candidate-runner target/debug/shieldspec-zcash-runner \
-  --baseline-arg=--wallet-spend-policy --baseline-arg=orchard-only \
-  --candidate-arg=--wallet-spend-policy --candidate-arg=orchard-only \
-  --format json
+shieldspec replay discovery.json
 ```
 
 At activation, the actual SDK may route the recipient into Ironwood even though the source wallet is funded in Orchard or Sapling. ShieldSpec's `SS006_CROSS_SHIELDED_POOL_VALUE_BALANCE` describes the proposal's publicly visible cross-pool net balance. It **does not** mean the separate named Orchard-only spend-policy verdict is `rejected`; that verdict depends on *source-pool restriction*, not a Zallet `FullPrivacy` policy. Snapshot findings present in *both* runners do not by themselves constitute a differential regression.
@@ -105,20 +83,17 @@ The activation-aware family is opt-in; ordinary seed/ordinal replay remains the 
 Replace the two runner paths with **independently compiled, protocol-compatible** executables built against the SDK/wallet revisions you want to test. Give both the exact same policy name and instrument its real enforcement; a verdict must not be guessed from a snapshot.
 
 ```bash
-target/debug/shieldspec-fuzz fuzz \
-  --baseline-runner /path/to/baseline-runner \
-  --candidate-runner /path/to/candidate-runner \
-  --seed 148 --cases 25 --policy standard \
-  --save /path/to/discovery.json --format json
+shieldspec test --compare
 ```
 
-This command is a **template**: substitute real executable paths and choose the appropriate runner args. `--save` creates a file **only when a stable differential finding is detected**, shrunk, and rechecked. Its artifact includes executable hashes and exact arguments; optional `--baseline-sdk`/`--candidate-sdk` fields are *declared* labels, not verification of the source revision.
+For a saved discovery path, generator settings, or other specialist flags, consult the [differential-fuzzer advanced reference](wallet-policy-observations.md).
+
+Configure both real executable paths, runner arguments, and the desired scenario in `shieldspec.toml` before running this command. In the underlying fuzzer, `--save` creates a file **only when a stable differential finding is detected**, shrunk, and rechecked. Its artifact includes executable hashes and exact arguments; optional `--baseline-sdk`/`--candidate-sdk` fields are *declared* labels, not verification of the source revision.
 
 Reproduce a saved finding:
 
 ```bash
-target/debug/shieldspec-fuzz replay \
-  --input /path/to/discovery.json --format json
+shieldspec replay discovery.json
 ```
 
 Replay verifies recorded runner bytes, arguments, and policy before comparing the result. Supply explicit runner paths only when moving the discovery to equivalent binaries; changed hashes or conflicting arguments fail closed. A changed decision direction does not count as reproducing the original policy observation.

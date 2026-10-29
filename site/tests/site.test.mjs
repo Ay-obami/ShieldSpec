@@ -14,9 +14,9 @@ test("developer docs link opens a complete on-site, copyable CLI guide", () => {
   const guide = read("docs.html");
   assert.match(guide, /<main\b/);
   assert.match(guide, /Rust 1\.95\.0/);
-  assert.match(guide, /cargo run --locked -p shieldspec-cli/);
-  assert.match(guide, /shieldspec-fuzz fuzz/);
-  assert.match(guide, /shieldspec-fuzz replay/);
+  assert.match(guide, /shieldspec init/);
+  assert.match(guide, /shieldspec test --compare/);
+  assert.match(guide, /shieldspec replay discovery\.json/);
   assert.match(guide, /zcash\/zallet\/pull\/677/);
   assert.match(guide, /actions\/checkout@/);
   assert.match(guide, /Exit codes/);
@@ -152,7 +152,7 @@ test("design works responsively and respects reduced motion", () => {
 
 test("integration commands and links are usable rather than placeholders", () => {
   const page = html();
-  assert.match(page, /cargo run --locked/);
+  assert.match(page, /shieldspec (try|test|init)/);
   assert.match(page, /uses: Ay-obami\/ShieldSpec/);
   assert.match(page, /https:\/\/github.com\/Ay-obami\/ShieldSpec/);
   assert.doesNotMatch(page, /href="#"/);
@@ -209,12 +209,8 @@ test("four NU6.3 control cases have explicit funding and activation and a runnab
     assert.match(rows[index][2], new RegExp(funding));
     assert.match(rows[index][2], new RegExp(activation));
   }
-  for (const arg of [
-    "--baseline-runner", "--candidate-runner", "--baseline-arg=--wallet-spend-policy",
-    "--candidate-arg=--wallet-spend-policy", "--scenario-family ironwood", "--cases 4"
-  ]) {
-    assert.ok(page.includes(arg), "Missing campaign argument: " + arg);
-  }
+  assert.match(page, /<pre id="sdk-command"[^>]*><code>shieldspec test --compare<\/code><\/pre>/);
+  assert.match(page, /configure both runner paths, scenario, and policy in <code>shieldspec\.toml<\/code>/);
 });
 
 test("copy controls announce success and recover with selectable code when clipboard is denied", async () => {
@@ -290,10 +286,10 @@ test("the copyable four-case campaign runs from merged main without detached PR 
   const match = html().match(/<pre id="sdk-command"[^>]*><code>([\s\S]*?)<\/code><\/pre>/);
   assert.ok(match, "Missing copyable SDK campaign commands");
   const command = match[1];
-  assert.ok(command.includes("cargo build --locked -p shieldspec-zcash-runner --bins"),
-    "Main-branch quickstart must build the actual Zcash runner");
-  assert.ok(command.includes("--scenario-family ironwood") && command.includes("--cases 4"),
-    "Quickstart must exercise the real four-case NU6.3 campaign");
+  assert.equal(command.trim(), "shieldspec test --compare",
+    "The copyable SDK command should use the configured CLI interface");
+  assert.match(html(), /build the fuzzer and runner from source and configure both runner paths/,
+    "Quickstart must disclose required runner setup");
   assert.equal(command.includes("git fetch origin pull/42/head"), false,
     "PR #42 is merged; its detached checkout instructions are obsolete");
   assert.equal(command.includes("git switch --detach FETCH_HEAD"), false,
@@ -327,4 +323,8 @@ test("new CLI onboarding is discoverable without implying the built-in control t
   assert.match(guide, /shieldspec try/);
   assert.match(guide, /not your wallet or a live differential campaign/);
   assert.match(guide, /docs\/simple-workflows\.md/);
+  assert.match(guide, /shieldspec init/);
+  assert.match(guide, /shieldspec test --compare/);
+  assert.match(guide, /shieldspec replay/);
+  assert.match(guide, /v0\.5 preview/);
 });
